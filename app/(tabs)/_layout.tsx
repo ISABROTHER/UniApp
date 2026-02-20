@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.45)',
-    height: Platform.OS === 'web' ? 20 : 96,
+    height: Platform.OS === 'web' ?74 : 96,
     paddingTop: 0,
     paddingBottom: Platform.OS === 'web' ? 10 : 30,
     elevation: 0,
