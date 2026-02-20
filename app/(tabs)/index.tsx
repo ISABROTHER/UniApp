@@ -373,4 +373,4 @@ const styles = StyleSheet.create({
 
   sectionTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
   seeAll: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
-});
+}); 
