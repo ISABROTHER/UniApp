@@ -206,35 +206,35 @@ export default function HomeScreen() {
           
           <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/bookings' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
-              <Home size={22} color={COLORS.accent} />
+              <Home size={28} color={COLORS.accent} />
             </View>
             <Text style={styles.qaLabel}>Housing</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/laundry' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#EDE9FE' }]}>
-              <ShoppingBag size={22} color='#7C3AED' />
+              <ShoppingBag size={28} color='#7C3AED' />
             </View>
             <Text style={styles.qaLabel}>Smart Wash</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/utilities' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
-              <ShoppingBag size={22} color={COLORS.warning} />
+              <ShoppingBag size={28} color={COLORS.warning} />
             </View>
             <Text style={styles.qaLabel}>StuMark</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.qa} onPress={() => router.push('/print' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
-              <Printer size={22} color={COLORS.success} />
+              <Printer size={28} color={COLORS.success} />
             </View>
             <Text style={styles.qaLabel}>DigiPrint</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.qa} onPress={() => router.push('/roommates' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
-              <Users size={22} color={COLORS.error} />
+              <Users size={28} color={COLORS.error} />
             </View>
             <Text style={styles.qaLabel}>Roommates</Text>
           </TouchableOpacity>
@@ -329,12 +329,12 @@ const styles = StyleSheet.create({
   quickActionsGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm,
   },
-  qa: { width: (SW - SPACING.md * 2 - SPACING.sm * 2) / 3, alignItems: 'center', gap: 8 },
+  qa: { width: (SW - SPACING.md * 2 - SPACING.sm * 2) / 3, alignItems: 'center', gap: 10 }, // Increased gap slightly for larger icon
   qaIcon: {
-    width: 60, height: 60, borderRadius: RADIUS.lg,
+    width: 76, height: 76, borderRadius: RADIUS.xl, // Increased size from 60 to 76 and rounded corners more
     justifyContent: 'center', alignItems: 'center',
   },
-  qaLabel: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' },
+  qaLabel: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' }, // Bumped font size to 13
 
   bannersSection: {
     paddingTop: SPACING.md,
