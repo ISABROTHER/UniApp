@@ -18,7 +18,7 @@ function TabIcon({
   color: string;
 }) {
   const iconScale = useRef(new Animated.Value(focused ? 1.1 : 1)).current;
-  const iconTranslateY = useRef(new Animated.Value(focused ? -4 : 0)).current;
+  const iconTranslateY = useRef(new Animated.Value(focused ? -3 : 0)).current;
   useEffect(() => {
     Animated.parallel([
       Animated.timing(iconScale, {
@@ -28,7 +28,7 @@ function TabIcon({
         useNativeDriver: true,
       }),
       Animated.timing(iconTranslateY, {
-        toValue: focused ? -4 : 0,
+        toValue: focused ? -3 : 0,
         duration: 260,
         easing: Easing.out(Easing.back(1.2)),
         useNativeDriver: true,
@@ -140,9 +140,9 @@ const styles = StyleSheet.create({
   iconOuter: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 68,
-    paddingTop: 6,
-    gap: 4,
+    height: 70,
+    paddingTop: 14,
+    gap: 6,
   },
   label: {
     fontSize: 12,
