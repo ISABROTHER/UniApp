@@ -19,7 +19,6 @@ import RecentActivity from '@/components/RecentActivity';
 import OnboardingProgress from '@/components/OnboardingProgress';
 import { useActivityLogger, ensureUserStats } from '@/hooks/useRetention';
 import {
-  Search,
   Users,
   Wrench,
   ShoppingBag,
@@ -161,13 +160,6 @@ export default function HomeScreen() {
           <Text style={styles.avatarText}>{(member?.full_name || 'S')[0].toUpperCase()}</Text>
         </TouchableOpacity>
       </View>
-
-      <TouchableOpacity style={styles.searchSection} onPress={() => router.push('/(tabs)/search' as any)} activeOpacity={0.8}>
-        <View style={styles.searchBar}>
-          <Search size={18} color={COLORS.primary} />
-          <Text style={styles.searchPlaceholder}>Search hostels, amenities...</Text>
-        </View>
-      </TouchableOpacity>
 
       {userStats && (
         <View style={styles.statsStrip}>
@@ -329,19 +321,6 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontFamily: FONT.bold, fontSize: 14, color: COLORS.white },
 
-  searchSection: {
-    backgroundColor: COLORS.white,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.md,
-  },
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center', height: 48,
-    backgroundColor: COLORS.background, borderRadius: 24,
-    borderWidth: 1, borderColor: COLORS.border,
-    paddingHorizontal: SPACING.md, gap: SPACING.sm,
-  },
-  searchPlaceholder: { flex: 1, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textTertiary },
-
   quickActionsSection: {
     backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.md,
@@ -402,4 +381,4 @@ const styles = StyleSheet.create({
 
   sectionTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
   seeAll: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
-}); 
+});
