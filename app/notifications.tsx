@@ -1,72 +1,39 @@
-// app/notifications.tsx (or your current Notifications screen file path)
-// ✅ Redesigned to match iOS “Inbox” list (like your screenshot):
-// - Clean list rows (no big cards, no shadows)
-// - Left aligned: Heading + message preview
-// - Right aligned: time + chevron
-// - Unread is subtle + professional: bold title + tiny dot (NO red tint / no “unprofessional” highlight)
-// - “Read more” is a small link at the top-right of the row to expand/collapse message
-
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-  RefreshControl,
-  FlatList,
-} from 'react-native';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ActivityIndicator } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
+import { COLORS, SPACING } from '@/lib/constants';
 import { Notification } from '@/lib/types';
-import { ArrowLeft, Bell, CheckCheck, Trash2, PlusCircle } from 'lucide-react-native';
+import { ArrowLeft, Bell, Calendar, Wrench, FileText, Zap, MessageSquare, Star, Trash2 } from 'lucide-react-native';
 import { RealtimeChannel } from '@supabase/supabase-js';
+
+// Enforce San Francisco on iOS, Roboto on Android, system-ui on Web
+const SYSTEM_FONT = Platform.select({ ios: 'System', android: 'Roboto', web: 'system-ui' });
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchNotifications();
-    }, [])
-  );
+  useFocusEffect(useCallback(() => {
+    fetchNotifications();
+  }, []));
 
   useEffect(() => {
     if (!currentUserId) return;
 
     channelRef.current = supabase
       .channel('notifications_realtime')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUserId}` },
-        (payload) => {
-          const newNotif = payload.new as Notification;
-          setNotifications((prev) => [newNotif, ...prev]);
-        }
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUserId}` },
+        (payload) => setNotifications((prev) => [payload.new as Notification, ...prev])
       )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUserId}` },
-        (payload) => {
-          const updated = payload.new as Notification;
-          setNotifications((prev) => prev.map((n) => (n.id === updated.id ? updated : n)));
-        }
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUserId}` },
+        (payload) => setNotifications((prev) => prev.map((n) => (n.id === payload.new.id ? (payload.new as Notification) : n)))
       )
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'notifications' },
-        (payload) => {
-          const deleted = payload.old as { id: string };
-          setNotifications((prev) => prev.filter((n) => n.id !== deleted.id));
-          setExpandedId((cur) => (cur === deleted.id ? null : cur));
-        }
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'notifications' },
+        (payload) => setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id))
       )
       .subscribe();
 
@@ -77,15 +44,10 @@ export default function NotificationsScreen() {
 
   const fetchNotifications = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
+    if (!user) { setLoading(false); return; }
     setCurrentUserId(user.id);
 
-    const { data } = await supabase
-      .from('notifications')
+    const { data } = await supabase.from('notifications')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
@@ -95,316 +57,269 @@ export default function NotificationsScreen() {
     setLoading(false);
   };
 
-  const onRefresh = async () => {
-    setRefreshing(true);
-    await fetchNotifications();
-    setRefreshing(false);
-  };
-
   const markRead = async (id: string) => {
-    if (id.startsWith('temp-')) {
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-      return;
+    // Optimistic UI update
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+    if (!id.startsWith('temp-')) {
+      await supabase.from('notifications').update({ read: true }).eq('id', id);
     }
-    await supabase.from('notifications').update({ read: true }).eq('id', id);
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   };
 
   const markAllRead = async () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     if (currentUserId) {
       await supabase.from('notifications').update({ read: true }).eq('user_id', currentUserId).eq('read', false);
     }
   };
 
   const deleteNotification = async (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    setExpandedId((cur) => (cur === id ? null : cur));
+    setNotifications(prev => prev.filter(n => n.id !== id));
     if (!id.startsWith('temp-')) {
       await supabase.from('notifications').delete().eq('id', id);
     }
   };
 
   const clearAllRead = async () => {
-    setNotifications((prev) => prev.filter((n) => !n.read));
+    setNotifications(prev => prev.filter(n => !n.read));
     if (currentUserId) {
       await supabase.from('notifications').delete().eq('user_id', currentUserId).eq('read', true);
     }
-    setExpandedId(null);
   };
 
-  // TEMP DEV SEED
-  const seedTestNotifications = () => {
-    const now = new Date().toISOString();
-    const tempId = () => `temp-${Math.random().toString(36).substring(2, 9)}`;
-    const userId = currentUserId || 'test-user';
-
-    const fakeData: Notification[] = [
-      { id: tempId(), user_id: userId, type: 'booking', title: 'Booking Confirmed! 🎉', message: 'Your room at Valco Hostel has been officially booked for the upcoming semester. Please check your receipt and move-in instructions inside the booking page.', read: false, created_at: now },
-      { id: tempId(), user_id: userId, type: 'maintenance', title: 'Plumbing Fixed 🔧', message: 'The maintenance team has resolved the issue with your shower. If the problem returns, raise a new ticket from the Maintenance tab.', read: true, created_at: now },
-      { id: tempId(), user_id: userId, type: 'tenancy', title: 'Action Required: Agreement 📝', message: 'Please review and digitally sign your updated tenancy agreement by Friday. If you have questions, send a message to your hostel manager.', read: false, created_at: now },
-      { id: tempId(), user_id: userId, type: 'utility', title: 'Low Power Warning ⚡', message: 'Your prepaid electricity token is running low (below 15 kWh). Top up soon to avoid power cuts. You can top up from the Wallet tab.', read: false, created_at: now },
-      { id: tempId(), user_id: userId, type: 'message', title: 'New Message from Owner 💬', message: '"Hello! Just reminding you that the main gate locks at 11 PM today. Please arrive early or call security if you’ll be late."', read: true, created_at: now },
-      { id: tempId(), user_id: userId, type: 'review', title: 'Rate your stay ⭐', message: 'How was your experience this week? Leave a quick review to help other students. Your feedback improves services.', read: false, created_at: now },
-      { id: tempId(), user_id: userId, type: 'system', title: 'Welcome to UniApp! 🚀', message: 'Everything is set up perfectly. Check out the new features on your dashboard. You can also enable notifications in Settings.', read: true, created_at: now },
-    ];
-
-    setNotifications((prev) => [...fakeData, ...prev]);
+  // Apple-style small top icons
+  const getCategoryDetails = (type: string) => {
+    if (type.includes('booking')) return { icon: <Calendar size={12} color={COLORS.white} />, bg: COLORS.primary, label: 'BOOKING' };
+    if (type.includes('maintenance')) return { icon: <Wrench size={12} color={COLORS.white} />, bg: COLORS.error, label: 'MAINTENANCE' };
+    if (type.includes('tenancy') || type.includes('agreement')) return { icon: <FileText size={12} color={COLORS.white} />, bg: COLORS.accent, label: 'TENANCY' };
+    if (type.includes('utility') || type.includes('topup')) return { icon: <Zap size={12} color={COLORS.white} />, bg: COLORS.warning, label: 'UTILITY' };
+    if (type.includes('message')) return { icon: <MessageSquare size={12} color={COLORS.white} />, bg: COLORS.teal, label: 'MESSAGE' };
+    if (type.includes('review')) return { icon: <Star size={12} color={COLORS.white} />, bg: COLORS.gold, label: 'REVIEW' };
+    return { icon: <Bell size={12} color={COLORS.white} />, bg: COLORS.textTertiary, label: 'SYSTEM' };
   };
 
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
-    if (mins < 1) return 'Just now';
+    if (mins < 1) return 'now';
     if (mins < 60) return `${mins}m`;
     const hrs = Math.floor(mins / 60);
     if (hrs < 24) return `${hrs}h`;
     const days = Math.floor(hrs / 24);
     if (days < 7) return `${days}d`;
-    return dateStr.slice(0, 10);
+    return dateStr.slice(5, 10).replace('-', '/'); // e.g., 08/24
   };
 
-  const unreadCount = useMemo(() => notifications.filter((n) => !n.read).length, [notifications]);
-  const readCount = useMemo(() => notifications.filter((n) => n.read).length, [notifications]);
-
-  const toggleReadMore = async (n: Notification) => {
-    const next = expandedId === n.id ? null : n.id;
-    setExpandedId(next);
-    if (!n.read) await markRead(n.id);
-  };
-
-  const renderRow = ({ item: n }: { item: Notification }) => {
-    const isExpanded = expandedId === n.id;
-    const message = n.message || '';
-    const hasLongText = message.length > 90;
-
-    return (
-      <TouchableOpacity
-        style={styles.row}
-        onPress={() => markRead(n.id)}
-        activeOpacity={0.75}
-      >
-        {/* Left */}
-        <View style={styles.left}>
-          <View style={styles.titleLine}>
-            <Text style={[styles.title, !n.read && styles.titleUnread]} numberOfLines={1}>
-              {n.title}
-            </Text>
-            {!n.read && <View style={styles.unreadDot} />}
-          </View>
-
-          <Text style={styles.preview} numberOfLines={isExpanded ? 0 : 1}>
-            {message}
-          </Text>
-        </View>
-
-        {/* Right */}
-        <View style={styles.right}>
-          <Text style={[styles.time, !n.read && styles.timeUnread]}>{timeAgo(n.created_at)}</Text>
-
-          {hasLongText ? (
-            <TouchableOpacity
-              onPress={() => toggleReadMore(n)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={styles.readMorePill}
-            >
-              <Text style={styles.readMoreText}>{isExpanded ? 'Less' : 'Read'}</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.chevronWrap}>
-              <Text style={styles.chevron}>›</Text>
-            </View>
-          )}
-        </View>
-
-        {/* Delete (only if read) */}
-        {n.read && (
-          <TouchableOpacity
-            style={styles.deleteBtn}
-            onPress={() => deleteNotification(n.id)}
-            activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <Trash2 size={16} color={COLORS.textTertiary} />
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
-    );
-  };
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <View style={styles.container}>
-      {/* Header like iOS */}
+      {/* iOS Style Floating Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-          <ArrowLeft size={20} color={COLORS.primary} />
+          <ArrowLeft size={24} color="#000" />
         </TouchableOpacity>
-
-        <Text style={styles.headerTitle}>Inbox</Text>
-
-        <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.seedBtn} onPress={seedTestNotifications} activeOpacity={0.85}>
-            <PlusCircle size={16} color={COLORS.primary} />
-          </TouchableOpacity>
-
-          {unreadCount > 0 && (
-            <TouchableOpacity style={styles.headerIconBtn} onPress={markAllRead} activeOpacity={0.85}>
-              <CheckCheck size={18} color={COLORS.primary} />
-            </TouchableOpacity>
-          )}
-
-          {readCount > 0 && (
-            <TouchableOpacity style={styles.headerIconBtn} onPress={clearAllRead} activeOpacity={0.85}>
-              <Trash2 size={18} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
+        <Text style={styles.headerTitle}>Notification Center</Text>
+        <TouchableOpacity onPress={unreadCount > 0 ? markAllRead : clearAllRead} activeOpacity={0.7} style={styles.actionBtn}>
+          <Text style={styles.actionText}>{unreadCount > 0 ? 'Clear All' : 'Clean Up'}</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* List */}
-      <FlatList
-        data={notifications}
-        keyExtractor={(item) => item.id}
-        renderItem={renderRow}
-        ItemSeparatorComponent={() => <View style={styles.sep} />}
-        contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        ListEmptyComponent={
-          loading ? (
-            <Text style={styles.loadingText}>Loading...</Text>
-          ) : (
-            <View style={styles.emptyWrap}>
-              <Bell size={28} color={COLORS.textTertiary} />
-              <Text style={styles.emptyTitle}>No messages</Text>
-              <Text style={styles.emptySub}>You’re all caught up.</Text>
-            </View>
-          )
-        }
-      />
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        {loading ? (
+          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 60 }} />
+        ) : notifications.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>No Older Notifications</Text>
+          </View>
+        ) : (
+          notifications.map((n) => {
+            const cat = getCategoryDetails(n.type);
+            return (
+              <TouchableOpacity
+                key={n.id}
+                style={[styles.iosCard, !n.read && styles.iosCardUnread]}
+                onPress={() => markRead(n.id)}
+                activeOpacity={0.8}
+              >
+                {/* Unread Indicator Dot */}
+                {!n.read && <View style={styles.unreadDot} />}
+
+                {/* Top Row: Icon, Category, Time */}
+                <View style={styles.cardHeaderRow}>
+                  <View style={[styles.tinyIcon, { backgroundColor: cat.bg }]}>
+                    {cat.icon}
+                  </View>
+                  <Text style={styles.categoryLabel}>{cat.label}</Text>
+                  <Text style={styles.timeLabel}>{timeAgo(n.created_at)}</Text>
+                </View>
+
+                {/* Title & Message */}
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{n.title}</Text>
+                  <Text style={styles.cardMessage} numberOfLines={3}>{n.message}</Text>
+                </View>
+
+                {/* Delete Swipe Area (Simulated) */}
+                {n.read && (
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={() => deleteNotification(n.id)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Trash2 size={16} color={COLORS.textTertiary} />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+            );
+          })
+        )}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
-
-  header: {
-    backgroundColor: '#FFFFFF',
-    paddingTop: Platform.OS === 'web' ? 20 : 56,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.12)',
+  container: { 
+    flex: 1, 
+    // Apple uses very light grey wall paper backgrounds for notifications
+    backgroundColor: '#F2F2F7', 
   },
-  backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.full,
-    justifyContent: 'center',
-    alignItems: 'center',
+  
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'web' ? 20 : 60, 
+    paddingHorizontal: SPACING.md, 
+    paddingBottom: SPACING.md, 
+    backgroundColor: 'rgba(242,242,247,0.9)', // Matches background, slightly translucent
+    zIndex: 10,
   },
-  headerTitle: {
-    flex: 1,
-    fontFamily: FONT.heading,
-    fontSize: 34,
-    color: COLORS.textPrimary,
-    letterSpacing: -0.5,
+  backBtn: { 
+    width: 40, height: 40, 
+    justifyContent: 'center', 
   },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: RADIUS.full,
-    backgroundColor: 'rgba(0,0,0,0.04)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  headerTitle: { 
+    fontFamily: SYSTEM_FONT,
+    fontWeight: '700',
+    fontSize: 28, 
+    color: '#000',
+    letterSpacing: 0.35,
+    position: 'absolute',
+    left: SPACING.md,
+    top: Platform.OS === 'web' ? 60 : 100, // Large iOS style heading drops below
   },
-  seedBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: RADIUS.full,
-    backgroundColor: 'rgba(0,122,255,0.10)',
-    justifyContent: 'center',
-    alignItems: 'center',
+  actionBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
-
-  listContent: { paddingBottom: 18 },
-
-  sep: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(0,0,0,0.10)',
-    marginLeft: SPACING.md,
-  },
-
-  row: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
-  left: { flex: 1, paddingRight: 10 },
-  titleLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  title: {
-    flex: 1,
-    fontFamily: FONT.medium,
+  actionText: {
+    fontFamily: SYSTEM_FONT,
+    fontWeight: '400',
     fontSize: 16,
-    color: COLORS.textPrimary,
+    color: '#007AFF', // Authentic iOS Blue
   },
-  titleUnread: { fontFamily: FONT.bold },
 
-  preview: {
-    marginTop: 4,
-    fontFamily: FONT.regular,
+  content: { 
+    paddingHorizontal: SPACING.md,
+    paddingTop: 50, // Space for the dropped header title
+    paddingBottom: 100,
+  },
+
+  emptyState: {
+    alignItems: 'center',
+    marginTop: 80,
+  },
+  emptyTitle: {
+    fontFamily: SYSTEM_FONT,
+    fontWeight: '400',
+    fontSize: 16,
+    color: '#8E8E93', // Authentic iOS secondary text
+  },
+
+  // --------------------------------------------------
+  // APPLE iOS NOTIFICATION CARD STYLE
+  // --------------------------------------------------
+  iosCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.75)', // Glassy white
+    borderRadius: 24, // Heavy Apple radius
+    padding: 16,
+    marginBottom: 8, // Tighter stacking
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+    position: 'relative',
+  },
+  iosCardUnread: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)', // Brighter if unread
+    shadowOpacity: 0.1,
+  },
+  
+  cardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  tinyIcon: {
+    width: 20, height: 20,
+    borderRadius: 5, // iOS icon squircle shape
+    justifyContent: 'center', alignItems: 'center',
+    marginRight: 8,
+  },
+  categoryLabel: {
+    fontFamily: SYSTEM_FONT,
+    fontWeight: '400',
+    fontSize: 13,
+    color: '#8E8E93',
+    letterSpacing: 0.2,
+    flex: 1,
+  },
+  timeLabel: {
+    fontFamily: SYSTEM_FONT,
+    fontWeight: '400',
+    fontSize: 12,
+    color: '#8E8E93',
+  },
+
+  cardBody: {
+    paddingLeft: 28, // Indent text to align with text above, clearing the icon
+    paddingRight: 20,
+  },
+  cardTitle: {
+    fontFamily: SYSTEM_FONT,
+    fontWeight: '600', // San Francisco SemiBold
+    fontSize: 15,
+    color: '#000',
+    letterSpacing: -0.24,
+    marginBottom: 2,
+  },
+  cardMessage: {
+    fontFamily: SYSTEM_FONT,
+    fontWeight: '400', // San Francisco Regular
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: '#3A3A3C', // Deep dark grey for readability
+    lineHeight: 20,
+    letterSpacing: -0.08,
   },
-
-  right: { alignItems: 'flex-end', justifyContent: 'center', gap: 8, minWidth: 62 },
-  time: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary },
-  timeUnread: { color: COLORS.textSecondary },
 
   unreadDot: {
+    position: 'absolute',
+    top: 20,
+    left: -12, // Floats outside the card on the left
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#007AFF', // iOS Blue
   },
-
-  chevronWrap: { width: 18, alignItems: 'flex-end' },
-  chevron: { fontSize: 22, color: 'rgba(60,60,67,0.35)', marginTop: -2 },
-
-  readMorePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: RADIUS.full,
-    backgroundColor: 'rgba(0,0,0,0.04)',
-  },
-  readMoreText: { fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.textPrimary },
 
   deleteBtn: {
-    marginLeft: 10,
-    width: 34,
-    height: 34,
-    borderRadius: RADIUS.full,
-    backgroundColor: 'rgba(0,0,0,0.035)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    position: 'absolute',
+    bottom: 16,
+    right: 16,
+    padding: 4,
   },
-
-  loadingText: {
-    textAlign: 'center',
-    marginTop: 60,
-    fontFamily: FONT.regular,
-    fontSize: 15,
-    color: COLORS.textSecondary,
-  },
-
-  emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 8 },
-  emptyTitle: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.textPrimary },
-  emptySub: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary },
 });
