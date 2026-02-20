@@ -401,5 +401,5 @@ const styles = StyleSheet.create({
   bannerCtaText: { fontFamily: FONT.semiBold, fontSize: 13 },
 
   sectionTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
-  seeAll: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
-});
+  seeAll: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary }, 
+}); 
