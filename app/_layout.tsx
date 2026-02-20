@@ -1,174 +1,70 @@
-import { Tabs } from 'expo-router';
-import { Platform, StyleSheet, View, Animated, Easing, Text, Dimensions } from 'react-native';
-import { Home, Search, Heart, User } from 'lucide-react-native';
-import { COLORS, FONT } from '@/lib/constants';
-import { useRef, useEffect } from 'react';
-import { StackActions } from '@react-navigation/native';
+import { useEffect } from 'react';
+import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
+import { useFonts } from 'expo-font';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
+import {
+  Poppins_600SemiBold,
+  Poppins_700Bold,
+} from '@expo-google-fonts/poppins';
+import * as SplashScreen from 'expo-splash-screen';
+import { useFrameworkReady } from '@/hooks/useFrameworkReady';
+import { AuthProvider } from '@/contexts/AuthContext';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const TAB_COUNT = 4;
-const TAB_WIDTH = SCREEN_WIDTH / TAB_COUNT;
+SplashScreen.preventAutoHideAsync();
 
-function TabIcon({
-  icon: Icon,
-  label,
-  focused,
-  color,
-}: {
-  icon: typeof Home;
-  label: string;
-  focused: boolean;
-  color: string;
-}) {
-  const iconScale = useRef(new Animated.Value(focused ? 1.1 : 1)).current;
-  const iconTranslateY = useRef(new Animated.Value(focused ? -3 : 0)).current;
+export default function RootLayout() {
+  useFrameworkReady();
+
+  const [fontsLoaded, fontError] = useFonts({
+    'Inter-Regular': Inter_400Regular,
+    'Inter-Medium': Inter_500Medium,
+    'Inter-SemiBold': Inter_600SemiBold,
+    'Inter-Bold': Inter_700Bold,
+    'Poppins-SemiBold': Poppins_600SemiBold,
+    'Poppins-Bold': Poppins_700Bold,
+  });
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(iconScale, {
-        toValue: focused ? 1.1 : 1,
-        duration: 260,
-        easing: Easing.out(Easing.back(1.2)),
-        useNativeDriver: true,
-      }),
-      Animated.timing(iconTranslateY, {
-        toValue: focused ? -3 : 0,
-        duration: 260,
-        easing: Easing.out(Easing.back(1.2)),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [focused]);
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   return (
-    <View style={[styles.iconOuter, { width: TAB_WIDTH }]}>
-      <Animated.View
-        style={{
-          transform: [
-            { translateY: iconTranslateY },
-            { scale: iconScale },
-          ],
-        }}
-      >
-        <Icon
-          size={24}
-          color={color}
-          strokeWidth={focused ? 2.4 : 1.6}
-          fill={focused && Icon === Heart ? color : 'none'}
-        />
-      </Animated.View>
-      <Text
-        style={[styles.label, { color, fontFamily: FONT.semiBold }]}
-        numberOfLines={1}
-        allowFontScaling={false}
-      >
-        {label}
-      </Text>
-    </View>
+    <AuthProvider>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="splash" />
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="detail" />
+        <Stack.Screen name="book" />
+        <Stack.Screen name="tenancy" />
+        <Stack.Screen name="utilities" />
+        <Stack.Screen name="roommates" />
+        <Stack.Screen name="maintenance" />
+        <Stack.Screen name="notifications" />
+        <Stack.Screen name="owner" />
+        <Stack.Screen name="chat" />
+        <Stack.Screen name="print" />
+        <Stack.Screen name="print-new" />
+        <Stack.Screen name="print-job" />
+        <Stack.Screen name="print-chat" />
+        <Stack.Screen name="auth/sign-in" />
+        <Stack.Screen name="auth/sign-up" />
+        <Stack.Screen name="+not-found" />
+      </Stack>
+      <StatusBar style="auto" />
+    </AuthProvider>
   );
 }
-
-export default function TabLayout() {
-  return (
-    <Tabs
-      // --- This listener exactly replicates the popToTopOnBlur logic you wanted ---
-      screenListeners={({ navigation, route }) => ({
-        blur: () => {
-          const state = navigation.getState();
-          const blurredRoute = state.routes.find((r) => r.key === route.key);
-          
-          // If the tab we are leaving has a nested stack, pop it to the top
-          if (blurredRoute?.state?.type === 'stack' && blurredRoute.state.key) {
-            navigation.dispatch({
-              ...StackActions.popToTop(),
-              target: blurredRoute.state.key,
-            });
-          }
-        },
-      })}
-      screenOptions={{
-        headerShown: false,
-        tabBarStyle: styles.tabBar,
-        tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.textTertiary,
-        tabBarShowLabel: false,
-        tabBarItemStyle: styles.tabItem,
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Home',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon icon={Home} label="Home" focused={focused} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="search"
-        options={{
-          title: 'Search',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon icon={Search} label="Search" focused={focused} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="favourites"
-        options={{
-          title: 'Saved',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon icon={Heart} label="Saved" focused={focused} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon icon={User} label="Profile" focused={focused} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen name="utilities" options={{ href: null }} />
-      <Tabs.Screen name="bookings" options={{ href: null }} />
-      <Tabs.Screen name="laundry" options={{ href: null }} />
-      <Tabs.Screen name="messages" options={{ href: null }} />
-    </Tabs>
-  );
-}
-
-const styles = StyleSheet.create({
-  tabBar: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.45)',
-    height: Platform.OS === 'web' ? 72 : 96,
-    paddingTop: 0,
-    paddingBottom: Platform.OS === 'web' ? 10 : 30,
-    elevation: 0,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-  },
-  tabItem: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    flex: 1,
-    padding: 0,
-  },
-  iconOuter: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 86,
-    paddingTop: 38,
-    gap: 6,
-  },
-  label: {
-    fontSize: 12,
-    letterSpacing: 0,
-    textAlign: 'center',
-  },
-});
+ 
