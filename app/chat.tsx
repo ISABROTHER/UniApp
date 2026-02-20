@@ -439,7 +439,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.sm,
-    paddingVertical: 8,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 12, // Specifically fixed for iOS home indicator
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     gap: 8,
