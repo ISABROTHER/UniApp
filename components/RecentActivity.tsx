@@ -130,48 +130,53 @@ export default function RecentActivity() {
         </View>
       ))}
 
-      {/* Full History Modal */}
+      {/* Sleek Bottom Sheet Modal */}
       <Modal
         visible={modalVisible}
         animationType="slide"
-        presentationStyle="pageSheet"
+        transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Activity History</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
-              <X size={24} color={COLORS.textPrimary} />
-            </TouchableOpacity>
-          </View>
-
-          {loadingAll ? (
-            <View style={styles.loadingWrapModal}>
-              <ActivityIndicator size="large" color={COLORS.primary} />
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            {/* Drag Indicator */}
+            <View style={styles.dragHandle} />
+            
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Activity History</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn} activeOpacity={0.7}>
+                <X size={22} color={COLORS.textPrimary} />
+              </TouchableOpacity>
             </View>
-          ) : (
-            <FlatList
-              data={allActivities}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.modalList}
-              showsVerticalScrollIndicator={false}
-              renderItem={({ item }) => (
-                <View style={styles.row}>
-                  <View style={[styles.iconBox, { backgroundColor: getIconBg(item.action_type) }]}>
-                    {getIcon(item.icon_name, item.action_type)}
+
+            {loadingAll ? (
+              <View style={styles.loadingWrapModal}>
+                <ActivityIndicator size="large" color={COLORS.primary} />
+              </View>
+            ) : (
+              <FlatList
+                data={allActivities}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.modalList}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item }) => (
+                  <View style={styles.row}>
+                    <View style={[styles.iconBox, { backgroundColor: getIconBg(item.action_type) }]}>
+                      {getIcon(item.icon_name, item.action_type)}
+                    </View>
+                    <View style={styles.rowContent}>
+                      <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+                      {item.subtitle && (
+                        <Text style={styles.rowSub} numberOfLines={1}>{item.subtitle}</Text>
+                      )}
+                      <Text style={styles.rowTime}>{timeAgo(item.created_at)}</Text>
+                    </View>
                   </View>
-                  <View style={styles.rowContent}>
-                    <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
-                    {item.subtitle && (
-                      <Text style={styles.rowSub} numberOfLines={1}>{item.subtitle}</Text>
-                    )}
-                    <Text style={styles.rowTime}>{timeAgo(item.created_at)}</Text>
-                  </View>
-                </View>
-              )}
-              ListEmptyComponent={<Text style={styles.emptyText}>No recent activity found.</Text>}
-            />
-          )}
+                )}
+                ListEmptyComponent={<Text style={styles.emptyText}>No recent activity found.</Text>}
+              />
+            )}
+          </View>
         </View>
       </Modal>
     </View>
@@ -226,17 +231,37 @@ const styles = StyleSheet.create({
   rowSub: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 },
   rowTime: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
 
-  // Modal Styles
-  modalContainer: {
+  // New Sleek Bottom Sheet Styles
+  modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)', // Smooth dimming effect
+    justifyContent: 'flex-end', // Pushes the sheet to the bottom
+  },
+  modalSheet: {
     backgroundColor: COLORS.white,
-    paddingTop: Platform.OS === 'android' ? 24 : Platform.OS === 'ios' ? 12 : 0,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    height: '85%', // Tall enough to see history, short enough to feel like an overlay
+    paddingTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  dragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: COLORS.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: SPACING.sm,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: SPACING.lg,
     paddingBottom: SPACING.md,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderLight,
@@ -247,11 +272,14 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
   closeBtn: {
-    padding: 4,
+    padding: 6,
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.full,
   },
   modalList: {
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.xl,
+    paddingTop: SPACING.sm,
   },
   loadingWrapModal: {
     flex: 1,
