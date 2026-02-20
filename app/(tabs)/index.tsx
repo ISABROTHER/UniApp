@@ -327,11 +327,15 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   quickActionsGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm,
+    flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, // Gap between rows/columns
   },
-  qa: { width: (SW - SPACING.md * 2 - SPACING.sm * 2) / 3, alignItems: 'center', gap: 10 }, 
+  qa: { 
+    width: (SW - SPACING.md * 2 - SPACING.sm * 2) / 3, 
+    alignItems: 'center', 
+    gap: 4 // Reduced from 10 to bring text closely under the icon box
+  }, 
   qaIcon: {
-    width: 90, height: 90, borderRadius: RADIUS.xl, // Increased size to 90
+    width: 90, height: 90, borderRadius: RADIUS.xl, 
     justifyContent: 'center', alignItems: 'center',
   },
   qaLabel: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
