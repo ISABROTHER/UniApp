@@ -12,7 +12,7 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { Search, Edit, CheckCheck, Menu } from 'lucide-react-native';
+import { Search, Edit, Menu } from 'lucide-react-native';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 const BUBBLE_COLORS = [
@@ -178,25 +178,25 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header Match */}
+      {/* 1. Standardized Glassmorphic Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerIcon}>
-          <Menu size={24} color="#000" />
+        <TouchableOpacity style={styles.headerIcon} activeOpacity={0.7}>
+          <Menu size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.pageTitle}>Chats</Text>
-        <TouchableOpacity style={styles.headerIcon}>
-          <Edit size={24} color="#000" />
+        <Text style={styles.pageTitle}>Inbox</Text>
+        <TouchableOpacity style={styles.headerIcon} activeOpacity={0.7}>
+          <Edit size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
       </View>
 
-      {/* Search Bar Match */}
+      {/* 2. Glassmorphic Search Bar */}
       <View style={styles.searchWrap}>
         <View style={styles.searchBar}>
-          <Search size={18} color="#8E8E93" />
+          <Search size={18} color={COLORS.textTertiary} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search"
-            placeholderTextColor="#8E8E93"
+            placeholder="Search messages..."
+            placeholderTextColor={COLORS.textTertiary}
             value={search}
             onChangeText={setSearch}
           />
@@ -210,11 +210,11 @@ export default function MessagesScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => { setRefreshing(true); fetchThreads(); }}
-            tintColor="#000"
+            tintColor={COLORS.primary}
           />
         }
       >
-        {/* Active Users Horizontal Scroll Match */}
+        {/* Active Users Horizontal Scroll */}
         {activeContacts.length > 0 && !search && (
           <View style={styles.activeSection}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeRow}>
@@ -240,19 +240,20 @@ export default function MessagesScreen() {
           </View>
         )}
 
+        {/* Empty State */}
         {filtered.length === 0 && !loading && (
-          <View style={styles.empty}>
-            <View style={styles.emptyIcon}>
-              <Edit size={32} color={COLORS.accent} strokeWidth={1.5} />
-            </View>
-            <Text style={styles.emptyTitle}>No messages yet</Text>
-            <Text style={styles.emptyText}>
-              Open a hostel listing and tap "Message Owner" to start chatting.
-            </Text>
+          <View style={styles.emptyStateCard}>
+             <View style={styles.emptyIconBg}>
+               <MessageSquare size={36} color={COLORS.textTertiary} />
+             </View>
+             <Text style={styles.emptyTitle}>No messages yet</Text>
+             <Text style={styles.emptySubtitle}>
+               Open a hostel listing and tap "Message Owner" to start chatting.
+             </Text>
           </View>
         )}
 
-        {/* Chat List Match */}
+        {/* 3. Glassmorphic Chat List */}
         <View style={styles.chatListContainer}>
           {filtered.map((t) => {
             const name = t.other_member?.full_name || 'Hostel Owner';
@@ -262,9 +263,9 @@ export default function MessagesScreen() {
             return (
               <TouchableOpacity
                 key={t.id}
-                style={styles.item}
+                style={[styles.item, hasUnread && styles.itemUnread]}
                 onPress={() => router.push(`/chat?threadId=${t.id}&name=${encodeURIComponent(name)}` as any)}
-                activeOpacity={0.75}
+                activeOpacity={0.7}
               >
                 <View style={[styles.avatar, { backgroundColor: color }]}>
                   <Text style={styles.avatarText}>{getInitials(name)}</Text>
@@ -274,7 +275,7 @@ export default function MessagesScreen() {
                     <Text style={[styles.itemName, hasUnread && styles.itemNameBold]} numberOfLines={1}>
                       {name}
                     </Text>
-                    <Text style={styles.itemTime}>
+                    <Text style={[styles.itemTime, hasUnread && styles.itemTimeBold]}>
                       {formatTime(t.last_message_at)}
                     </Text>
                   </View>
@@ -300,55 +301,178 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    paddingTop: Platform.OS === 'android' ? 40 : 56,
-    paddingHorizontal: 16, paddingBottom: 12,
+  container: { 
+    flex: 1, 
+    backgroundColor: '#F7F7F9' 
   },
-  pageTitle: { fontFamily: FONT.semiBold, fontSize: 18, color: '#000' },
-  headerIcon: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
 
-  searchWrap: { paddingHorizontal: 16, paddingBottom: 8, backgroundColor: '#fff' },
+  // EXACT MATCH: Standardized Header
+  header: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'web' ? 20 : 56,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 4,
+    zIndex: 10,
+  },
+  pageTitle: { 
+    fontFamily: FONT.heading, 
+    fontSize: 18, 
+    color: COLORS.textPrimary 
+  },
+  headerIcon: { 
+    width: 40, height: 40, 
+    borderRadius: RADIUS.full, 
+    backgroundColor: 'rgba(0,0,0,0.03)', 
+    justifyContent: 'center', alignItems: 'center' 
+  },
+
+  // Glassmorphic Search Bar
+  searchWrap: { 
+    paddingHorizontal: SPACING.md, 
+    paddingTop: SPACING.md,
+    paddingBottom: SPACING.sm, 
+    backgroundColor: 'transparent' 
+  },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#F2F2F7', borderRadius: 10,
-    paddingHorizontal: 12, paddingVertical: 10,
+    backgroundColor: 'rgba(255,255,255,0.92)', 
+    borderRadius: RADIUS.xl,
+    paddingHorizontal: SPACING.md, paddingVertical: 12,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03, shadowRadius: 8, elevation: 2,
   },
-  searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 16, color: '#000', padding: 0 },
+  searchInput: { 
+    flex: 1, fontFamily: FONT.regular, fontSize: 15, color: COLORS.textPrimary, padding: 0 
+  },
 
-  // Added generous padding to prevent tab bar occlusion
   scrollContent: {
     paddingBottom: Platform.OS === 'ios' ? 120 : 100,
   },
 
-  activeSection: { borderBottomWidth: 1, borderBottomColor: '#F2F2F7', paddingBottom: 16, paddingTop: 8 },
-  activeRow: { paddingHorizontal: 16, gap: 20 },
-  activeItem: { alignItems: 'center', width: 60 },
-  activeAvatar: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', position: 'relative', marginBottom: 6 },
-  activeAvatarText: { fontFamily: FONT.bold, fontSize: 20, color: '#fff' },
-  activeDot: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#007AFF', borderWidth: 2, borderColor: '#fff' },
-  activeName: { fontFamily: FONT.medium, fontSize: 13, color: '#000', textAlign: 'center' },
+  activeSection: { 
+    paddingBottom: SPACING.md, paddingTop: SPACING.sm 
+  },
+  activeRow: { 
+    paddingHorizontal: SPACING.md, gap: 20 
+  },
+  activeItem: { 
+    alignItems: 'center', width: 64 
+  },
+  activeAvatar: { 
+    width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', position: 'relative', marginBottom: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 3
+  },
+  activeAvatarText: { 
+    fontFamily: FONT.bold, fontSize: 20, color: COLORS.white 
+  },
+  activeDot: { 
+    position: 'absolute', bottom: 0, right: 0, width: 16, height: 16, borderRadius: 8, backgroundColor: COLORS.primary, borderWidth: 2, borderColor: COLORS.white 
+  },
+  activeName: { 
+    fontFamily: FONT.medium, fontSize: 13, color: COLORS.textPrimary, textAlign: 'center' 
+  },
 
-  chatListContainer: { paddingVertical: 8 },
-  item: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff' },
-  avatar: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', flexShrink: 0, marginRight: 14 },
-  avatarText: { fontFamily: FONT.bold, fontSize: 18, color: '#fff' },
-  itemContent: { flex: 1, minWidth: 0 },
-  itemTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  itemName: { flex: 1, fontFamily: FONT.semiBold, fontSize: 16, color: '#000', marginRight: 8 },
-  itemNameBold: { fontFamily: FONT.bold },
-  itemTime: { fontFamily: FONT.regular, fontSize: 13, color: '#8E8E93' },
-  itemBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  itemPreview: { flex: 1, fontFamily: FONT.regular, fontSize: 15, color: '#8E8E93', marginRight: 8 },
-  itemPreviewBold: { fontFamily: FONT.semiBold, color: '#000' },
-  unreadBadge: { minWidth: 20, height: 20, borderRadius: 10, backgroundColor: '#007AFF', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
-  unreadText: { fontFamily: FONT.bold, fontSize: 11, color: '#fff' },
+  chatListContainer: { 
+    paddingHorizontal: SPACING.md, paddingBottom: SPACING.md
+  },
+  
+  // Premium Glassmorphic Chat Cards
+  item: { 
+    flexDirection: 'row', alignItems: 'center', 
+    backgroundColor: 'rgba(255,255,255,0.92)', 
+    borderRadius: RADIUS.xl, 
+    padding: SPACING.md, 
+    marginBottom: SPACING.sm,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04, shadowRadius: 12, elevation: 3,
+  },
+  itemUnread: {
+    borderColor: 'rgba(220,20,60,0.15)', 
+    backgroundColor: 'rgba(220,20,60,0.02)',
+    borderLeftWidth: 4, 
+    borderLeftColor: COLORS.primary,
+  },
+  avatar: { 
+    width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', flexShrink: 0, marginRight: 14 
+  },
+  avatarText: { 
+    fontFamily: FONT.bold, fontSize: 18, color: COLORS.white 
+  },
+  itemContent: { 
+    flex: 1, minWidth: 0 
+  },
+  itemTop: { 
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 
+  },
+  itemName: { 
+    flex: 1, fontFamily: FONT.medium, fontSize: 16, color: COLORS.textPrimary, marginRight: 8 
+  },
+  itemNameBold: { 
+    fontFamily: FONT.bold 
+  },
+  itemTime: { 
+    fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary 
+  },
+  itemTimeBold: {
+    color: COLORS.primary, fontFamily: FONT.medium
+  },
+  itemBottom: { 
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' 
+  },
+  itemPreview: { 
+    flex: 1, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, marginRight: 8 
+  },
+  itemPreviewBold: { 
+    fontFamily: FONT.semiBold, color: COLORS.textPrimary 
+  },
+  unreadBadge: { 
+    minWidth: 22, height: 22, borderRadius: 11, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 6,
+    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.3, shadowRadius: 4, elevation: 2
+  },
+  unreadText: { 
+    fontFamily: FONT.bold, fontSize: 11, color: COLORS.white 
+  },
 
-  empty: { alignItems: 'center', paddingVertical: 64, paddingHorizontal: 24 },
-  emptyIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  emptyTitle: { fontFamily: FONT.semiBold, fontSize: 20, color: '#000', marginBottom: 8 },
-  emptyText: { fontFamily: FONT.regular, fontSize: 14, color: '#8E8E93', textAlign: 'center', lineHeight: 22 },
+  // Premium Empty State (Matching Notifications)
+  emptyStateCard: { 
+    alignItems: 'center', 
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 4,
+  },
+  emptyIconBg: {
+    width: 80, height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  emptyTitle: { 
+    fontFamily: FONT.heading, fontSize: 20, color: COLORS.textPrimary, marginBottom: 8 
+  },
+  emptySubtitle: { 
+    fontFamily: FONT.regular, fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 24 
+  },
 });
