@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   KeyboardAvoidingView, ScrollView, Platform, Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Eye, EyeOff, GraduationCap, Building2, Home } from 'lucide-react-native';
+import { Eye, EyeOff, GraduationCap, Building2, Home, Scan, Fingerprint } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 
 type Mode = 'signin' | 'signup';
 type Role = 'student' | 'owner';
@@ -17,6 +18,16 @@ const { width } = Dimensions.get('window');
 export default function AuthScreen() {
   const router = useRouter();
   const { signIn, signUp } = useAuth();
+  const {
+    isAvailable: biometricAvailable,
+    biometricType,
+    hasStoredCredentials,
+    isLoading: biometricLoading,
+    authenticate,
+    saveCredentials,
+    getStoredCredentials,
+    getBiometricLabel,
+  } = useBiometricAuth();
 
   const [mode, setMode] = useState<Mode>('signin');
   const [fullName, setFullName] = useState('');
@@ -26,6 +37,34 @@ export default function AuthScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [enableBiometric, setEnableBiometric] = useState(false);
+
+  const canUseBiometric = biometricAvailable && hasStoredCredentials && mode === 'signin';
+
+  useEffect(() => {
+    if (canUseBiometric && !biometricLoading) {
+      handleBiometricLogin();
+    }
+  }, [canUseBiometric, biometricLoading]);
+
+  const handleBiometricLogin = async () => {
+    if (!canUseBiometric) return;
+
+    const success = await authenticate();
+    if (success) {
+      const credentials = await getStoredCredentials();
+      if (credentials) {
+        setLoading(true);
+        const { error: authError } = await signIn(credentials.email, credentials.password);
+        setLoading(false);
+        if (authError) {
+          setError('Biometric login failed. Please sign in with your password.');
+          return;
+        }
+        router.replace('/(tabs)');
+      }
+    }
+  };
 
   const resetFields = () => {
     setFullName(''); setEmail(''); setPassword('');
@@ -69,6 +108,10 @@ export default function AuthScreen() {
             : authError
         );
         return;
+      }
+
+      if (enableBiometric && biometricAvailable) {
+        await saveCredentials(email.trim().toLowerCase(), password);
       }
     }
     router.replace('/(tabs)');
@@ -200,6 +243,22 @@ export default function AuthScreen() {
             )}
           </View>
 
+          {/* BIOMETRIC OPTION (sign-in mode, first time) */}
+          {mode === 'signin' && biometricAvailable && !hasStoredCredentials && Platform.OS !== 'web' && (
+            <TouchableOpacity
+              style={styles.biometricToggle}
+              onPress={() => setEnableBiometric(!enableBiometric)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.checkbox, enableBiometric && styles.checkboxActive]}>
+                {enableBiometric && <View style={styles.checkboxInner} />}
+              </View>
+              <Text style={styles.biometricToggleText}>
+                Enable {getBiometricLabel()} for faster login
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {/* ERROR */}
           {error ? (
             <View style={styles.errorBox}>
@@ -220,6 +279,25 @@ export default function AuthScreen() {
                 : mode === 'signup' ? 'Registration' : 'Log In'}
             </Text>
           </TouchableOpacity>
+
+          {/* BIOMETRIC QUICK LOGIN */}
+          {canUseBiometric && Platform.OS !== 'web' && (
+            <TouchableOpacity
+              style={styles.biometricBtn}
+              onPress={handleBiometricLogin}
+              disabled={loading}
+              activeOpacity={0.7}
+            >
+              {biometricType === 'face' ? (
+                <Scan size={24} color={COLORS.primary} strokeWidth={2} />
+              ) : (
+                <Fingerprint size={24} color={COLORS.primary} strokeWidth={2} />
+              )}
+              <Text style={styles.biometricBtnText}>
+                Sign in with {getBiometricLabel()}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* FOOTER LINK */}
           <View style={styles.switchRow}>
@@ -406,4 +484,55 @@ const styles = StyleSheet.create({
     marginHorizontal: SPACING.md,
   },
   guestBtnText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textTertiary },
+
+  biometricToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    paddingVertical: SPACING.xs,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#D0D0D0',
+    marginRight: SPACING.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
+  },
+  checkboxInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 2,
+    backgroundColor: COLORS.white,
+  },
+  biometricToggleText: {
+    fontFamily: FONT.medium,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    flex: 1,
+  },
+
+  biometricBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.primaryFaded,
+    borderRadius: RADIUS.full,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
+  },
+  biometricBtnText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 15,
+    color: COLORS.primary,
+  },
 });
