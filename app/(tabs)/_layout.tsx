@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.92)',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.45)',
-    height: Platform.OS === 'web' ?74 : 96,
+    height: Platform.OS === 'web' ? 72 : 96,
     paddingTop: 0,
     paddingBottom: Platform.OS === 'web' ? 10 : 30,
     elevation: 0,
@@ -140,8 +140,8 @@ const styles = StyleSheet.create({
   iconOuter: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 70,
-    paddingTop: 14,
+    height: 74,
+    paddingTop: 20,
     gap: 6,
   },
   label: {
