@@ -12,7 +12,7 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { Search, Edit, CheckCheck } from 'lucide-react-native';
+import { Search, Edit, CheckCheck, Menu } from 'lucide-react-native';
 
 const BUBBLE_COLORS = [
   '#DC143C', '#4A90E2', '#16A34A', '#F59E0B', '#0CC0B0',
@@ -137,20 +137,25 @@ export default function MessagesScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header Match */}
       <View style={styles.header}>
+        <TouchableOpacity style={styles.headerIcon}>
+          <Menu size={24} color="#000" />
+        </TouchableOpacity>
         <Text style={styles.pageTitle}>Chats</Text>
         <TouchableOpacity style={styles.headerIcon}>
-          <Edit size={20} color={COLORS.accent} strokeWidth={2} />
+          <Edit size={24} color="#000" />
         </TouchableOpacity>
       </View>
 
+      {/* Search Bar Match */}
       <View style={styles.searchWrap}>
         <View style={styles.searchBar}>
-          <Search size={15} color={COLORS.textTertiary} />
+          <Search size={18} color="#8E8E93" />
           <TextInput
             style={styles.searchInput}
             placeholder="Search"
-            placeholderTextColor={COLORS.textTertiary}
+            placeholderTextColor="#8E8E93"
             value={search}
             onChangeText={setSearch}
           />
@@ -163,10 +168,11 @@ export default function MessagesScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => { setRefreshing(true); fetchThreads(); }}
-            tintColor={COLORS.accent}
+            tintColor="#000"
           />
         }
       >
+        {/* Active Users Horizontal Scroll Match */}
         {activeContacts.length > 0 && !search && (
           <View style={styles.activeSection}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activeRow}>
@@ -204,46 +210,47 @@ export default function MessagesScreen() {
           </View>
         )}
 
-        {filtered.map((t) => {
-          const name = t.other_member?.full_name || 'Hostel Owner';
-          const color = getAvatarColor(name);
-          const hasUnread = t.unread_count > 0;
+        {/* Chat List Match */}
+        <View style={styles.chatListContainer}>
+          {filtered.map((t) => {
+            const name = t.other_member?.full_name || 'Hostel Owner';
+            const color = getAvatarColor(name);
+            const hasUnread = t.unread_count > 0;
 
-          return (
-            <TouchableOpacity
-              key={t.id}
-              style={styles.item}
-              onPress={() => router.push(`/chat?threadId=${t.id}&name=${encodeURIComponent(name)}` as any)}
-              activeOpacity={0.75}
-            >
-              <View style={[styles.avatar, { backgroundColor: color }]}>
-                <Text style={styles.avatarText}>{getInitials(name)}</Text>
-              </View>
-              <View style={styles.itemContent}>
-                <View style={styles.itemTop}>
-                  <Text style={[styles.itemName, hasUnread && styles.itemNameBold]} numberOfLines={1}>
-                    {name}
-                  </Text>
-                  <Text style={[styles.itemTime, hasUnread && styles.itemTimeBlue]}>
-                    {formatTime(t.last_message_at)}
-                  </Text>
+            return (
+              <TouchableOpacity
+                key={t.id}
+                style={styles.item}
+                onPress={() => router.push(`/chat?threadId=${t.id}&name=${encodeURIComponent(name)}` as any)}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.avatar, { backgroundColor: color }]}>
+                  <Text style={styles.avatarText}>{getInitials(name)}</Text>
                 </View>
-                <View style={styles.itemBottom}>
-                  <Text style={[styles.itemPreview, hasUnread && styles.itemPreviewBold]} numberOfLines={1}>
-                    {t.last_message_preview || 'Start a conversation'}
-                  </Text>
-                  {hasUnread ? (
-                    <View style={styles.unreadBadge}>
-                      <Text style={styles.unreadText}>{t.unread_count > 99 ? '99+' : t.unread_count}</Text>
-                    </View>
-                  ) : (
-                    <CheckCheck size={15} color={COLORS.accent} />
-                  )}
+                <View style={styles.itemContent}>
+                  <View style={styles.itemTop}>
+                    <Text style={[styles.itemName, hasUnread && styles.itemNameBold]} numberOfLines={1}>
+                      {name}
+                    </Text>
+                    <Text style={styles.itemTime}>
+                      {formatTime(t.last_message_at)}
+                    </Text>
+                  </View>
+                  <View style={styles.itemBottom}>
+                    <Text style={[styles.itemPreview, hasUnread && styles.itemPreviewBold]} numberOfLines={1}>
+                      {t.last_message_preview || 'Start a conversation'}
+                    </Text>
+                    {hasUnread && (
+                      <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadText}>{t.unread_count > 99 ? '99+' : t.unread_count}</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-              </View>
-            </TouchableOpacity>
-          );
-        })}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -252,50 +259,50 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.white },
+  container: { flex: 1, backgroundColor: '#fff' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: COLORS.white,
-    paddingTop: Platform.OS === 'web' ? 20 : 56,
-    paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm,
+    backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'android' ? 40 : 56,
+    paddingHorizontal: 16, paddingBottom: 12,
   },
-  pageTitle: { fontFamily: FONT.headingBold, fontSize: 28, color: COLORS.textPrimary },
-  headerIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
+  pageTitle: { fontFamily: FONT.semiBold, fontSize: 18, color: '#000' },
+  headerIcon: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
 
-  searchWrap: { paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm, backgroundColor: COLORS.white },
+  searchWrap: { paddingHorizontal: 16, paddingBottom: 8, backgroundColor: '#fff' },
   searchBar: {
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
-    backgroundColor: COLORS.background, borderRadius: RADIUS.lg,
-    paddingHorizontal: SPACING.sm, paddingVertical: 9,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#F2F2F7', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 10,
   },
-  searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 15, color: COLORS.textPrimary },
+  searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 16, color: '#000', padding: 0 },
 
-  activeSection: { borderBottomWidth: 0.5, borderBottomColor: COLORS.border, paddingBottom: SPACING.md, marginBottom: 4, paddingTop: SPACING.sm },
-  activeRow: { paddingHorizontal: SPACING.md, gap: SPACING.lg },
-  activeItem: { alignItems: 'center', gap: 6, width: 62 },
-  activeAvatar: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', position: 'relative' },
-  activeAvatarText: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.white },
-  activeDot: { position: 'absolute', bottom: 2, right: 2, width: 12, height: 12, borderRadius: 6, backgroundColor: COLORS.accent, borderWidth: 2, borderColor: COLORS.white },
-  activeName: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textPrimary, textAlign: 'center' },
+  activeSection: { borderBottomWidth: 1, borderBottomColor: '#F2F2F7', paddingBottom: 16, paddingTop: 8 },
+  activeRow: { paddingHorizontal: 16, gap: 20 },
+  activeItem: { alignItems: 'center', width: 60 },
+  activeAvatar: { width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', position: 'relative', marginBottom: 6 },
+  activeAvatarText: { fontFamily: FONT.bold, fontSize: 20, color: '#fff' },
+  activeDot: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#007AFF', borderWidth: 2, borderColor: '#fff' },
+  activeName: { fontFamily: FONT.medium, fontSize: 13, color: '#000', textAlign: 'center' },
 
-  item: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: SPACING.md, paddingVertical: 13, borderBottomWidth: 0.5, borderBottomColor: COLORS.borderLight, gap: SPACING.md, backgroundColor: COLORS.white },
-  avatar: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
-  avatarText: { fontFamily: FONT.bold, fontSize: 17, color: COLORS.white },
+  chatListContainer: { paddingVertical: 8 },
+  item: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff' },
+  avatar: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', flexShrink: 0, marginRight: 14 },
+  avatarText: { fontFamily: FONT.bold, fontSize: 18, color: '#fff' },
   itemContent: { flex: 1, minWidth: 0 },
-  itemTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
-  itemName: { flex: 1, fontFamily: FONT.medium, fontSize: 16, color: COLORS.textPrimary, marginRight: 8 },
-  itemNameBold: { fontFamily: FONT.semiBold },
-  itemTime: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary },
-  itemTimeBlue: { color: COLORS.accent },
+  itemTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  itemName: { flex: 1, fontFamily: FONT.semiBold, fontSize: 16, color: '#000', marginRight: 8 },
+  itemNameBold: { fontFamily: FONT.bold },
+  itemTime: { fontFamily: FONT.regular, fontSize: 13, color: '#8E8E93' },
   itemBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  itemPreview: { flex: 1, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, marginRight: 8 },
-  itemPreviewBold: { fontFamily: FONT.medium, color: COLORS.textPrimary },
-  unreadBadge: { minWidth: 20, height: 20, borderRadius: 10, backgroundColor: COLORS.accent, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
-  unreadText: { fontFamily: FONT.bold, fontSize: 11, color: COLORS.white },
+  itemPreview: { flex: 1, fontFamily: FONT.regular, fontSize: 15, color: '#8E8E93', marginRight: 8 },
+  itemPreviewBold: { fontFamily: FONT.semiBold, color: '#000' },
+  unreadBadge: { minWidth: 20, height: 20, borderRadius: 10, backgroundColor: '#007AFF', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4 },
+  unreadText: { fontFamily: FONT.bold, fontSize: 11, color: '#fff' },
 
-  empty: { alignItems: 'center', paddingVertical: 64, paddingHorizontal: SPACING.xl },
-  emptyIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md },
-  emptyTitle: { fontFamily: FONT.semiBold, fontSize: 20, color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  emptyText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
+  empty: { alignItems: 'center', paddingVertical: 64, paddingHorizontal: 24 },
+  emptyIcon: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#F2F2F7', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  emptyTitle: { fontFamily: FONT.semiBold, fontSize: 20, color: '#000', marginBottom: 8 },
+  emptyText: { fontFamily: FONT.regular, fontSize: 14, color: '#8E8E93', textAlign: 'center', lineHeight: 22 },
 });
