@@ -62,7 +62,7 @@ export default function RecentActivity() {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(4); // Modern standard: Keep homepage preview tightly limited to 3 or 4
 
       setActivities((data as UserActivityLog[]) || []);
       setLoading(false);
@@ -86,6 +86,14 @@ export default function RecentActivity() {
           <Clock size={16} color={COLORS.textSecondary} />
           <Text style={styles.sectionTitle}>Recent Activity</Text>
         </View>
+        <TouchableOpacity 
+          style={styles.seeAllBtn} 
+          onPress={() => console.log("Navigate to full history screen")}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.seeAllText}>See All</Text>
+          <ChevronRight size={14} color={COLORS.primary} />
+        </TouchableOpacity>
       </View>
 
       {activities.map((item) => (
@@ -122,6 +130,16 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.6,
+  },
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  seeAllText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 13,
+    color: COLORS.primary,
   },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
