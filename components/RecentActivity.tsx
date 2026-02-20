@@ -8,7 +8,6 @@ import {
   Clock, Search, Heart, CalendarCheck, ShoppingBag,
   Printer, Zap, Wrench, MessageSquare, Home, ChevronRight,
 } from 'lucide-react-native';
-
 function getIcon(iconName: string | null, actionType: string) {
   const name = iconName || actionType;
   if (name.includes('search')) return <Search size={16} color={COLORS.accent} />;
@@ -22,7 +21,6 @@ function getIcon(iconName: string | null, actionType: string) {
   if (name.includes('hostel') || name.includes('view')) return <Home size={16} color={COLORS.navy} />;
   return <Clock size={16} color={COLORS.textSecondary} />;
 }
-
 function getIconBg(actionType: string) {
   if (actionType.includes('search')) return COLORS.infoLight;
   if (actionType.includes('favourite')) return COLORS.primaryFaded;
@@ -34,7 +32,6 @@ function getIconBg(actionType: string) {
   if (actionType.includes('message')) return 'rgba(12,192,176,0.12)';
   return COLORS.background;
 }
-
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -46,29 +43,24 @@ function timeAgo(dateStr: string) {
   if (days < 7) return `${days}d ago`;
   return dateStr.slice(0, 10);
 }
-
 export default function RecentActivity() {
   const router = useRouter();
   const [activities, setActivities] = useState<UserActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
-
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
-
       const { data } = await supabase
         .from('user_activity_log')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5);
-
       setActivities((data as UserActivityLog[]) || []);
       setLoading(false);
     })();
   }, []);
-
   if (loading) {
     return (
       <View style={styles.loadingWrap}>
@@ -76,9 +68,7 @@ export default function RecentActivity() {
       </View>
     );
   }
-
   if (activities.length === 0) return null;
-
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -87,7 +77,6 @@ export default function RecentActivity() {
           <Text style={styles.sectionTitle}>Recent Activity</Text>
         </View>
       </View>
-
       {activities.map((item) => (
         <View key={item.id} style={styles.row}>
           <View style={[styles.iconBox, { backgroundColor: getIconBg(item.action_type) }]}>
@@ -105,13 +94,19 @@ export default function RecentActivity() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: COLORS.white,
+    backgroundColor: 'rgba(255,255,255,0.92)',
     marginTop: SPACING.sm,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 4,
   },
   loadingWrap: { padding: SPACING.md, alignItems: 'center' },
   headerRow: {
