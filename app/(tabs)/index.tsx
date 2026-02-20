@@ -27,10 +27,6 @@ import {
   CreditCard,
   ChevronRight,
   Home,
-  Eye,
-  Heart,
-  CalendarCheck,
-  TrendingUp,
   Bell,
 } from 'lucide-react-native';
 
@@ -164,25 +160,21 @@ export default function HomeScreen() {
       {userStats && (
         <View style={styles.statsStrip}>
           <View style={styles.statItem}>
-            <Eye size={14} color={COLORS.accent} />
             <Text style={styles.statNum}>{userStats.hostels_viewed}</Text>
             <Text style={styles.statLabel}>Viewed</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Heart size={14} color={COLORS.primary} />
             <Text style={styles.statNum}>{userStats.favourites_saved}</Text>
             <Text style={styles.statLabel}>Saved</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <CalendarCheck size={14} color={COLORS.success} />
             <Text style={styles.statNum}>{userStats.bookings_made}</Text>
             <Text style={styles.statLabel}>Bookings</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <TrendingUp size={14} color={COLORS.warning} />
             <Text style={styles.statNum}>{userStats.services_used}</Text>
             <Text style={styles.statLabel}>Services</Text>
           </View>
