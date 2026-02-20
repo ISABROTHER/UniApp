@@ -13,7 +13,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { ArrowLeft, Send, Camera } from 'lucide-react-native';
+import { ChevronLeft, Send, Camera } from 'lucide-react-native';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -184,21 +184,18 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
     >
+      {/* Thread Header Match */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
-          <ArrowLeft size={20} color={COLORS.accent} strokeWidth={2.5} />
+          <ChevronLeft size={28} color="#007AFF" />
           <Text style={styles.backLabel}>Chats</Text>
         </TouchableOpacity>
         <View style={styles.headerCenter}>
-          <View style={[styles.headerAvatar, { backgroundColor: avatarColor }]}>
-            <Text style={styles.headerAvatarText}>{initials}</Text>
-          </View>
           <Text style={styles.headerName} numberOfLines={1}>{displayName}</Text>
-          {otherMember?.faculty && (
-            <Text style={styles.headerSub} numberOfLines={1}>{otherMember.faculty}</Text>
-          )}
         </View>
-        <View style={styles.headerRight} />
+        <TouchableOpacity style={styles.headerRight}>
+          <Text style={styles.settingsLabel}>Settings</Text>
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -211,7 +208,6 @@ export default function ChatScreen() {
             <Text style={styles.emptyAvatarText}>{initials}</Text>
           </View>
           <Text style={styles.emptyName}>{displayName}</Text>
-          {otherMember?.faculty && <Text style={styles.emptySub}>{otherMember.faculty}</Text>}
           <Text style={styles.emptyHint}>Say hello to start the conversation</Text>
         </View>
       ) : (
@@ -235,6 +231,7 @@ export default function ChatScreen() {
                     <Text style={styles.dateSeparatorText}>{formatDateLabel(item.created_at)}</Text>
                   </View>
                 )}
+                {/* Chat Bubbles Match */}
                 <View style={[styles.msgRow, isMine ? styles.msgRowMine : styles.msgRowTheirs]}>
                   {!isMine && isLastInGroup && (
                     <View style={[styles.msgAvatar, { backgroundColor: avatarColor }]}>
@@ -251,9 +248,6 @@ export default function ChatScreen() {
                     <Text style={[styles.bubbleText, isMine ? styles.myText : styles.theirText]}>
                       {item.content}
                     </Text>
-                    <Text style={[styles.bubbleTime, isMine ? styles.myTime : styles.theirTime]}>
-                      {formatMsgTime(item.created_at)}
-                    </Text>
                   </View>
                 </View>
               </View>
@@ -262,97 +256,97 @@ export default function ChatScreen() {
         />
       )}
 
+      {/* Chat Input Match */}
       <View style={styles.inputBar}>
         <TouchableOpacity style={styles.cameraBtn} activeOpacity={0.7}>
-          <Camera size={22} color={COLORS.textTertiary} strokeWidth={1.8} />
+          <Camera size={24} color="#8E8E93" />
         </TouchableOpacity>
-        <TextInput
-          style={styles.input}
-          value={text}
-          onChangeText={setText}
-          placeholder="Start typing..."
-          placeholderTextColor={COLORS.textTertiary}
-          multiline
-          maxLength={1000}
-        />
-        <TouchableOpacity
-          style={styles.sendBtn}
-          onPress={sendMessage}
-          disabled={!text.trim()}
-          activeOpacity={0.8}
-        >
-          <Send size={16} color={text.trim() ? COLORS.accent : COLORS.textTertiary} strokeWidth={2.5} />
-        </TouchableOpacity>
+        <View style={styles.inputWrapper}>
+          <TextInput
+            style={styles.input}
+            value={text}
+            onChangeText={setText}
+            placeholder="Start typing..."
+            placeholderTextColor="#8E8E93"
+            multiline
+            maxLength={1000}
+          />
+          <TouchableOpacity
+            style={styles.sendBtn}
+            onPress={sendMessage}
+            disabled={!text.trim()}
+            activeOpacity={0.8}
+          >
+            <Send size={20} color={text.trim() ? "#007AFF" : "#C7C7CC"} />
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F2F2F7' },
+  container: { flex: 1, backgroundColor: '#fff' },
 
   header: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: COLORS.white,
-    paddingTop: Platform.OS === 'web' ? 20 : 56,
-    paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm,
-    borderBottomWidth: 0.5, borderBottomColor: COLORS.border,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'android' ? 40 : 56,
+    paddingHorizontal: 16, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: '#F2F2F7',
   },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, minWidth: 70 },
-  backLabel: { fontFamily: FONT.medium, fontSize: 16, color: COLORS.accent },
+  backBtn: { flexDirection: 'row', alignItems: 'center', minWidth: 70 },
+  backLabel: { fontFamily: FONT.medium, fontSize: 17, color: '#007AFF', marginLeft: -4 },
   headerCenter: { flex: 1, alignItems: 'center' },
-  headerAvatar: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 2 },
-  headerAvatarText: { fontFamily: FONT.bold, fontSize: 13, color: COLORS.white },
-  headerName: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary },
-  headerSub: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textSecondary },
-  headerRight: { minWidth: 70 },
+  headerName: { fontFamily: FONT.semiBold, fontSize: 17, color: '#000' },
+  headerRight: { minWidth: 70, alignItems: 'flex-end' },
+  settingsLabel: { fontFamily: FONT.medium, fontSize: 17, color: '#007AFF' },
 
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary },
+  loadingText: { fontFamily: FONT.regular, fontSize: 14, color: '#8E8E93' },
 
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: SPACING.xl },
-  emptyAvatar: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.sm },
-  emptyAvatarText: { fontFamily: FONT.bold, fontSize: 24, color: COLORS.white },
-  emptyName: { fontFamily: FONT.semiBold, fontSize: 20, color: COLORS.textPrimary, marginBottom: 4 },
-  emptySub: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, marginBottom: SPACING.md },
-  emptyHint: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textTertiary },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  emptyAvatar: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  emptyAvatarText: { fontFamily: FONT.bold, fontSize: 24, color: '#fff' },
+  emptyName: { fontFamily: FONT.semiBold, fontSize: 20, color: '#000', marginBottom: 8 },
+  emptyHint: { fontFamily: FONT.regular, fontSize: 15, color: '#8E8E93' },
 
-  messageList: { paddingVertical: SPACING.sm, paddingHorizontal: SPACING.sm },
-  dateSeparator: { alignItems: 'center', marginVertical: SPACING.md },
-  dateSeparatorText: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textTertiary, backgroundColor: '#DDD', paddingHorizontal: 10, paddingVertical: 3, borderRadius: RADIUS.full },
+  messageList: { paddingVertical: 16, paddingHorizontal: 16 },
+  dateSeparator: { alignItems: 'center', marginVertical: 16 },
+  dateSeparatorText: { fontFamily: FONT.medium, fontSize: 12, color: '#8E8E93' },
 
-  msgRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 2, paddingHorizontal: 4 },
+  msgRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 16 },
   msgRowMine: { justifyContent: 'flex-end' },
   msgRowTheirs: { justifyContent: 'flex-start' },
-  msgAvatar: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 6, flexShrink: 0 },
-  msgAvatarText: { fontFamily: FONT.bold, fontSize: 10, color: COLORS.white },
-  msgAvatarSpacer: { width: 34 },
+  msgAvatar: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 8, flexShrink: 0 },
+  msgAvatarText: { fontFamily: FONT.bold, fontSize: 12, color: '#fff' },
+  msgAvatarSpacer: { width: 40 },
 
-  bubble: { maxWidth: SW * 0.72, borderRadius: 18, paddingHorizontal: 14, paddingTop: 9, paddingBottom: 6 },
-  myBubble: { backgroundColor: COLORS.accent, borderBottomRightRadius: 4 },
-  myBubbleMid: { borderBottomRightRadius: 18 },
-  theirBubble: { backgroundColor: COLORS.white, borderBottomLeftRadius: 4 },
-  theirBubbleMid: { borderBottomLeftRadius: 18 },
+  bubble: { maxWidth: SW * 0.75, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10 },
+  myBubble: { backgroundColor: '#007AFF', borderBottomRightRadius: 4 },
+  myBubbleMid: { borderBottomRightRadius: 20 },
+  theirBubble: { backgroundColor: '#E5E5EA', borderBottomLeftRadius: 4 },
+  theirBubbleMid: { borderBottomLeftRadius: 20 },
 
   bubbleText: { fontFamily: FONT.regular, fontSize: 16, lineHeight: 22 },
-  myText: { color: COLORS.white },
-  theirText: { color: COLORS.textPrimary },
-  bubbleTime: { fontFamily: FONT.regular, fontSize: 10, marginTop: 3, textAlign: 'right' },
-  myTime: { color: 'rgba(255,255,255,0.7)' },
-  theirTime: { color: COLORS.textTertiary },
+  myText: { color: '#fff' },
+  theirText: { color: '#000' },
 
   inputBar: {
-    flexDirection: 'row', alignItems: 'flex-end',
-    backgroundColor: COLORS.white, borderTopWidth: 0.5, borderTopColor: COLORS.border,
-    paddingHorizontal: SPACING.sm, paddingVertical: SPACING.sm,
-    paddingBottom: Platform.OS === 'web' ? SPACING.sm : 28, gap: SPACING.sm,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F2F2F7',
+    paddingHorizontal: 16, paddingVertical: 12,
+    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
   },
-  cameraBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  cameraBtn: { marginRight: 12 },
+  inputWrapper: {
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#F2F2F7', borderRadius: 20,
+    paddingHorizontal: 16, paddingVertical: 8,
+  },
   input: {
-    flex: 1, backgroundColor: COLORS.background, borderRadius: RADIUS.xl,
-    paddingHorizontal: SPACING.md, paddingVertical: 9,
-    fontFamily: FONT.regular, fontSize: 15, color: COLORS.textPrimary,
-    maxHeight: 120, borderWidth: 1, borderColor: COLORS.border, minHeight: 36,
+    flex: 1, fontFamily: FONT.regular, fontSize: 16, color: '#000',
+    maxHeight: 100, paddingTop: 8, paddingBottom: 8,
   },
-  sendBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  sendBtn: { marginLeft: 8 },
 });
