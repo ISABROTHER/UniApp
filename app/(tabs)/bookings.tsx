@@ -10,7 +10,7 @@ function StatusBadge({ status }: { status: string }) {
   const color = BOOKING_STATUS_COLORS[status] || COLORS.textSecondary;
   const label = status.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
   return (
-    <View style={[styles.statusBadge, { backgroundColor: `${color}15` }]}>
+    <View style={[styles.statusBadge, { backgroundColor: `${color}20` }]}>
       <View style={[styles.statusDot, { backgroundColor: color }]} />
       <Text style={[styles.statusText, { color }]}>{label}</Text>
     </View>
@@ -56,61 +56,34 @@ export default function BookingsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* 1. Unified Glassmorphic Header with Tabs */}
-      <View style={styles.headerContainer}>
-        <View style={styles.header}>
-          <Text style={styles.pageTitle}>My Bookings</Text>
-        </View>
-
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          style={styles.tabsScroll} 
-          contentContainerStyle={styles.tabsContainer}
-        >
-          {TABS.map((t) => (
-            <TouchableOpacity 
-              key={t} 
-              style={[styles.tab, activeTab === t && styles.tabActive]} 
-              onPress={() => setActiveTab(t)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>{t}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+      <View style={styles.header}>
+        <Text style={styles.pageTitle}>My Bookings</Text>
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll} contentContainerStyle={styles.tabsContainer}>
+        {TABS.map((t) => (
+          <TouchableOpacity key={t} style={[styles.tab, activeTab === t && styles.tabActive]} onPress={() => setActiveTab(t)}>
+            <Text style={[styles.tabText, activeTab === t && styles.tabTextActive]}>{t}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
-            onRefresh={() => { setRefreshing(true); fetchBookings(); }} 
-            tintColor={COLORS.primary} 
-          />
-        }
-        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchBookings(); }} tintColor={COLORS.primary} />}
+        contentContainerStyle={styles.list}
       >
-        {/* Premium Empty State */}
         {filtered.length === 0 && !loading && (
-          <View style={styles.emptyStateCard}>
-            <View style={styles.emptyIconBg}>
-              <CalendarCheck size={36} color={COLORS.textTertiary} strokeWidth={1.5} />
-            </View>
+          <View style={styles.empty}>
+            <CalendarCheck size={48} color={COLORS.border} strokeWidth={1.5} />
             <Text style={styles.emptyTitle}>No bookings yet</Text>
-            <Text style={styles.emptyText}>Browse hostels and book your ideal room for the upcoming semester.</Text>
-            <TouchableOpacity 
-              style={styles.browseBtn} 
-              onPress={() => router.push('/(tabs)/index' as any)}
-              activeOpacity={0.8}
-            >
+            <Text style={styles.emptyText}>Browse hostels and book your ideal room.</Text>
+            <TouchableOpacity style={styles.browseBtn} onPress={() => router.push('/(tabs)/index' as any)}>
               <Text style={styles.browseBtnText}>Browse Hostels</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Premium Glassmorphic Booking Cards */}
         {filtered.map((booking) => {
           const hostel = booking.hostel as any;
           return (
@@ -119,7 +92,7 @@ export default function BookingsScreen() {
                 <View style={styles.cardHeaderLeft}>
                   <Text style={styles.hostelName} numberOfLines={1}>{hostel?.name || 'Hostel'}</Text>
                   <View style={styles.locationRow}>
-                    <MapPin size={12} color={COLORS.textSecondary} />
+                    <MapPin size={11} color={COLORS.textSecondary} />
                     <Text style={styles.locationText} numberOfLines={1}>{hostel?.campus_proximity || hostel?.address}</Text>
                   </View>
                 </View>
@@ -148,224 +121,68 @@ export default function BookingsScreen() {
                 </View>
                 <View style={styles.footerActions}>
                   {booking.qr_code && (
-                    <TouchableOpacity style={styles.qrBtn} activeOpacity={0.7}>
+                    <TouchableOpacity style={styles.qrBtn}>
                       <QrCode size={16} color={COLORS.primary} />
                       <Text style={styles.qrBtnText}>QR Code</Text>
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity 
-                    style={styles.detailBtn} 
-                    onPress={() => router.push(`/detail?id=${booking.hostel_id}` as any)}
-                    activeOpacity={0.7}
-                  >
+                  <TouchableOpacity style={styles.detailBtn} onPress={() => router.push(`/detail?id=${booking.hostel_id}` as any)}>
                     <Text style={styles.detailBtnText}>View</Text>
-                    <ChevronRight size={16} color={COLORS.primary} />
+                    <ChevronRight size={14} color={COLORS.primary} />
                   </TouchableOpacity>
                 </View>
               </View>
             </View>
           );
         })}
+        <View style={{ height: 24 }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#F7F7F9' 
-  },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  header: { backgroundColor: COLORS.white, paddingTop: Platform.OS === 'web' ? 20 : 56, paddingHorizontal: SPACING.md, paddingBottom: SPACING.md },
+  pageTitle: { fontFamily: FONT.headingBold, fontSize: 28, color: COLORS.textPrimary },
+  tabsScroll: { backgroundColor: COLORS.white, borderBottomWidth: 1, borderBottomColor: COLORS.border, maxHeight: 52 },
+  tabsContainer: { paddingHorizontal: SPACING.md, gap: SPACING.sm, alignItems: 'center', paddingVertical: 10 },
+  tab: { paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
+  tabActive: { backgroundColor: COLORS.navy, borderColor: COLORS.navy },
+  tabText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary },
+  tabTextActive: { color: COLORS.white },
+  list: { padding: SPACING.md },
 
-  // Premium Unified Header with Tabs
-  headerContainer: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    paddingTop: Platform.OS === 'web' ? 20 : 56,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 4,
-    zIndex: 10,
-  },
-  header: { 
-    paddingHorizontal: SPACING.md, 
-    paddingBottom: SPACING.sm 
-  },
-  pageTitle: { 
-    fontFamily: FONT.headingBold, 
-    fontSize: 28, 
-    color: COLORS.textPrimary 
-  },
-  
-  tabsScroll: { 
-    maxHeight: 52,
-    marginBottom: SPACING.sm,
-  },
-  tabsContainer: { 
-    paddingHorizontal: SPACING.md, 
-    gap: 8, 
-    alignItems: 'center', 
-  },
-  tab: { 
-    paddingHorizontal: 16, 
-    paddingVertical: 8, 
-    borderRadius: RADIUS.full, 
-    backgroundColor: 'rgba(0,0,0,0.03)', 
-    borderWidth: 1, 
-    borderColor: 'transparent' 
-  },
-  tabActive: { 
-    backgroundColor: COLORS.navy, 
-    borderColor: COLORS.navy,
-    shadowColor: COLORS.navy,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  tabText: { 
-    fontFamily: FONT.medium, 
-    fontSize: 13, 
-    color: COLORS.textSecondary 
-  },
-  tabTextActive: { 
-    color: COLORS.white,
-    fontFamily: FONT.semiBold,
-  },
+  card: { backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.md },
+  cardHeaderLeft: { flex: 1, marginRight: SPACING.sm },
+  hostelName: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.textPrimary, marginBottom: 4 },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  locationText: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, flex: 1 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: RADIUS.full },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontFamily: FONT.semiBold, fontSize: 11 },
 
-  scrollContent: { 
-    padding: SPACING.md,
-    paddingBottom: Platform.OS === 'ios' ? 120 : 100,
-  },
+  datesRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.background, borderRadius: RADIUS.md, padding: SPACING.sm, marginBottom: SPACING.md },
+  dateBlock: { flex: 1, alignItems: 'center' },
+  dateLabel: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary, marginBottom: 4 },
+  dateValue: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary },
+  dateDivider: { alignItems: 'center', gap: 4, paddingHorizontal: SPACING.sm },
+  nightsText: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.textSecondary },
 
-  // Glassmorphic Booking Cards
-  card: { 
-    backgroundColor: 'rgba(255,255,255,0.92)', 
-    borderRadius: RADIUS.xl, 
-    padding: SPACING.lg, 
-    marginBottom: SPACING.md, 
-    borderWidth: 1, 
-    borderColor: 'rgba(255,255,255,0.35)',
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 4 }, 
-    shadowOpacity: 0.04, 
-    shadowRadius: 12, 
-    elevation: 3 
-  },
-  cardHeader: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: SPACING.md 
-  },
-  cardHeaderLeft: { 
-    flex: 1, marginRight: SPACING.sm 
-  },
-  hostelName: { 
-    fontFamily: FONT.semiBold, fontSize: 17, color: COLORS.textPrimary, marginBottom: 4 
-  },
-  locationRow: { 
-    flexDirection: 'row', alignItems: 'center', gap: 4 
-  },
-  locationText: { 
-    fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, flex: 1 
-  },
-  statusBadge: { 
-    flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: RADIUS.full 
-  },
-  statusDot: { 
-    width: 6, height: 6, borderRadius: 3 
-  },
-  statusText: { 
-    fontFamily: FONT.semiBold, fontSize: 11 
-  },
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  totalLabel: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textSecondary },
+  totalAmount: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.primary },
+  footerActions: { flexDirection: 'row', gap: SPACING.sm, alignItems: 'center' },
+  qrBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.primary },
+  qrBtnText: { fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.primary },
+  detailBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  detailBtnText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
 
-  // Refined Inset Dates Row
-  datesRow: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: 'rgba(0,0,0,0.02)', // Super subtle inset effect
-    borderRadius: RADIUS.lg, 
-    padding: SPACING.md, 
-    marginBottom: SPACING.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.5)',
-  },
-  dateBlock: { 
-    flex: 1, alignItems: 'center' 
-  },
-  dateLabel: { 
-    fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary, marginBottom: 4 
-  },
-  dateValue: { 
-    fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary 
-  },
-  dateDivider: { 
-    alignItems: 'center', gap: 4, paddingHorizontal: SPACING.sm 
-  },
-  nightsText: { 
-    fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary 
-  },
-
-  cardFooter: { 
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' 
-  },
-  totalLabel: { 
-    fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 
-  },
-  totalAmount: { 
-    fontFamily: FONT.bold, fontSize: 18, color: COLORS.primary 
-  },
-  footerActions: { 
-    flexDirection: 'row', gap: SPACING.sm, alignItems: 'center' 
-  },
-  qrBtn: { 
-    flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.full, backgroundColor: 'rgba(220,20,60,0.06)' 
-  },
-  qrBtnText: { 
-    fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary 
-  },
-  detailBtn: { 
-    flexDirection: 'row', alignItems: 'center', gap: 2, paddingLeft: 8 
-  },
-  detailBtnText: { 
-    fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.primary 
-  },
-
-  // Premium Empty State
-  emptyStateCard: { 
-    alignItems: 'center', 
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    marginTop: SPACING.xl,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.4)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 15,
-    elevation: 4,
-  },
-  emptyIconBg: {
-    width: 80, height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(0,0,0,0.02)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  emptyTitle: { 
-    fontFamily: FONT.heading, fontSize: 20, color: COLORS.textPrimary, marginBottom: 8 
-  },
-  emptyText: { 
-    fontFamily: FONT.regular, fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 24, marginBottom: SPACING.xl 
-  },
-  browseBtn: { 
-    backgroundColor: COLORS.primary, paddingHorizontal: SPACING.xl, paddingVertical: 14, borderRadius: RADIUS.full,
-    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4
-  },
-  browseBtnText: { 
-    fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white 
-  },
+  empty: { alignItems: 'center', paddingVertical: SPACING.xxl },
+  emptyTitle: { fontFamily: FONT.heading, fontSize: 20, color: COLORS.textPrimary, marginTop: SPACING.md, marginBottom: SPACING.sm },
+  emptyText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, marginBottom: SPACING.lg },
+  browseBtn: { backgroundColor: COLORS.primary, paddingHorizontal: SPACING.xl, paddingVertical: 14, borderRadius: RADIUS.md },
+  browseBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
 });
+ 
