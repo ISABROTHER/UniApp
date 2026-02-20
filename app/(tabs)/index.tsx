@@ -200,44 +200,49 @@ export default function HomeScreen() {
 
       <OnboardingProgress compact={true} />
 
-      {/* Simplified Quick Access Grid */}
+      {/* Simplified Quick Access Grid with Premium Thin Lines */}
       <View style={styles.quickActionsSection}>
         <View style={styles.quickActionsGrid}>
           
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/bookings' as any)}>
+          {/* Row 1 */}
+          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/(tabs)/bookings' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
               <Home size={28} color={COLORS.accent} />
             </View>
             <Text style={styles.qaLabel}>Housing</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/laundry' as any)}>
+          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/(tabs)/laundry' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#EDE9FE' }]}>
               <ShoppingBag size={28} color='#7C3AED' />
             </View>
             <Text style={styles.qaLabel}>Smart Wash</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/utilities' as any)}>
+          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/(tabs)/utilities' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
               <ShoppingBag size={28} color={COLORS.warning} />
             </View>
             <Text style={styles.qaLabel}>StuMark</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/print' as any)}>
+          {/* Row 2 */}
+          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/print' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
               <Printer size={28} color={COLORS.success} />
             </View>
             <Text style={styles.qaLabel}>DigiPrint</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/roommates' as any)}>
+          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/roommates' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
               <Users size={28} color={COLORS.error} />
             </View>
             <Text style={styles.qaLabel}>Roommates</Text>
           </TouchableOpacity>
+
+          {/* Empty 6th cell to keep the grid perfectly balanced */}
+          <View style={styles.qa} />
 
         </View>
       </View>
@@ -322,20 +327,30 @@ const styles = StyleSheet.create({
   quickActionsSection: {
     backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.sm,
     paddingBottom: SPACING.md,
-    paddingTop: SPACING.md,
     marginTop: 1,
   },
   quickActionsGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, // Gap between rows/columns
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
   },
   qa: { 
-    width: (SW - SPACING.md * 2 - SPACING.sm * 2) / 3, 
+    width: '33.33%', 
     alignItems: 'center', 
-    gap: 4 // Reduced from 10 to bring text closely under the icon box
-  }, 
+    paddingVertical: SPACING.md,
+    gap: 4 
+  },
+  borderR: {
+    borderRightWidth: 1,
+    borderRightColor: COLORS.borderLight,
+  },
+  borderB: {
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
   qaIcon: {
-    width: 90, height: 90, borderRadius: RADIUS.xl, 
+    width: 90, height: 90, borderRadius: RADIUS.xl,
     justifyContent: 'center', alignItems: 'center',
   },
   qaLabel: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
