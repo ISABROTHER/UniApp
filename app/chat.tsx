@@ -62,14 +62,18 @@ type OtherMember = { id: string; full_name: string; faculty?: string };
 export default function ChatScreen() {
   const router = useRouter();
   const { threadId, name, ownerId } = useLocalSearchParams<{ threadId: string; name: string; ownerId: string }>();
+  
   const [messages, setMessages] = useState<Msg[]>([]);
   const [otherMember, setOtherMember] = useState<OtherMember | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [targetUserId, setTargetUserId] = useState<string | null>(null); // NEW: Safely tracks who we are talking to
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [resolvedThreadId, setResolvedThreadId] = useState<string | null>(threadId || null);
+  
   const flatListRef = useRef<FlatList>(null);
 
+  // 1. Initial Load
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -84,6 +88,37 @@ export default function ChatScreen() {
     })();
   }, [threadId, ownerId]);
 
+  // 2. Realtime Subscription (Makes the chat truly "Live")
+  useEffect(() => {
+    if (!resolvedThreadId) return;
+
+    const channel = supabase
+      .channel(`messages_${resolvedThreadId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `thread_id=eq.${resolvedThreadId}`,
+        },
+        (payload) => {
+          const newMsg = payload.new as Msg;
+          setMessages((prev) => {
+            // Prevent duplicates if we already added it locally via optimistic UI
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [resolvedThreadId]);
+
   const loadThread = async (userId: string, tId: string) => {
     const { data: thread } = await supabase
       .from('message_threads')
@@ -93,12 +128,15 @@ export default function ChatScreen() {
 
     if (thread) {
       const otherId = thread.participant_1 === userId ? thread.participant_2 : thread.participant_1;
+      setTargetUserId(otherId); // Ensures we can always send, even if profile fetch fails
       await fetchOtherMember(otherId);
     }
     await fetchMessages(userId, tId);
   };
 
   const getOrCreateThread = async (userId: string, targetOwnerId: string) => {
+    setTargetUserId(targetOwnerId); // Safe fallback
+    
     const { data: member } = await supabase.from('members').select('id, full_name, faculty').eq('id', targetOwnerId).maybeSingle();
     if (member) setOtherMember(member as OtherMember);
 
@@ -149,29 +187,46 @@ export default function ChatScreen() {
 
   const sendMessage = async () => {
     const tId = resolvedThreadId;
-    if (!text.trim() || !currentUserId || !tId) return;
+    if (!text.trim() || !currentUserId || !tId || !targetUserId) return;
+    
     const content = text.trim();
     setText('');
 
-    const receiverId = otherMember?.id;
-    if (!receiverId) return;
-
-    const { data: msg } = await supabase.from('messages').insert({
+    // Optimistic UI Update (Makes it feel instantly live)
+    const tempId = `temp-${Date.now()}`;
+    const tempMsg: Msg = {
+      id: tempId,
       thread_id: tId,
       sender_id: currentUserId,
-      receiver_id: receiverId,
+      receiver_id: targetUserId,
+      content,
+      read: false,
+      created_at: new Date().toISOString(),
+    };
+    
+    setMessages(prev => [...prev, tempMsg]);
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+
+    // Actual Database Insert
+    const { data: msg, error } = await supabase.from('messages').insert({
+      thread_id: tId,
+      sender_id: currentUserId,
+      receiver_id: targetUserId,
       content,
       read: false,
     }).select().maybeSingle();
 
     if (msg) {
-      setMessages(prev => [...prev, msg as Msg]);
+      // Replace temporary message with the real one from DB
+      setMessages(prev => prev.map(m => m.id === tempId ? (msg as Msg) : m));
       await supabase.from('message_threads')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', tId);
+    } else if (error) {
+      console.error("Send error:", error);
+      // Revert if failed
+      setMessages(prev => prev.filter(m => m.id !== tempId));
     }
-
-    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
   const displayName = otherMember?.full_name || name || 'Chat';
@@ -184,7 +239,6 @@ export default function ChatScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
     >
-      {/* Thread Header Match */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <ChevronLeft size={28} color="#007AFF" />
@@ -231,7 +285,6 @@ export default function ChatScreen() {
                     <Text style={styles.dateSeparatorText}>{formatDateLabel(item.created_at)}</Text>
                   </View>
                 )}
-                {/* Chat Bubbles Match */}
                 <View style={[styles.msgRow, isMine ? styles.msgRowMine : styles.msgRowTheirs]}>
                   {!isMine && isLastInGroup && (
                     <View style={[styles.msgAvatar, { backgroundColor: avatarColor }]}>
@@ -256,7 +309,6 @@ export default function ChatScreen() {
         />
       )}
 
-      {/* Chat Input Match */}
       <View style={styles.inputBar}>
         <TouchableOpacity style={styles.cameraBtn} activeOpacity={0.7}>
           <Camera size={24} color="#8E8E93" />
