@@ -329,12 +329,12 @@ const styles = StyleSheet.create({
   quickActionsGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm,
   },
-  qa: { width: (SW - SPACING.md * 2 - SPACING.sm * 2) / 3, alignItems: 'center', gap: 10 }, // Increased gap slightly for larger icon
+  qa: { width: (SW - SPACING.md * 2 - SPACING.sm * 2) / 3, alignItems: 'center', gap: 10 }, 
   qaIcon: {
-    width: 76, height: 76, borderRadius: RADIUS.xl, // Increased size from 60 to 76 and rounded corners more
+    width: 86, height: 86, borderRadius: RADIUS.xl, // Increased size to 86
     justifyContent: 'center', alignItems: 'center',
   },
-  qaLabel: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' }, // Bumped font size to 13
+  qaLabel: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
 
   bannersSection: {
     paddingTop: SPACING.md,
