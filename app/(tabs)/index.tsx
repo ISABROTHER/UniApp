@@ -184,7 +184,6 @@ export default function HomeScreen() {
       <OnboardingProgress compact={true} />
 
       <View style={styles.quickActionsSection}>
-        <Text style={styles.quickActionsTitle}>Quick Access</Text>
         <View style={styles.quickActionsGrid}>
           <TouchableOpacity style={styles.qa} onPress={() => router.push('/tenancy' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
@@ -301,22 +300,17 @@ const styles = StyleSheet.create({
   statsStrip: {
     flexDirection: 'row', 
     backgroundColor: COLORS.white,
-    paddingVertical: 10, // Much tighter spacing to close the gap to the borders
+    paddingVertical: 8,
     paddingHorizontal: SPACING.md,
     borderTopWidth: 1, 
     borderTopColor: COLORS.borderLight,
     borderBottomWidth: 1, 
     borderBottomColor: COLORS.borderLight,
   },
-  statItem: { 
-    flex: 1, 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    gap: 6 // Increased gap so the text breaks away from the number
-  },
-  statNum: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
-  statLabel: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textSecondary },
-  statDivider: { width: 1, backgroundColor: COLORS.borderLight, marginVertical: 4 },
+  statItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  statNum: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary, marginBottom: 2 },
+  statLabel: { fontFamily: FONT.regular, fontSize: 10, color: COLORS.textSecondary },
+  statDivider: { width: 1, backgroundColor: COLORS.borderLight, marginVertical: 2 },
   
   avatar: {
     width: 36, height: 36, borderRadius: 18,
@@ -329,12 +323,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.md,
-    paddingTop: SPACING.sm,
+    paddingTop: SPACING.md, // Slightly increased from sm to md to give it breathing room at the top
     marginTop: 1,
-  },
-  quickActionsTitle: {
-    fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.textSecondary,
-    textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: SPACING.sm,
   },
   quickActionsGrid: {
     flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm,
