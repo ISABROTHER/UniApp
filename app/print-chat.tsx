@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Platform, KeyboardAvoidingView, Dimensions,
+  Alert
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { ArrowLeft, Send, Shield, FileText, Lock } from 'lucide-react-native';
+import { ArrowLeft, Send, Shield, FileText, Lock, Check, CheckCheck } from 'lucide-react-native';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -48,7 +50,18 @@ export default function PrintChatScreen() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  
   const flatListRef = useRef<FlatList>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+
+  const showAlert = (title: string, msg: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}: ${msg}`);
+    } else {
+      Alert.alert(title, msg);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -64,15 +77,99 @@ export default function PrintChatScreen() {
       if (jobRes.data) setJob(jobRes.data as PrintJob);
       setMessages((msgsRes.data || []) as ChatMsg[]);
       setLoading(false);
+
+      // Mark unread messages as read upon entering
+      await supabase.from('print_chat_messages')
+        .update({ read: true })
+        .eq('job_id', jobId)
+        .eq('read', false)
+        .neq('sender_id', user.id);
     })();
   }, [jobId]);
+
+  // Real-time listener for live sync and read receipts
+  useEffect(() => {
+    if (!jobId || !currentUserId) return;
+
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+    }
+
+    channelRef.current = supabase
+      .channel(`print_chat_${jobId}_${Date.now()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'print_chat_messages',
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          const newMsg = payload.new as ChatMsg;
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            // Replace temporary optimistic message
+            if (prev.some((m) => m.id.startsWith('temp-') && m.content === newMsg.content && m.sender_id === newMsg.sender_id)) {
+              return prev.map((m) =>
+                m.id.startsWith('temp-') && m.content === newMsg.content && m.sender_id === newMsg.sender_id ? newMsg : m
+              );
+            }
+            return [...prev, newMsg];
+          });
+          setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+
+          // Mark as read if the shop sent it
+          if (newMsg.sender_id !== currentUserId && !newMsg.read) {
+            supabase.from('print_chat_messages').update({ read: true }).eq('id', newMsg.id).then(() => {});
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'print_chat_messages',
+          filter: `job_id=eq.${jobId}`,
+        },
+        (payload) => {
+          const updatedMsg = payload.new as ChatMsg;
+          setMessages((prev) => prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m)));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [jobId, currentUserId]);
 
   const sendMessage = async () => {
     if (!text.trim() || !currentUserId || !jobId) return;
     const content = text.trim();
     setText('');
+    setSending(true);
 
-    const { data: msg } = await supabase.from('print_chat_messages').insert({
+    // Optimistic UI update
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: ChatMsg = {
+      id: tempId,
+      job_id: jobId,
+      sender_id: currentUserId,
+      sender_role: 'student',
+      content,
+      read: false,
+      created_at: new Date().toISOString(),
+    };
+
+    setMessages(prev => [...prev, optimisticMsg]);
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
+
+    const { data: msg, error } = await supabase.from('print_chat_messages').insert({
       job_id: jobId,
       sender_id: currentUserId,
       sender_role: 'student',
@@ -80,10 +177,16 @@ export default function PrintChatScreen() {
       read: false,
     }).select().maybeSingle();
 
-    if (msg) {
-      setMessages(prev => [...prev, msg as ChatMsg]);
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 80);
+    if (error) {
+      console.error('Send error:', error);
+      showAlert('Delivery Failed', 'Message could not be sent.');
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setText(content);
+    } else if (msg) {
+      setMessages(prev => prev.map(m => m.id === tempId ? (msg as ChatMsg) : m));
     }
+
+    setSending(false);
   };
 
   const shopName = job?.shop?.name || 'Print Shop';
@@ -175,7 +278,20 @@ export default function PrintChatScreen() {
                   ]}>
                     {!isMine && <Text style={styles.senderRole}>{shopName}</Text>}
                     <Text style={[styles.bubbleText, isMine ? styles.myText : styles.theirText]}>{item.content}</Text>
-                    <Text style={[styles.bubbleTime, isMine ? styles.myTime : styles.theirTime]}>{formatMsgTime(item.created_at)}</Text>
+                    
+                    <View style={[styles.msgFooter, isMine ? styles.msgFooterMine : styles.msgFooterTheirs]}>
+                      <Text style={[styles.bubbleTime, isMine ? styles.myTime : styles.theirTime]}>{formatMsgTime(item.created_at)}</Text>
+                      {isMine && (
+                        <View style={styles.readStatus}>
+                          {item.read ? (
+                            <CheckCheck size={14} color="#4ADE80" />
+                          ) : (
+                            <Check size={14} color="rgba(255,255,255,0.7)" />
+                          )}
+                        </View>
+                      )}
+                    </View>
+
                   </View>
                 </View>
               </View>
@@ -197,10 +313,10 @@ export default function PrintChatScreen() {
         <TouchableOpacity
           style={styles.sendBtn}
           onPress={sendMessage}
-          disabled={!text.trim()}
+          disabled={!text.trim() || sending}
           activeOpacity={0.8}
         >
-          <Send size={16} color={text.trim() ? COLORS.accent : COLORS.textTertiary} strokeWidth={2.5} />
+          <Send size={16} color={text.trim() && !sending ? COLORS.accent : COLORS.textTertiary} strokeWidth={2.5} />
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -261,15 +377,20 @@ const styles = StyleSheet.create({
   bubbleText: { fontFamily: FONT.regular, fontSize: 15, lineHeight: 22 },
   myText: { color: COLORS.white },
   theirText: { color: COLORS.textPrimary },
-  bubbleTime: { fontFamily: FONT.regular, fontSize: 10, marginTop: 3, textAlign: 'right' },
+  
+  msgFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 3 },
+  msgFooterMine: { justifyContent: 'flex-end' },
+  msgFooterTheirs: { justifyContent: 'flex-start' },
+  bubbleTime: { fontFamily: FONT.regular, fontSize: 10, textAlign: 'right' },
   myTime: { color: 'rgba(255,255,255,0.7)' },
   theirTime: { color: COLORS.textTertiary },
+  readStatus: { marginLeft: 4 },
 
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end',
     backgroundColor: COLORS.white, borderTopWidth: 0.5, borderTopColor: COLORS.border,
     paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm,
-    paddingBottom: Platform.OS === 'web' ? SPACING.sm : 28, gap: SPACING.sm,
+    paddingBottom: Platform.OS === 'ios' ? 34 : SPACING.sm, gap: SPACING.sm,
   },
   input: {
     flex: 1, backgroundColor: COLORS.background, borderRadius: RADIUS.xl,
