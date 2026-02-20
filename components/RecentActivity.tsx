@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, FlatList, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { UserActivityLog } from '@/lib/types';
 import {
   Clock, Search, Heart, CalendarCheck, ShoppingBag,
-  Printer, Zap, Wrench, MessageSquare, Home, ChevronRight,
+  Printer, Zap, Wrench, MessageSquare, Home, ChevronRight, X
 } from 'lucide-react-native';
+
 function getIcon(iconName: string | null, actionType: string) {
   const name = iconName || actionType;
   if (name.includes('search')) return <Search size={16} color={COLORS.accent} />;
@@ -21,6 +22,7 @@ function getIcon(iconName: string | null, actionType: string) {
   if (name.includes('hostel') || name.includes('view')) return <Home size={16} color={COLORS.navy} />;
   return <Clock size={16} color={COLORS.textSecondary} />;
 }
+
 function getIconBg(actionType: string) {
   if (actionType.includes('search')) return COLORS.infoLight;
   if (actionType.includes('favourite')) return COLORS.primaryFaded;
@@ -32,6 +34,7 @@ function getIconBg(actionType: string) {
   if (actionType.includes('message')) return 'rgba(12,192,176,0.12)';
   return COLORS.background;
 }
+
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
@@ -43,10 +46,17 @@ function timeAgo(dateStr: string) {
   if (days < 7) return `${days}d ago`;
   return dateStr.slice(0, 10);
 }
+
 export default function RecentActivity() {
   const router = useRouter();
   const [activities, setActivities] = useState<UserActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Modal State
+  const [modalVisible, setModalVisible] = useState(false);
+  const [allActivities, setAllActivities] = useState<UserActivityLog[]>([]);
+  const [loadingAll, setLoadingAll] = useState(false);
+
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -56,11 +66,28 @@ export default function RecentActivity() {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(1); // Only show 1 on the homepage
       setActivities((data as UserActivityLog[]) || []);
       setLoading(false);
     })();
   }, []);
+
+  const openFullHistory = async () => {
+    setModalVisible(true);
+    setLoadingAll(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase
+        .from('user_activity_log')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50); // Fetch full history for the modal
+      setAllActivities((data as UserActivityLog[]) || []);
+    }
+    setLoadingAll(false);
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingWrap}>
@@ -69,6 +96,7 @@ export default function RecentActivity() {
     );
   }
   if (activities.length === 0) return null;
+
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
@@ -76,7 +104,17 @@ export default function RecentActivity() {
           <Clock size={16} color={COLORS.textSecondary} />
           <Text style={styles.sectionTitle}>Recent Activity</Text>
         </View>
+        <TouchableOpacity 
+          style={styles.seeAllBtn}
+          onPress={openFullHistory}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.seeAllText}>See All</Text>
+          <ChevronRight size={14} color={COLORS.primary} />
+        </TouchableOpacity>
       </View>
+
+      {/* Homepage Preview */}
       {activities.map((item) => (
         <View key={item.id} style={styles.row}>
           <View style={[styles.iconBox, { backgroundColor: getIconBg(item.action_type) }]}>
@@ -91,9 +129,55 @@ export default function RecentActivity() {
           </View>
         </View>
       ))}
+
+      {/* Full History Modal */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Activity History</Text>
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
+              <X size={24} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          {loadingAll ? (
+            <View style={styles.loadingWrapModal}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+            </View>
+          ) : (
+            <FlatList
+              data={allActivities}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.modalList}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <View style={styles.row}>
+                  <View style={[styles.iconBox, { backgroundColor: getIconBg(item.action_type) }]}>
+                    {getIcon(item.icon_name, item.action_type)}
+                  </View>
+                  <View style={styles.rowContent}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+                    {item.subtitle && (
+                      <Text style={styles.rowSub} numberOfLines={1}>{item.subtitle}</Text>
+                    )}
+                    <Text style={styles.rowTime}>{timeAgo(item.created_at)}</Text>
+                  </View>
+                </View>
+              )}
+              ListEmptyComponent={<Text style={styles.emptyText}>No recent activity found.</Text>}
+            />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
     backgroundColor: 'rgba(255,255,255,0.92)',
@@ -118,6 +202,16 @@ const styles = StyleSheet.create({
     fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.textSecondary,
     textTransform: 'uppercase', letterSpacing: 0.6,
   },
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  seeAllText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 13,
+    color: COLORS.primary,
+  },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
     paddingVertical: 10,
@@ -131,4 +225,44 @@ const styles = StyleSheet.create({
   rowTitle: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textPrimary, marginBottom: 2 },
   rowSub: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 },
   rowTime: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
+
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    paddingTop: Platform.OS === 'android' ? 24 : Platform.OS === 'ios' ? 12 : 0,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  modalTitle: {
+    fontFamily: FONT.headingBold,
+    fontSize: 18,
+    color: COLORS.textPrimary,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  modalList: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.xl,
+  },
+  loadingWrapModal: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontFamily: FONT.regular,
+    fontSize: 14,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+    marginTop: SPACING.xl,
+  }
 });
