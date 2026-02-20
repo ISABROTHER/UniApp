@@ -1,416 +1,264 @@
-app/index.tsx
-import { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Platform,
-  RefreshControl,
-  Dimensions,
-} from 'react-native';
+import { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, FlatList, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { UserStats } from '@/lib/types';
-import { useAuth } from '@/contexts/AuthContext';
-import NotificationBell from '@/components/NotificationBell';
-import RecentActivity from '@/components/RecentActivity';
-import OnboardingProgress from '@/components/OnboardingProgress';
-import { useActivityLogger, ensureUserStats } from '@/hooks/useRetention';
+import { UserActivityLog } from '@/lib/types';
 import {
-  Search,
-  Users,
-  Wrench,
-  ShoppingBag,
-  Printer,
-  FileText,
-  CreditCard,
-  ChevronRight,
-  Home,
-  Eye,
-  Heart,
-  CalendarCheck,
-  TrendingUp,
-  Bell,
+  Clock, Search, Heart, CalendarCheck, ShoppingBag,
+  Printer, Zap, Wrench, MessageSquare, Home, ChevronRight, X
 } from 'lucide-react-native';
-const { width: SW } = Dimensions.get('window');
-const BANNER_WIDTH = SW - SPACING.md * 2;
-const SERVICE_BANNERS = [
-  {
-    id: 'laundry',
-    title: 'Smart Wash',
-    subtitle: 'On-demand laundry pickup & delivery',
-    cta: 'Book Now',
-    route: '/(tabs)/laundry',
-    bg: ['#1A2332', '#2A3544'],
-    accent: '#4A90E2',
-    icon: ShoppingBag,
-  },
-  {
-    id: 'print',
-    title: 'Safe Print',
-    subtitle: 'Upload. Print. Pickup or Deliver.',
-    cta: 'Print Now',
-    route: '/print',
-    bg: ['#DC143C', '#B00F2F'],
-    accent: '#FFB3C1',
-    icon: Printer,
-  },
-  {
-    id: 'roommates',
-    title: 'Find Flatmates',
-    subtitle: 'Match with students who fit your lifestyle',
-    cta: 'Browse',
-    route: '/roommates',
-    bg: ['#16A34A', '#14532D'],
-    accent: '#BBF7D0',
-    icon: Users,
-  },
-];
-function ServiceBannerCard({ banner, onPress }: { banner: typeof SERVICE_BANNERS[number]; onPress: () => void }) {
-  const Icon = banner.icon;
-  return (
-    <TouchableOpacity style={[styles.banner, { backgroundColor: banner.bg[0] }]} onPress={onPress} activeOpacity={0.88}>
-      <View style={styles.bannerContent}>
-        <View style={[styles.bannerIconWrap, { backgroundColor: `${banner.accent}30` }]}>
-          <Icon size={26} color={banner.accent} />
-        </View>
-        <Text style={styles.bannerTitle}>{banner.title}</Text>
-        <Text style={styles.bannerSubtitle}>{banner.subtitle}</Text>
-        <View style={[styles.bannerCta, { backgroundColor: banner.accent }]}>
-          <Text style={[styles.bannerCtaText, { color: banner.bg[0] }]}>{banner.cta}</Text>
-          <ChevronRight size={14} color={banner.bg[0]} />
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+
+function getIcon(iconName: string | null, actionType: string) {
+  const name = iconName || actionType;
+  if (name.includes('search')) return <Search size={16} color={COLORS.accent} />;
+  if (name.includes('favourite') || name.includes('wishlist')) return <Heart size={16} color={COLORS.primary} />;
+  if (name.includes('booking')) return <CalendarCheck size={16} color={COLORS.success} />;
+  if (name.includes('laundry')) return <ShoppingBag size={16} color="#7C3AED" />;
+  if (name.includes('print')) return <Printer size={16} color={COLORS.success} />;
+  if (name.includes('utility') || name.includes('topup')) return <Zap size={16} color={COLORS.warning} />;
+  if (name.includes('maintenance')) return <Wrench size={16} color={COLORS.error} />;
+  if (name.includes('message')) return <MessageSquare size={16} color={COLORS.teal} />;
+  if (name.includes('hostel') || name.includes('view')) return <Home size={16} color={COLORS.navy} />;
+  return <Clock size={16} color={COLORS.textSecondary} />;
 }
-export default function HomeScreen() {
+
+function getIconBg(actionType: string) {
+  if (actionType.includes('search')) return COLORS.infoLight;
+  if (actionType.includes('favourite')) return COLORS.primaryFaded;
+  if (actionType.includes('booking')) return COLORS.successLight;
+  if (actionType.includes('laundry')) return '#EDE9FE';
+  if (actionType.includes('print')) return COLORS.successLight;
+  if (actionType.includes('utility')) return COLORS.warningLight;
+  if (actionType.includes('maintenance')) return COLORS.errorLight;
+  if (actionType.includes('message')) return 'rgba(12,192,176,0.12)';
+  return COLORS.background;
+}
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 7) return `${days}d ago`;
+  return dateStr.slice(0, 10);
+}
+
+export default function RecentActivity() {
   const router = useRouter();
-  const { member } = useAuth();
-  useActivityLogger();
-  const [refreshing, setRefreshing] = useState(false);
-  const [bannerIndex, setBannerIndex] = useState(0);
-  const [userStats, setUserStats] = useState<UserStats | null>(null);
-  const bannerScrollRef = useRef<ScrollView>(null);
+  const [activities, setActivities] = useState<UserActivityLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Modal State
+  const [modalVisible, setModalVisible] = useState(false);
+  const [allActivities, setAllActivities] = useState<UserActivityLog[]>([]);
+  const [loadingAll, setLoadingAll] = useState(false);
+
   useEffect(() => {
-    const interval = setInterval(() => {
-      const next = (bannerIndex + 1) % SERVICE_BANNERS.length;
-      setBannerIndex(next);
-      bannerScrollRef.current?.scrollTo({ x: next * (BANNER_WIDTH + SPACING.sm), animated: true });
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [bannerIndex]);
-  const fetchData = async () => {
-    try {
+    (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await ensureUserStats(user.id);
-        const { data: stats } = await supabase
-          .from('user_stats')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
-        setUserStats(stats as UserStats | null);
-      }
-    } catch (err) {
-      console.error('fetchData error:', err);
-    } finally {
-      setRefreshing(false);
+      if (!user) { setLoading(false); return; }
+
+      const { data } = await supabase
+        .from('user_activity_log')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1); // Keeps exactly 1 item visible on the homepage preview
+
+      setActivities((data as UserActivityLog[]) || []);
+      setLoading(false);
+    })();
+  }, []);
+
+  const openFullHistory = async () => {
+    setModalVisible(true);
+    setLoadingAll(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase
+        .from('user_activity_log')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50); // Fetch up to 50 for the full modal list
+      setAllActivities((data as UserActivityLog[]) || []);
     }
+    setLoadingAll(false);
   };
-  useEffect(() => { fetchData(); }, []);
-  const getGreeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingWrap}>
+        <ActivityIndicator size="small" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  if (activities.length === 0) return null;
+
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => { setRefreshing(true); fetchData(); }}
-          tintColor={COLORS.primary}
-        />
-      }
-    >
-      <View style={styles.header}>
+    <View style={styles.container}>
+      <View style={styles.headerRow}>
         <View style={styles.headerLeft}>
-          <Text style={styles.greetingText}>{getGreeting()},</Text>
-          <Text style={styles.headerTitle}>{member?.full_name?.split(' ')[0] || 'Student'}</Text>
+          <Clock size={16} color={COLORS.textSecondary} />
+          <Text style={styles.sectionTitle}>Recent Activity</Text>
         </View>
-        <NotificationBell size={22} color={COLORS.textPrimary} />
-        <TouchableOpacity
-          style={styles.avatar}
-          onPress={() => router.push('/(tabs)/profile' as any)}
+        <TouchableOpacity 
+          style={styles.seeAllBtn}
+          onPress={openFullHistory}
+          activeOpacity={0.7}
         >
-          <Text style={styles.avatarText}>{(member?.full_name || 'S')[0].toUpperCase()}</Text>
+          <Text style={styles.seeAllText}>See All</Text>
+          <ChevronRight size={14} color={COLORS.primary} />
         </TouchableOpacity>
       </View>
-      <TouchableOpacity style={styles.searchSection} onPress={() => router.push('/(tabs)/search' as any)} activeOpacity={0.8}>
-        <View style={styles.searchBar}>
-          <Search size={18} color={COLORS.primary} />
-          <Text style={styles.searchPlaceholder}>Search hostels, amenities...</Text>
-        </View>
-      </TouchableOpacity>
-      {userStats && (
-        <View style={styles.statsStrip}>
-          <View style={styles.statItem}>
-            <Eye size={14} color={COLORS.accent} />
-            <Text style={styles.statNum}>{userStats.hostels_viewed}</Text>
-            <Text style={styles.statLabel}>Viewed</Text>
+
+      {/* Preview Map (only 1 item) */}
+      {activities.map((item) => (
+        <View key={item.id} style={styles.row}>
+          <View style={[styles.iconBox, { backgroundColor: getIconBg(item.action_type) }]}>
+            {getIcon(item.icon_name, item.action_type)}
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Heart size={14} color={COLORS.primary} />
-            <Text style={styles.statNum}>{userStats.favourites_saved}</Text>
-            <Text style={styles.statLabel}>Saved</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <CalendarCheck size={14} color={COLORS.success} />
-            <Text style={styles.statNum}>{userStats.bookings_made}</Text>
-            <Text style={styles.statLabel}>Bookings</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <TrendingUp size={14} color={COLORS.warning} />
-            <Text style={styles.statNum}>{userStats.services_used}</Text>
-            <Text style={styles.statLabel}>Services</Text>
+          <View style={styles.rowContent}>
+            <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+            {item.subtitle && (
+              <Text style={styles.rowSub} numberOfLines={1}>{item.subtitle}</Text>
+            )}
+            <Text style={styles.rowTime}>{timeAgo(item.created_at)}</Text>
           </View>
         </View>
-      )}
-      <OnboardingProgress compact={true} />
-      <View style={styles.quickActionsSection}>
-        <Text style={styles.quickActionsTitle}>Quick Access</Text>
-        <View style={styles.quickActionsGrid}>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/tenancy' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
-              <FileText size={22} color={COLORS.info} />
-            </View>
-            <Text style={styles.qaLabel}>Tenancy</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/utilities' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
-              <ShoppingBag size={22} color={COLORS.warning} />
-            </View>
-            <Text style={styles.qaLabel}>StuMark</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/laundry' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#EDE9FE' }]}>
-              <ShoppingBag size={22} color='#7C3AED' />
-            </View>
-            <Text style={styles.qaLabel}>Laundry</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/print' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
-              <Printer size={22} color={COLORS.success} />
-            </View>
-            <Text style={styles.qaLabel}>Print</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/roommates' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
-              <Users size={22} color={COLORS.error} />
-            </View>
-            <Text style={styles.qaLabel}>Roommates</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/maintenance' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FFF7ED' }]}>
-              <Wrench size={22} color='#EA580C' />
-            </View>
-            <Text style={styles.qaLabel}>Repairs</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/messages' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
-              <Home size={22} color={COLORS.accent} />
-            </View>
-            <Text style={styles.qaLabel}>Messages</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/bookings' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
-              <CreditCard size={22} color={COLORS.warning} />
-            </View>
-            <Text style={styles.qaLabel}>Bookings</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/notifications' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#F0FDF4' }]}>
-              <Bell size={22} color={COLORS.success} />
-            </View>
-            <Text style={styles.qaLabel}>Alerts</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-      <View style={styles.bannersSection}>
-        <View style={styles.sectionRow}>
-          <Text style={styles.sectionTitle}>Campus Services</Text>
-          <View style={styles.bannerDots}>
-            {SERVICE_BANNERS.map((_, i) => (
-              <View key={i} style={[styles.bannerDot, i === bannerIndex && styles.bannerDotActive]} />
-            ))}
+      ))}
+
+      {/* Full History Modal */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Activity History</Text>
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
+              <X size={24} color={COLORS.textPrimary} />
+            </TouchableOpacity>
           </View>
-        </View>
-        <ScrollView
-          ref={bannerScrollRef}
-          horizontal
-          pagingEnabled={false}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.bannersScroll}
-          onMomentumScrollEnd={(e) => {
-            const idx = Math.round(e.nativeEvent.contentOffset.x / (BANNER_WIDTH + SPACING.sm));
-            setBannerIndex(Math.min(idx, SERVICE_BANNERS.length - 1));
-          }}
-          snapToInterval={BANNER_WIDTH + SPACING.sm}
-          decelerationRate="fast"
-        >
-          {SERVICE_BANNERS.map((b) => (
-            <ServiceBannerCard
-              key={b.id}
-              banner={b}
-              onPress={() => router.push(b.route as any)}
+
+          {loadingAll ? (
+            <View style={styles.loadingWrapModal}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+            </View>
+          ) : (
+            <FlatList
+              data={allActivities}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.modalList}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <View style={styles.row}>
+                  <View style={[styles.iconBox, { backgroundColor: getIconBg(item.action_type) }]}>
+                    {getIcon(item.icon_name, item.action_type)}
+                  </View>
+                  <View style={styles.rowContent}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+                    {item.subtitle && (
+                      <Text style={styles.rowSub} numberOfLines={1}>{item.subtitle}</Text>
+                    )}
+                    <Text style={styles.rowTime}>{timeAgo(item.created_at)}</Text>
+                  </View>
+                </View>
+              )}
+              ListEmptyComponent={<Text style={styles.emptyText}>No recent activity found.</Text>}
             />
-          ))}
-        </ScrollView>
-      </View>
-      <RecentActivity />
-      <View style={{ height: 32 }} />
-    </ScrollView>
+          )}
+        </View>
+      </Modal>
+    </View>
   );
 }
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    paddingTop: Platform.OS === 'web' ? 20 : 56,
-    paddingBottom: SPACING.md,
+  container: {
+    backgroundColor: COLORS.white,
+    marginTop: SPACING.sm,
     paddingHorizontal: SPACING.md,
-    gap: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.35)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 6,
+    paddingVertical: SPACING.md,
   },
-  headerLeft: { flex: 1 },
-  greetingText: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary },
-  headerTitle: { fontFamily: FONT.headingBold, fontSize: 24, color: COLORS.textPrimary },
-  statsStrip: {
-    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.88)',
-    paddingVertical: SPACING.md, paddingHorizontal: SPACING.md,
-    marginTop: 1, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  statItem: { flex: 1, alignItems: 'center', gap: 3 },
-  statNum: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
-  statLabel: { fontFamily: FONT.regular, fontSize: 10, color: COLORS.textSecondary },
-  statDivider: { width: 1, backgroundColor: COLORS.borderLight, marginVertical: 4 },
-  avatar: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: COLORS.primary,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  avatarText: { fontFamily: FONT.bold, fontSize: 14, color: COLORS.white },
-  searchSection: {
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.md,
-  },
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center', height: 48,
-    backgroundColor: 'rgba(255,255,255,0.75)',
-    borderRadius: 24,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)',
-    paddingHorizontal: SPACING.md, gap: SPACING.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  searchPlaceholder: { flex: 1, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textTertiary },
-  quickActionsSection: {
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.md,
-    paddingTop: SPACING.sm,
-    marginTop: 1,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  quickActionsTitle: {
-    fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.textSecondary,
-    textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: SPACING.sm,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm,
-  },
-  qa: { width: (SW - SPACING.md * 2 - SPACING.sm * 2) / 3, alignItems: 'center', gap: 8 },
-  qaIcon: {
-    width: 60, height: 60, borderRadius: RADIUS.lg,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  qaLabel: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' },
-  bannersSection: {
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.md,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    marginTop: 1,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.07,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-  sectionRow: {
+  loadingWrap: { padding: SPACING.md, alignItems: 'center' },
+  headerRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: SPACING.md, marginBottom: SPACING.sm,
-  },
-  bannerDots: { flexDirection: 'row', gap: 5 },
-  bannerDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.border },
-  bannerDotActive: { width: 18, backgroundColor: COLORS.primary },
-  bannersScroll: {
-    paddingHorizontal: SPACING.md, gap: SPACING.sm,
-  },
-  banner: {
-    width: BANNER_WIDTH,
-    borderRadius: RADIUS.xl,
-    overflow: 'hidden',
-    padding: SPACING.lg,
-  },
-  bannerContent: {},
-  bannerIconWrap: {
-    width: 52, height: 52, borderRadius: RADIUS.md,
-    justifyContent: 'center', alignItems: 'center',
     marginBottom: SPACING.sm,
   },
-  bannerTitle: { fontFamily: FONT.headingBold, fontSize: 20, color: COLORS.white, marginBottom: 4 },
-  bannerSubtitle: { fontFamily: FONT.regular, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: SPACING.md },
-  bannerCta: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    alignSelf: 'flex-start', borderRadius: RADIUS.full,
-    paddingHorizontal: 14, paddingVertical: 8,
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sectionTitle: {
+    fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.6,
   },
-  bannerCtaText: { fontFamily: FONT.semiBold, fontSize: 13 },
-  sectionTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
-  seeAll: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
-});
+  seeAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  seeAllText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 13,
+    color: COLORS.primary,
+  },
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+  },
+  iconBox: {
+    width: 36, height: 36, borderRadius: RADIUS.sm,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  rowContent: { flex: 1 },
+  rowTitle: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textPrimary, marginBottom: 2 },
+  rowSub: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 },
+  rowTime: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
+
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    paddingTop: Platform.OS === 'android' ? 24 : Platform.OS === 'ios' ? 12 : 0,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  modalTitle: {
+    fontFamily: FONT.headingBold,
+    fontSize: 18,
+    color: COLORS.textPrimary,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  modalList: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.xl,
+  },
+  loadingWrapModal: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontFamily: FONT.regular,
+    fontSize: 14,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+    marginTop: SPACING.xl,
+  }
+}); 
