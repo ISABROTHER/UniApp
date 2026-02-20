@@ -14,7 +14,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { ChevronLeft, Send, Camera } from 'lucide-react-native';
+import { ChevronLeft, Send, Camera, Check, CheckCheck } from 'lucide-react-native';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 const { width: SW } = Dimensions.get('window');
@@ -139,6 +139,19 @@ export default function ChatScreen() {
           if (currentUserId && newMsg.receiver_id === currentUserId && !newMsg.read) {
             supabase.from('messages').update({ read: true }).eq('id', newMsg.id).then(() => {});
           }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+          filter: `thread_id=eq.${resolvedThreadId}`,
+        },
+        (payload) => {
+          const updatedMsg = payload.new as Msg;
+          setMessages((prev) => prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m)));
         }
       )
       .subscribe();
@@ -318,7 +331,21 @@ export default function ChatScreen() {
           )}
           <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
             <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>{item.content}</Text>
-            <Text style={[styles.bubbleTime, isMe && styles.bubbleTimeMe]}>{formatMsgTime(item.created_at)}</Text>
+            
+            <View style={[styles.msgFooter, isMe ? styles.msgFooterMe : styles.msgFooterOther]}>
+              <Text style={[styles.bubbleTime, isMe && styles.bubbleTimeMe]}>{formatMsgTime(item.created_at)}</Text>
+              
+              {isMe && (
+                <View style={styles.readStatus}>
+                  {item.read ? (
+                    <CheckCheck size={14} color="#4ADE80" /> // Green double check for Read
+                  ) : (
+                    <Check size={14} color="rgba(255,255,255,0.7)" /> // Faded single check for Unread/Sent
+                  )}
+                </View>
+              )}
+            </View>
+
           </View>
         </View>
       </View>
@@ -431,8 +458,13 @@ const styles = StyleSheet.create({
   bubbleOther: { backgroundColor: COLORS.white, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: COLORS.border },
   bubbleText: { fontFamily: FONT.regular, fontSize: 15, color: COLORS.textPrimary, lineHeight: 21 },
   bubbleTextMe: { color: COLORS.white },
-  bubbleTime: { fontFamily: FONT.regular, fontSize: 10, color: COLORS.textTertiary, marginTop: 4, textAlign: 'right' },
+  
+  msgFooter: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  msgFooterMe: { justifyContent: 'flex-end' },
+  msgFooterOther: { justifyContent: 'flex-start' },
+  bubbleTime: { fontFamily: FONT.regular, fontSize: 10, color: COLORS.textTertiary },
   bubbleTimeMe: { color: 'rgba(255,255,255,0.7)' },
+  readStatus: { marginLeft: 4 },
 
   inputBar: {
     flexDirection: 'row',
@@ -440,7 +472,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.sm,
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 12, // Specifically fixed for iOS home indicator
+    paddingBottom: Platform.OS === 'ios' ? 34 : 12,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     gap: 8,
