@@ -297,15 +297,22 @@ const styles = StyleSheet.create({
   headerLeft: { flex: 1 },
   greetingText: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary },
   headerTitle: { fontFamily: FONT.headingBold, fontSize: 24, color: COLORS.textPrimary },
+  
   statsStrip: {
-    flexDirection: 'row', backgroundColor: COLORS.white,
-    paddingVertical: SPACING.md, paddingHorizontal: SPACING.md,
-    marginTop: 1, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+    flexDirection: 'row', 
+    backgroundColor: COLORS.white,
+    paddingVertical: SPACING.md, 
+    paddingHorizontal: SPACING.md,
+    borderTopWidth: 1, 
+    borderTopColor: COLORS.borderLight,
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.borderLight,
   },
   statItem: { flex: 1, alignItems: 'center', gap: 3 },
   statNum: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
   statLabel: { fontFamily: FONT.regular, fontSize: 10, color: COLORS.textSecondary },
   statDivider: { width: 1, backgroundColor: COLORS.borderLight, marginVertical: 4 },
+  
   avatar: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: COLORS.primary,
@@ -373,4 +380,4 @@ const styles = StyleSheet.create({
 
   sectionTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
   seeAll: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
-}); 
+});
