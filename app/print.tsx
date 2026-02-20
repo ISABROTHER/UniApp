@@ -27,13 +27,11 @@ import {
   Shield,
   AlertCircle,
 } from 'lucide-react-native';
-
 // --- Design Constants based on your Flutter UI ---
 const BRAND_GREEN = '#00B37D';
 const TEXT_DARK = '#1F1F1F';
 const TEXT_MUTED = '#8A8A8A';
 const BG_COLOR = '#F6F7F8';
-
 const PRINT_STATUS_STEPS = [
   { key: 'pending', label: 'Order Placed', icon: Clock },
   { key: 'processing', label: 'Printing', icon: Printer },
@@ -41,7 +39,6 @@ const PRINT_STATUS_STEPS = [
   { key: 'out_for_delivery', label: 'On the Way', icon: Truck },
   { key: 'completed', label: 'Delivered', icon: CheckCircle },
 ];
-
 const STATUS_COLORS: Record<string, string> = {
   pending: '#F59E0B',
   processing: '#3B82F6',
@@ -50,7 +47,6 @@ const STATUS_COLORS: Record<string, string> = {
   completed: BRAND_GREEN,
   cancelled: '#EF4444',
 };
-
 // --- Types from original file ---
 type PrintShop = {
   id: string;
@@ -65,7 +61,6 @@ type PrintShop = {
   supports_pickup: boolean;
   operating_hours: string;
 };
-
 type PrintJob = {
   id: string;
   shop_id: string;
@@ -94,11 +89,9 @@ type PrintJob = {
   safe_print_agreed: boolean;
   shop?: PrintShop;
 };
-
 function getStepIndex(status: string) {
   return PRINT_STATUS_STEPS.findIndex((s) => s.key === status);
 }
-
 function timeSince(ts: string) {
   const d = new Date(ts);
   const diff = Date.now() - d.getTime();
@@ -107,7 +100,6 @@ function timeSince(ts: string) {
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
   return d.toLocaleDateString('en-GH', { day: 'numeric', month: 'short' });
 }
-
 function deletionCountdown(scheduledAt: string | null) {
   if (!scheduledAt) return null;
   const remaining = new Date(scheduledAt).getTime() - Date.now();
@@ -115,7 +107,6 @@ function deletionCountdown(scheduledAt: string | null) {
   const mins = Math.ceil(remaining / 60000);
   return `${mins}m remaining`;
 }
-
 // --- Subcomponents ---
 const KeyValueRow = ({ label, value, valueColor = TEXT_DARK }: { label: string; value: string; valueColor?: string }) => (
   <View style={styles.keyValueRow}>
@@ -123,7 +114,6 @@ const KeyValueRow = ({ label, value, valueColor = TEXT_DARK }: { label: string; 
     <Text style={[styles.valueLabel, { color: valueColor }]}>{value}</Text>
   </View>
 );
-
 export default function PrintScreen() {
   const router = useRouter();
   const [tab, setTab] = useState<'new' | 'jobs'>('new');
@@ -134,7 +124,6 @@ export default function PrintScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
-
   const fetchData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -158,17 +147,13 @@ export default function PrintScreen() {
       setRefreshing(false);
     }
   };
-
   useFocusEffect(useCallback(() => { fetchData(); }, []));
-
   const activeJobs = jobs.filter((j) => !['completed', 'cancelled'].includes(j.status));
   const pastJobs = jobs.filter((j) => ['completed', 'cancelled'].includes(j.status));
-
   const onRefresh = () => {
     setRefreshing(true);
     fetchData();
   };
-
   return (
     <View style={styles.container}>
       {/* AppBar matching Flutter design */}
@@ -184,7 +169,6 @@ export default function PrintScreen() {
           <Text style={styles.walletText}>GH₵{wallet.toFixed(2)}</Text>
         </TouchableOpacity>
       </View>
-
       {/* TabBar matching Flutter design */}
       <View style={styles.tabBar}>
         <TouchableOpacity
@@ -207,10 +191,8 @@ export default function PrintScreen() {
           </Text>
         </TouchableOpacity>
       </View>
-
       <ScrollView
-        style={{ flex: 1 }}   {/* ← This fixes overlapping */}
-        contentContainerStyle={styles.listContainer}
+        contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + 140 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND_GREEN} />}
       >
@@ -282,7 +264,6 @@ export default function PrintScreen() {
     </View>
   );
 }
-
 // Adapted JobCard using the exact new aesthetic
 function JobCard({ job, router, onRefresh }: { job: PrintJob; router: any; onRefresh: () => void }) {
   const stepIdx = getStepIndex(job.status);
@@ -291,12 +272,10 @@ function JobCard({ job, router, onRefresh }: { job: PrintJob; router: any; onRef
   const countdown = deletionCountdown(job.deletion_scheduled_at);
   const fileDeleted = !!job.file_deleted_at;
   const statusLabel = PRINT_STATUS_STEPS.find((s) => s.key === job.status)?.label || job.status.toUpperCase();
-
   const toggleKeepFile = async () => {
     await supabase.from('print_jobs').update({ sender_file_kept: !job.sender_file_kept }).eq('id', job.id);
     onRefresh();
   };
-
   return (
     <TouchableOpacity
       style={styles.cardContainer}
@@ -318,7 +297,6 @@ function JobCard({ job, router, onRefresh }: { job: PrintJob; router: any; onRef
           <Text style={styles.pickupBoxValue}>{job.pickup_code}</Text>
         </View>
       )}
-
       {/* Progress & Actions */}
       <View style={styles.jobActionsRow}>
         <View style={styles.progressFlex}>
@@ -328,13 +306,9 @@ function JobCard({ job, router, onRefresh }: { job: PrintJob; router: any; onRef
             </Text>
           )}
           {fileDeleted ? (
-            <Text style={{ color: BRAND_GREEN, fontFamily: FONT.semiBold, fontSize: 13, marginTop: 4 }}>
-              File securely deleted
-            </Text>
+            <Text style={{ color: BRAND_GREEN, fontWeight: '600', fontSize: 13, marginTop: 4 }}>File securely deleted</Text>
           ) : countdown ? (
-            <Text style={{ color: '#EF4444', fontFamily: FONT.semiBold, fontSize: 13, marginTop: 4 }}>
-              Deletes in {countdown}
-            </Text>
+            <Text style={{ color: '#EF4444', fontWeight: '600', fontSize: 13, marginTop: 4 }}>Deletes in {countdown}</Text>
           ) : null}
         </View>
         <TouchableOpacity
@@ -347,19 +321,17 @@ function JobCard({ job, router, onRefresh }: { job: PrintJob; router: any; onRef
           <MessageSquare size={18} color="#FFF" />
         </TouchableOpacity>
       </View>
-
       {job.printer_confirmed_at && !fileDeleted && !job.sender_file_kept && (
         <>
-          <View style={styles.spacingSmall} />
-          <TouchableOpacity onPress={toggleKeepFile} style={styles.keepBtn} activeOpacity={0.9}>
-            <Text style={styles.keepBtnText}>Keep file (Don't auto-delete)</Text>
-          </TouchableOpacity>
+           <View style={styles.spacingSmall} />
+           <TouchableOpacity onPress={toggleKeepFile} style={styles.keepBtn} activeOpacity={0.9}>
+             <Text style={styles.keepBtnText}>Keep file (Don't auto-delete)</Text>
+           </TouchableOpacity>
         </>
       )}
     </TouchableOpacity>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -373,7 +345,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
-    height: Platform.OS === 'android' ? 76 : 60,
+    height: Platform.OS === 'android' ? 76 : 60, // Accommodate safe area
     paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
@@ -385,9 +357,9 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   appBarTitle: {
-    fontFamily: FONT.semiBold,
     color: '#000000',
     fontSize: 18,
+    fontWeight: '700',
     alignSelf: 'flex-end',
     paddingBottom: 6,
   },
@@ -403,8 +375,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   walletText: {
-    fontFamily: FONT.semiBold,
     fontSize: 14,
+    fontWeight: '700',
+    color: BRAND_GREEN,
   },
   // --- Tab Bar Styles ---
   tabBar: {
@@ -423,8 +396,8 @@ const styles = StyleSheet.create({
     borderBottomColor: BRAND_GREEN,
   },
   tabText: {
-    fontFamily: FONT.semiBold,
     fontSize: 16,
+    fontWeight: '600',
   },
   activeTabText: {
     color: BRAND_GREEN,
@@ -435,7 +408,6 @@ const styles = StyleSheet.create({
   // --- List Styles ---
   listContainer: {
     padding: 16,
-    paddingBottom: 40,
     backgroundColor: BG_COLOR,
     flexGrow: 1,
   },
@@ -444,9 +416,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyStateText: {
-    fontFamily: FONT.regular,
     fontSize: 16,
     color: TEXT_MUTED,
+    fontWeight: '500',
   },
   // --- Card Styles ---
   cardContainer: {
@@ -463,15 +435,15 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   cardTitle: {
-    fontFamily: FONT.semiBold,
     color: TEXT_DARK,
     fontSize: 22,
+    fontWeight: '800',
     letterSpacing: 0.2,
   },
   cardSubtitle: {
-    fontFamily: FONT.regular,
     color: TEXT_MUTED,
     fontSize: 13,
+    fontWeight: '600',
     letterSpacing: 0.3,
     marginTop: 4,
   },
@@ -483,19 +455,19 @@ const styles = StyleSheet.create({
   },
   keyLabel: {
     flex: 1,
-    fontFamily: FONT.semiBold,
     color: TEXT_MUTED,
     fontSize: 15,
+    fontWeight: '700',
   },
   valueLabel: {
-    fontFamily: FONT.semiBold,
     fontSize: 15,
+    fontWeight: '600',
   },
   // --- Routes / List ---
   routesHeader: {
-    fontFamily: FONT.semiBold,
     color: TEXT_MUTED,
     fontSize: 15,
+    fontWeight: '700',
   },
   routesList: {
     paddingLeft: 8,
@@ -511,9 +483,9 @@ const styles = StyleSheet.create({
   },
   routeText: {
     flex: 1,
-    fontFamily: FONT.regular,
     fontSize: 15,
     color: TEXT_DARK,
+    fontWeight: '500',
   },
   // --- Buttons & Specific Job UI ---
   buyButton: {
@@ -525,9 +497,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buyButtonText: {
-    fontFamily: FONT.semiBold,
     color: '#FFFFFF',
     fontSize: 18,
+    fontWeight: '700',
   },
   jobActionsRow: {
     flexDirection: 'row',
@@ -557,16 +529,16 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   pickupBoxLabel: {
-    fontFamily: FONT.semiBold,
     color: BRAND_GREEN,
     fontSize: 11,
+    fontWeight: '700',
     marginBottom: 2,
     letterSpacing: 0.5,
   },
   pickupBoxValue: {
-    fontFamily: FONT.semiBold,
     color: BRAND_GREEN,
     fontSize: 20,
+    fontWeight: '800',
     letterSpacing: 2,
   },
   keepBtn: {
@@ -578,12 +550,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   keepBtnText: {
-    fontFamily: FONT.semiBold,
     color: TEXT_DARK,
     fontSize: 15,
+    fontWeight: '600',
   },
   // --- Spacers ---
   spacingTiny: { height: 8 },
   spacingSmall: { height: 12 },
   spacingMedium: { height: 14 },
-});
+}); 
