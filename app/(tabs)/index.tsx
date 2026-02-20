@@ -20,14 +20,10 @@ import OnboardingProgress from '@/components/OnboardingProgress';
 import { useActivityLogger, ensureUserStats } from '@/hooks/useRetention';
 import {
   Users,
-  Wrench,
   ShoppingBag,
   Printer,
-  FileText,
-  CreditCard,
   ChevronRight,
   Home,
-  Bell,
 } from 'lucide-react-native';
 
 const { width: SW } = Dimensions.get('window');
@@ -204,63 +200,45 @@ export default function HomeScreen() {
 
       <OnboardingProgress compact={true} />
 
-      {/* Quick Access Grid (Restored) */}
+      {/* Simplified Quick Access Grid */}
       <View style={styles.quickActionsSection}>
         <View style={styles.quickActionsGrid}>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/tenancy' as any)}>
+          
+          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/bookings' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
-              <FileText size={22} color={COLORS.info} />
+              <Home size={22} color={COLORS.accent} />
             </View>
-            <Text style={styles.qaLabel}>Tenancy</Text>
+            <Text style={styles.qaLabel}>Housing</Text>
           </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/laundry' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#EDE9FE' }]}>
+              <ShoppingBag size={22} color='#7C3AED' />
+            </View>
+            <Text style={styles.qaLabel}>Smart Wash</Text>
+          </TouchableOpacity>
+          
           <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/utilities' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
               <ShoppingBag size={22} color={COLORS.warning} />
             </View>
             <Text style={styles.qaLabel}>StuMark</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/laundry' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#EDE9FE' }]}>
-              <ShoppingBag size={22} color='#7C3AED' />
-            </View>
-            <Text style={styles.qaLabel}>Laundry</Text>
-          </TouchableOpacity>
+          
           <TouchableOpacity style={styles.qa} onPress={() => router.push('/print' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
               <Printer size={22} color={COLORS.success} />
             </View>
-            <Text style={styles.qaLabel}>Print</Text>
+            <Text style={styles.qaLabel}>DigiPrint</Text>
           </TouchableOpacity>
+          
           <TouchableOpacity style={styles.qa} onPress={() => router.push('/roommates' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
               <Users size={22} color={COLORS.error} />
             </View>
             <Text style={styles.qaLabel}>Roommates</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/maintenance' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FFF7ED' }]}>
-              <Wrench size={22} color='#EA580C' />
-            </View>
-            <Text style={styles.qaLabel}>Repairs</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/messages' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
-              <Home size={22} color={COLORS.accent} />
-            </View>
-            <Text style={styles.qaLabel}>Messages</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/bookings' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
-              <CreditCard size={22} color={COLORS.warning} />
-            </View>
-            <Text style={styles.qaLabel}>Bookings</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/notifications' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#F0FDF4' }]}>
-              <Bell size={22} color={COLORS.success} />
-            </View>
-            <Text style={styles.qaLabel}>Alerts</Text>
-          </TouchableOpacity>
+
         </View>
       </View>
 
