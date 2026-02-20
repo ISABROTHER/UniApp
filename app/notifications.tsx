@@ -112,13 +112,13 @@ export default function NotificationsScreen() {
   };
 
   const notifIcon = (type: string) => {
-    if (type.includes('booking')) return <Calendar size={18} color={COLORS.primary} />;
-    if (type.includes('maintenance')) return <Wrench size={18} color={COLORS.error} />;
-    if (type.includes('tenancy') || type.includes('agreement')) return <FileText size={18} color={COLORS.accent} />;
-    if (type.includes('utility') || type.includes('topup')) return <Zap size={18} color={COLORS.warning} />;
-    if (type.includes('message')) return <MessageSquare size={18} color={COLORS.teal} />;
-    if (type.includes('review')) return <Star size={18} color={COLORS.gold} />;
-    return <Bell size={18} color={COLORS.textSecondary} />;
+    if (type.includes('booking')) return <Calendar size={20} color={COLORS.primary} />;
+    if (type.includes('maintenance')) return <Wrench size={20} color={COLORS.error} />;
+    if (type.includes('tenancy') || type.includes('agreement')) return <FileText size={20} color={COLORS.accent} />;
+    if (type.includes('utility') || type.includes('topup')) return <Zap size={20} color={COLORS.warning} />;
+    if (type.includes('message')) return <MessageSquare size={20} color={COLORS.teal} />;
+    if (type.includes('review')) return <Star size={20} color={COLORS.gold} />;
+    return <Bell size={20} color={COLORS.textSecondary} />;
   };
 
   const notifIconBg = (type: string) => {
@@ -128,7 +128,7 @@ export default function NotificationsScreen() {
     if (type.includes('utility') || type.includes('topup')) return COLORS.warningLight;
     if (type.includes('message')) return 'rgba(12,192,176,0.1)';
     if (type.includes('review')) return 'rgba(245,158,11,0.1)';
-    return COLORS.background;
+    return 'rgba(142,142,147,0.1)';
   };
 
   const timeAgo = (dateStr: string) => {
@@ -148,108 +148,258 @@ export default function NotificationsScreen() {
 
   return (
     <View style={styles.container}>
+      {/* 1. Glassmorphism on the Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <ArrowLeft size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
+        
+        {/* 6. Polished Action Buttons */}
         <View style={styles.headerActions}>
           {unreadCount > 0 && (
-            <TouchableOpacity style={styles.markAllBtn} onPress={markAllRead}>
+            <TouchableOpacity style={styles.markAllBtn} onPress={markAllRead} activeOpacity={0.7}>
               <CheckCheck size={16} color={COLORS.primary} />
               <Text style={styles.markAllText}>Mark all read</Text>
             </TouchableOpacity>
           )}
           {readCount > 0 && (
-            <TouchableOpacity style={styles.clearBtn} onPress={clearAllRead}>
-              <Trash2 size={14} color={COLORS.textSecondary} />
+            <TouchableOpacity style={styles.clearBtn} onPress={clearAllRead} activeOpacity={0.7}>
+              <Trash2 size={16} color={COLORS.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
+      {/* 5. Premium Unread Banner */}
       {unreadCount > 0 && (
         <View style={styles.unreadBanner}>
-          <Bell size={14} color={COLORS.primary} />
+          <Bell size={16} color={COLORS.primary} />
           <Text style={styles.unreadText}>{unreadCount} unread notification{unreadCount !== 1 ? 's' : ''}</Text>
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.content}
+      >
         {loading ? (
           <Text style={styles.loadingText}>Loading...</Text>
         ) : notifications.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Bell size={48} color={COLORS.textTertiary} />
+          
+          /* 7. Enhanced Empty State */
+          <View style={styles.emptyStateCard}>
+            <View style={styles.emptyIconBg}>
+              <Bell size={36} color={COLORS.textTertiary} />
+            </View>
             <Text style={styles.emptyTitle}>No Notifications</Text>
             <Text style={styles.emptySubtitle}>You're all caught up! Notifications about bookings, payments, and messages will appear here.</Text>
           </View>
+          
         ) : (
           notifications.map((n) => (
+            
+            /* 2 & 3 & 4. Glassmorphism, Airy Layout, Stronger Unread on Cards */
             <TouchableOpacity
               key={n.id}
               style={[styles.notifCard, !n.read && styles.notifCardUnread]}
               onPress={() => markRead(n.id)}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
             >
               <View style={[styles.iconBox, { backgroundColor: notifIconBg(n.type) }]}>
                 {notifIcon(n.type)}
               </View>
+              
               <View style={styles.notifBody}>
                 <View style={styles.notifTitleRow}>
-                  <Text style={[styles.notifTitle, !n.read && styles.notifTitleUnread]} numberOfLines={1}>{n.title}</Text>
+                  <Text style={[styles.notifTitle, !n.read && styles.notifTitleUnread]} numberOfLines={1}>
+                    {n.title}
+                  </Text>
                   {!n.read && <View style={styles.unreadDot} />}
                 </View>
                 <Text style={styles.notifText} numberOfLines={2}>{n.message}</Text>
                 <Text style={styles.notifTime}>{timeAgo(n.created_at)}</Text>
               </View>
+              
               {n.read && (
                 <TouchableOpacity
                   style={styles.deleteBtn}
                   onPress={() => deleteNotification(n.id)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  activeOpacity={0.6}
                 >
-                  <Trash2 size={14} color={COLORS.textTertiary} />
+                  <Trash2 size={16} color={COLORS.textTertiary} />
                 </TouchableOpacity>
               )}
             </TouchableOpacity>
           ))
         )}
-        <View style={{ height: 24 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: COLORS.white, flexDirection: 'row', alignItems: 'center', paddingTop: Platform.OS === 'web' ? 20 : 56, paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, gap: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontFamily: FONT.heading, fontSize: 18, color: COLORS.textPrimary, flex: 1 },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  markAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  markAllText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.primary },
-  clearBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#F7F7F9' // Slightly cooler off-white background to make glass pop
+  },
+  
+  header: { 
+    backgroundColor: 'rgba(255,255,255,0.92)', 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    paddingTop: Platform.OS === 'web' ? 20 : 56, 
+    paddingHorizontal: SPACING.md, 
+    paddingBottom: SPACING.md, 
+    gap: SPACING.sm, 
+    borderBottomWidth: 1, 
+    borderBottomColor: 'rgba(255,255,255,0.3)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 4,
+    zIndex: 10,
+  },
+  backBtn: { 
+    width: 40, height: 40, 
+    borderRadius: RADIUS.full, 
+    backgroundColor: 'rgba(0,0,0,0.03)', 
+    justifyContent: 'center', alignItems: 'center' 
+  },
+  headerTitle: { 
+    fontFamily: FONT.heading, fontSize: 18, color: COLORS.textPrimary, flex: 1 
+  },
+  headerActions: { 
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm 
+  },
+  markAllBtn: { 
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(220,20,60,0.06)', // Very subtle primary background
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: RADIUS.full,
+  },
+  markAllText: { 
+    fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary 
+  },
+  clearBtn: { 
+    width: 36, height: 36, 
+    borderRadius: RADIUS.full, 
+    backgroundColor: 'rgba(0,0,0,0.03)', 
+    justifyContent: 'center', alignItems: 'center' 
+  },
 
-  unreadBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.primaryFaded, paddingHorizontal: SPACING.md, paddingVertical: 10 },
-  unreadText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.primary },
+  unreadBanner: { 
+    flexDirection: 'row', alignItems: 'center', gap: 10, 
+    backgroundColor: 'rgba(255,255,255,0.85)', 
+    paddingHorizontal: SPACING.lg, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(220,20,60,0.1)',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+    zIndex: 5,
+  },
+  unreadText: { 
+    fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.primary 
+  },
 
-  content: { padding: SPACING.md },
-  loadingText: { textAlign: 'center', marginTop: 60, fontFamily: FONT.regular, fontSize: 15, color: COLORS.textSecondary },
+  content: { 
+    padding: SPACING.md,
+    paddingTop: SPACING.lg,
+  },
+  loadingText: { 
+    textAlign: 'center', marginTop: 60, fontFamily: FONT.regular, fontSize: 15, color: COLORS.textSecondary 
+  },
 
-  emptyState: { alignItems: 'center', paddingTop: 80, paddingHorizontal: SPACING.xl },
-  emptyTitle: { fontFamily: FONT.heading, fontSize: 20, color: COLORS.textPrimary, marginTop: SPACING.md, marginBottom: SPACING.sm },
-  emptySubtitle: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
+  emptyStateCard: { 
+    alignItems: 'center', 
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    marginTop: SPACING.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.4)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 15,
+    elevation: 4,
+  },
+  emptyIconBg: {
+    width: 80, height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  emptyTitle: { 
+    fontFamily: FONT.heading, fontSize: 20, color: COLORS.textPrimary, marginBottom: 8 
+  },
+  emptySubtitle: { 
+    fontFamily: FONT.regular, fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 24 
+  },
 
-  notifCard: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.sm, gap: SPACING.sm, borderWidth: 1, borderColor: COLORS.border },
-  notifCardUnread: { borderColor: COLORS.primary, backgroundColor: 'rgba(220,20,60,0.02)' },
-  iconBox: { width: 44, height: 44, borderRadius: RADIUS.md, justifyContent: 'center', alignItems: 'center' },
+  notifCard: { 
+    flexDirection: 'row', alignItems: 'flex-start', 
+    backgroundColor: 'rgba(255,255,255,0.92)', 
+    borderRadius: RADIUS.xl, 
+    padding: SPACING.lg, 
+    marginBottom: SPACING.md, 
+    gap: SPACING.md, 
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  notifCardUnread: { 
+    borderColor: 'rgba(220,20,60,0.15)', 
+    backgroundColor: 'rgba(220,20,60,0.02)', // Very soft warm tint
+    borderLeftWidth: 4, // Left accent bar
+    borderLeftColor: COLORS.primary,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+  },
+  iconBox: { 
+    width: 48, height: 48, 
+    borderRadius: RADIUS.md, 
+    justifyContent: 'center', alignItems: 'center' 
+  },
   notifBody: { flex: 1 },
-  notifTitleRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: 3 },
-  notifTitle: { fontFamily: FONT.medium, fontSize: 14, color: COLORS.textPrimary, flex: 1 },
-  notifTitleUnread: { fontFamily: FONT.semiBold },
-  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary },
-  notifText: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, lineHeight: 20, marginBottom: 4 },
-  notifTime: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
-  deleteBtn: { padding: 4 },
+  notifTitleRow: { 
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: 4 
+  },
+  notifTitle: { 
+    fontFamily: FONT.medium, fontSize: 15, color: COLORS.textPrimary, flex: 1 
+  },
+  notifTitleUnread: { 
+    fontFamily: FONT.bold, color: COLORS.textPrimary // Fully bold for unread
+  },
+  unreadDot: { 
+    width: 10, height: 10, 
+    borderRadius: 5, 
+    backgroundColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  notifText: { 
+    fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, lineHeight: 22, marginBottom: 6 
+  },
+  notifTime: { 
+    fontFamily: FONT.medium, fontSize: 12, color: COLORS.textTertiary 
+  },
+  deleteBtn: { 
+    padding: 6,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderRadius: RADIUS.full,
+  },
 });
