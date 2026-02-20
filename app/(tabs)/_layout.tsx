@@ -17,58 +17,48 @@ function TabIcon({
   focused: boolean;
   color: string;
 }) {
-  const labelOpacity = useRef(new Animated.Value(focused ? 1 : 0)).current;
-  const labelTranslateY = useRef(new Animated.Value(focused ? 0 : 5)).current;
-  const iconTranslateY = useRef(new Animated.Value(focused ? -3 : 3)).current;
+  const iconScale = useRef(new Animated.Value(focused ? 1.15 : 1)).current;
+  const iconTranslateY = useRef(new Animated.Value(focused ? -6 : 0)).current;
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(labelOpacity, {
-        toValue: focused ? 1 : 0,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.timing(labelTranslateY, {
-        toValue: focused ? 0 : 5,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
+      Animated.timing(iconScale, {
+        toValue: focused ? 1.15 : 1,
+        duration: 280,
+        easing: Easing.out(Easing.back(1.4)),
         useNativeDriver: true,
       }),
       Animated.timing(iconTranslateY, {
-        toValue: focused ? -3 : 3,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
+        toValue: focused ? -6 : 0,
+        duration: 280,
+        easing: Easing.out(Easing.back(1.4)),
         useNativeDriver: true,
       }),
     ]).start();
   }, [focused]);
   return (
     <View style={[styles.iconOuter, { width: TAB_WIDTH }]}>
-      <Animated.View style={{ transform: [{ translateY: iconTranslateY }] }}>
+      <Animated.View
+        style={{
+          transform: [
+            { translateY: iconTranslateY },
+            { scale: iconScale },
+          ],
+        }}
+      >
         <Icon
           size={24}
           color={color}
-          strokeWidth={focused ? 2.2 : 1.6}
+          strokeWidth={focused ? 2.4 : 1.6}
           fill={focused && Icon === Heart ? color : 'none'}
         />
       </Animated.View>
-      <Animated.View
-        style={[
-          styles.labelWrapper,
-          {
-            opacity: labelOpacity,
-            transform: [{ translateY: labelTranslateY }],
-          },
-        ]}
+      <Text
+        style={[styles.label, { color, fontFamily: FONT.semiBold }]}
+        numberOfLines={1}
+        allowFontScaling={false}
       >
-        <Text
-          style={[styles.label, { color, fontFamily: FONT.semiBold }]}
-          numberOfLines={1}
-          allowFontScaling={false}
-        >
-          {label}
-        </Text>
-      </Animated.View>
+        {label}
+      </Text>
     </View>
   );
 }
@@ -150,15 +140,9 @@ const styles = StyleSheet.create({
   iconOuter: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 58,
-    paddingTop: 10,
-  },
-  labelWrapper: {
-    position: 'absolute',
-    bottom: 2,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
+    height: 62,
+    paddingTop: 8,
+    gap: 4,
   },
   label: {
     fontSize: 12,
