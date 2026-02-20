@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
   },
   qa: { width: (SW - SPACING.md * 2 - SPACING.sm * 2) / 3, alignItems: 'center', gap: 10 }, 
   qaIcon: {
-    width: 86, height: 86, borderRadius: RADIUS.xl, // Increased size to 86
+    width: 90, height: 90, borderRadius: RADIUS.xl, // Increased size to 90
     justifyContent: 'center', alignItems: 'center',
   },
   qaLabel: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
