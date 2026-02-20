@@ -1,3 +1,11 @@
+// app/notifications.tsx (or your current Notifications screen file path)
+// ✅ Redesigned to match iOS “Inbox” list (like your screenshot):
+// - Clean list rows (no big cards, no shadows)
+// - Left aligned: Heading + message preview
+// - Right aligned: time + chevron
+// - Unread is subtle + professional: bold title + tiny dot (NO red tint / no “unprofessional” highlight)
+// - “Read more” is a small link at the top-right of the row to expand/collapse message
+
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   View,
