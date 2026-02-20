@@ -301,16 +301,21 @@ const styles = StyleSheet.create({
   statsStrip: {
     flexDirection: 'row', 
     backgroundColor: COLORS.white,
-    paddingVertical: SPACING.md, 
+    paddingVertical: 10, // Much tighter spacing to close the gap to the borders
     paddingHorizontal: SPACING.md,
     borderTopWidth: 1, 
     borderTopColor: COLORS.borderLight,
     borderBottomWidth: 1, 
     borderBottomColor: COLORS.borderLight,
   },
-  statItem: { flex: 1, alignItems: 'center', gap: 3 },
+  statItem: { 
+    flex: 1, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    gap: 6 // Increased gap so the text breaks away from the number
+  },
   statNum: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
-  statLabel: { fontFamily: FONT.regular, fontSize: 10, color: COLORS.textSecondary },
+  statLabel: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textSecondary },
   statDivider: { width: 1, backgroundColor: COLORS.borderLight, marginVertical: 4 },
   
   avatar: {
