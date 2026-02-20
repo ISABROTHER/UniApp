@@ -17,20 +17,20 @@ function TabIcon({
   focused: boolean;
   color: string;
 }) {
-  const iconScale = useRef(new Animated.Value(focused ? 1.15 : 1)).current;
-  const iconTranslateY = useRef(new Animated.Value(focused ? -6 : 0)).current;
+  const iconScale = useRef(new Animated.Value(focused ? 1.1 : 1)).current;
+  const iconTranslateY = useRef(new Animated.Value(focused ? -4 : 0)).current;
   useEffect(() => {
     Animated.parallel([
       Animated.timing(iconScale, {
-        toValue: focused ? 1.15 : 1,
-        duration: 280,
-        easing: Easing.out(Easing.back(1.4)),
+        toValue: focused ? 1.1 : 1,
+        duration: 260,
+        easing: Easing.out(Easing.back(1.2)),
         useNativeDriver: true,
       }),
       Animated.timing(iconTranslateY, {
-        toValue: focused ? -6 : 0,
-        duration: 280,
-        easing: Easing.out(Easing.back(1.4)),
+        toValue: focused ? -4 : 0,
+        duration: 260,
+        easing: Easing.out(Easing.back(1.2)),
         useNativeDriver: true,
       }),
     ]).start();
@@ -140,8 +140,8 @@ const styles = StyleSheet.create({
   iconOuter: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 62,
-    paddingTop: 8,
+    height: 68,
+    paddingTop: 6,
     gap: 4,
   },
   label: {
