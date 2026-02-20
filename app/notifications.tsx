@@ -9,6 +9,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 
 // Enforce San Francisco on iOS, Roboto on Android, system-ui on Web
 const SYSTEM_FONT = Platform.select({ ios: 'System', android: 'Roboto', web: 'system-ui' });
+const IOS_BLUE = '#007AFF';
 
 export default function NotificationsScreen() {
   const router = useRouter();
@@ -86,15 +87,15 @@ export default function NotificationsScreen() {
     }
   };
 
-  // Apple-style small top icons
+  // Apple-style small top icons, now matching the requested Blue theme
   const getCategoryDetails = (type: string) => {
-    if (type.includes('booking')) return { icon: <Calendar size={12} color={COLORS.white} />, bg: COLORS.primary, label: 'BOOKING' };
-    if (type.includes('maintenance')) return { icon: <Wrench size={12} color={COLORS.white} />, bg: COLORS.error, label: 'MAINTENANCE' };
-    if (type.includes('tenancy') || type.includes('agreement')) return { icon: <FileText size={12} color={COLORS.white} />, bg: COLORS.accent, label: 'TENANCY' };
-    if (type.includes('utility') || type.includes('topup')) return { icon: <Zap size={12} color={COLORS.white} />, bg: COLORS.warning, label: 'UTILITY' };
-    if (type.includes('message')) return { icon: <MessageSquare size={12} color={COLORS.white} />, bg: COLORS.teal, label: 'MESSAGE' };
-    if (type.includes('review')) return { icon: <Star size={12} color={COLORS.white} />, bg: COLORS.gold, label: 'REVIEW' };
-    return { icon: <Bell size={12} color={COLORS.white} />, bg: COLORS.textTertiary, label: 'SYSTEM' };
+    if (type.includes('booking')) return { icon: <Calendar size={12} color={COLORS.white} />, bg: IOS_BLUE, label: 'BOOKING' };
+    if (type.includes('maintenance')) return { icon: <Wrench size={12} color={COLORS.white} />, bg: IOS_BLUE, label: 'MAINTENANCE' };
+    if (type.includes('tenancy') || type.includes('agreement')) return { icon: <FileText size={12} color={COLORS.white} />, bg: IOS_BLUE, label: 'TENANCY' };
+    if (type.includes('utility') || type.includes('topup')) return { icon: <Zap size={12} color={COLORS.white} />, bg: IOS_BLUE, label: 'UTILITY' };
+    if (type.includes('message')) return { icon: <MessageSquare size={12} color={COLORS.white} />, bg: IOS_BLUE, label: 'MESSAGE' };
+    if (type.includes('review')) return { icon: <Star size={12} color={COLORS.white} />, bg: IOS_BLUE, label: 'REVIEW' };
+    return { icon: <Bell size={12} color={COLORS.white} />, bg: IOS_BLUE, label: 'SYSTEM' };
   };
 
   const timeAgo = (dateStr: string) => {
@@ -126,7 +127,7 @@ export default function NotificationsScreen() {
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {loading ? (
-          <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 60 }} />
+          <ActivityIndicator size="large" color={IOS_BLUE} style={{ marginTop: 60 }} />
         ) : notifications.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No Older Notifications</Text>
@@ -217,7 +218,7 @@ const styles = StyleSheet.create({
     fontFamily: SYSTEM_FONT,
     fontWeight: '400',
     fontSize: 16,
-    color: '#007AFF', // Authentic iOS Blue
+    color: IOS_BLUE, // Authentic iOS Blue
   },
 
   content: { 
@@ -313,7 +314,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#007AFF', // iOS Blue
+    backgroundColor: IOS_BLUE, // iOS Blue
   },
 
   deleteBtn: {
