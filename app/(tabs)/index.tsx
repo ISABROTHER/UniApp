@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   },
   statItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   statNum: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary, marginBottom: 2 },
-  statLabel: { fontFamily: FONT.regular, fontSize: 10, color: COLORS.textSecondary },
+  statLabel: { fontFamily: FONT.semiBold, fontSize: 11, color: COLORS.textPrimary },
   statDivider: { width: 1, backgroundColor: COLORS.borderLight, marginVertical: 2 },
   
   avatar: {
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.md,
-    paddingTop: SPACING.md, // Slightly increased from sm to md to give it breathing room at the top
+    paddingTop: SPACING.md,
     marginTop: 1,
   },
   quickActionsGrid: {
