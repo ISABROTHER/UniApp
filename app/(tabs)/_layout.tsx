@@ -140,8 +140,8 @@ const styles = StyleSheet.create({
   iconOuter: {
     alignItems: 'center',
     justifyContent: 'center',
-    height: 78,
-    paddingTop: 26,
+    height: 82,
+    paddingTop: 34,
     gap: 6,
   },
   label: {
