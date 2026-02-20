@@ -64,19 +64,19 @@ type OtherMember = { id: string; full_name: string; faculty?: string };
 export default function ChatScreen() {
   const router = useRouter();
   const { threadId, name, ownerId } = useLocalSearchParams<{ threadId: string; name: string; ownerId: string }>();
-  
+
   const [messages, setMessages] = useState<Msg[]>([]);
   const [otherMember, setOtherMember] = useState<OtherMember | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [targetUserId, setTargetUserId] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
   const [resolvedThreadId, setResolvedThreadId] = useState<string | null>(threadId || null);
-  
+
   const flatListRef = useRef<FlatList>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // Cross-platform alert fallback
   const showAlert = (title: string, msg: string) => {
     if (Platform.OS === 'web') {
       window.alert(`${title}: ${msg}`);
@@ -96,11 +96,10 @@ export default function ChatScreen() {
 
       if (threadId) {
         await loadThread(user.id, threadId);
-      } else if (ownerId) {
+      } else if (ownerId && ownerId !== 'undefined' && ownerId !== 'null') {
         await getOrCreateThread(user.id, ownerId);
       } else {
-        // Fallback if neither is provided
-        await getOrCreateThread(user.id, 'undefined');
+        await getOrCreateThread(user.id, 'a0000000-0000-0000-0000-000000000001');
       }
     })();
   }, [threadId, ownerId]);
@@ -175,14 +174,13 @@ export default function ChatScreen() {
   const getOrCreateThread = async (userId: string, targetOwnerId: string) => {
     try {
       let safeTargetId = targetOwnerId;
-      
-      // Fallback logic using the specific Demo Owner UUID from your SQL file
+
       if (!safeTargetId || safeTargetId === 'undefined' || safeTargetId === 'null') {
-        safeTargetId = 'a0000000-0000-0000-0000-000000000001'; 
+        safeTargetId = 'a0000000-0000-0000-0000-000000000001';
       }
 
-      setTargetUserId(safeTargetId); 
-      
+      setTargetUserId(safeTargetId);
+
       const { data: member } = await supabase.from('members').select('id, full_name, faculty').eq('id', safeTargetId).maybeSingle();
       if (member) setOtherMember(member as OtherMember);
 
@@ -196,20 +194,24 @@ export default function ChatScreen() {
         setResolvedThreadId(existing.id);
         await fetchMessages(userId, existing.id);
       } else {
-        const { data: newThread } = await supabase
+        const { data: newThread, error } = await supabase
           .from('message_threads')
           .insert({ participant_1: userId, participant_2: safeTargetId })
           .select('id')
           .maybeSingle();
 
-        if (newThread) {
+        if (error) {
+          showAlert('Error', 'Could not start conversation. Please try again.');
+          console.error('Thread creation error:', error);
+        } else if (newThread) {
           setResolvedThreadId(newThread.id);
           setMessages([]);
         }
-        setLoading(false); 
+        setLoading(false);
       }
     } catch (err) {
       console.error('getOrCreateThread error:', err);
+      showAlert('Error', 'Failed to load chat. Please try again.');
       setLoading(false);
     }
   };
@@ -231,11 +233,236 @@ export default function ChatScreen() {
     } catch (err) {
       console.error('fetchMessages error:', err);
     } finally {
-      setLoading(false); 
+      setLoading(false);
     }
 
     await supabase.from('messages')
       .update({ read: true })
       .eq('thread_id', tId)
       .eq('receiver_id', userId)
-      .eq
+      .eq('read', false);
+  };
+
+  const sendMessage = async () => {
+    const content = text.trim();
+    if (!content) return;
+
+    if (!currentUserId) {
+      showAlert('Error', 'You must be logged in to send messages.');
+      return;
+    }
+
+    if (!targetUserId) {
+      showAlert('Error', 'No recipient found. The hostel owner may not be available.');
+      return;
+    }
+
+    if (!resolvedThreadId) {
+      showAlert('Error', 'Chat not ready. Please wait a moment and try again.');
+      return;
+    }
+
+    setSending(true);
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: Msg = {
+      id: tempId,
+      thread_id: resolvedThreadId,
+      sender_id: currentUserId,
+      receiver_id: targetUserId,
+      content,
+      read: false,
+      created_at: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    setText('');
+    setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
+
+    const { error } = await supabase.from('messages').insert({
+      thread_id: resolvedThreadId,
+      sender_id: currentUserId,
+      receiver_id: targetUserId,
+      content,
+    });
+
+    if (error) {
+      console.error('Send message error:', error);
+      showAlert('Send Failed', 'Your message could not be sent. Please try again.');
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setText(content);
+    }
+
+    setSending(false);
+  };
+
+  const displayName = name || otherMember?.full_name || 'Chat';
+  const avatarColor = getAvatarColor(displayName);
+
+  const renderMessage = ({ item, index }: { item: Msg; index: number }) => {
+    const isMe = item.sender_id === currentUserId;
+    const prevMsg = messages[index - 1];
+    const showDateLabel = !prevMsg || new Date(item.created_at).toDateString() !== new Date(prevMsg.created_at).toDateString();
+
+    return (
+      <View>
+        {showDateLabel && (
+          <View style={styles.dateLabelWrap}>
+            <Text style={styles.dateLabel}>{formatDateLabel(item.created_at)}</Text>
+          </View>
+        )}
+        <View style={[styles.msgRow, isMe ? styles.msgRowMe : styles.msgRowOther]}>
+          {!isMe && (
+            <View style={[styles.avatarSmall, { backgroundColor: avatarColor }]}>
+              <Text style={styles.avatarSmallText}>{getInitials(displayName)}</Text>
+            </View>
+          )}
+          <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleOther]}>
+            <Text style={[styles.bubbleText, isMe && styles.bubbleTextMe]}>{item.content}</Text>
+            <Text style={[styles.bubbleTime, isMe && styles.bubbleTimeMe]}>{formatMsgTime(item.created_at)}</Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <ChevronLeft size={24} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+          <Text style={styles.avatarText}>{getInitials(displayName)}</Text>
+        </View>
+        <View style={styles.headerInfo}>
+          <Text style={styles.headerName} numberOfLines={1}>{displayName}</Text>
+          {otherMember?.faculty && <Text style={styles.headerSub}>{otherMember.faculty}</Text>}
+        </View>
+      </View>
+
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <Text style={styles.loadingText}>Loading messages...</Text>
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderMessage}
+          contentContainerStyle={styles.messagesList}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyText}>No messages yet. Say hello!</Text>
+            </View>
+          }
+        />
+      )}
+
+      <View style={styles.inputBar}>
+        <TouchableOpacity style={styles.cameraBtn}>
+          <Camera size={22} color={COLORS.textSecondary} />
+        </TouchableOpacity>
+        <TextInput
+          style={styles.input}
+          placeholder="Type a message..."
+          placeholderTextColor={COLORS.textTertiary}
+          value={text}
+          onChangeText={setText}
+          multiline
+          maxLength={1000}
+        />
+        <TouchableOpacity
+          style={[styles.sendBtn, (!text.trim() || sending) && styles.sendBtnDisabled]}
+          onPress={sendMessage}
+          disabled={!text.trim() || sending}
+        >
+          <Send size={20} color={text.trim() && !sending ? COLORS.white : COLORS.textTertiary} />
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    paddingTop: Platform.OS === 'web' ? 16 : 56,
+    paddingBottom: 12,
+    paddingHorizontal: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    gap: SPACING.sm,
+  },
+  backBtn: { padding: 4 },
+  avatar: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  avatarText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
+  headerInfo: { flex: 1 },
+  headerName: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.textPrimary },
+  headerSub: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
+
+  loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary },
+
+  messagesList: { padding: SPACING.md, paddingBottom: 8 },
+  emptyWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 60 },
+  emptyText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textTertiary },
+
+  dateLabelWrap: { alignItems: 'center', marginVertical: 12 },
+  dateLabel: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textTertiary, backgroundColor: COLORS.white, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 },
+
+  msgRow: { flexDirection: 'row', marginBottom: 8, alignItems: 'flex-end' },
+  msgRowMe: { justifyContent: 'flex-end' },
+  msgRowOther: { justifyContent: 'flex-start' },
+
+  avatarSmall: { width: 28, height: 28, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 8 },
+  avatarSmallText: { fontFamily: FONT.semiBold, fontSize: 10, color: COLORS.white },
+
+  bubble: { maxWidth: SW * 0.72, paddingHorizontal: 14, paddingVertical: 10, borderRadius: RADIUS.lg },
+  bubbleMe: { backgroundColor: COLORS.primary, borderBottomRightRadius: 4 },
+  bubbleOther: { backgroundColor: COLORS.white, borderBottomLeftRadius: 4, borderWidth: 1, borderColor: COLORS.border },
+  bubbleText: { fontFamily: FONT.regular, fontSize: 15, color: COLORS.textPrimary, lineHeight: 21 },
+  bubbleTextMe: { color: COLORS.white },
+  bubbleTime: { fontFamily: FONT.regular, fontSize: 10, color: COLORS.textTertiary, marginTop: 4, textAlign: 'right' },
+  bubbleTimeMe: { color: 'rgba(255,255,255,0.7)' },
+
+  inputBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: COLORS.white,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    gap: 8,
+  },
+  cameraBtn: { padding: 8 },
+  input: {
+    flex: 1,
+    fontFamily: FONT.regular,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    maxHeight: 100,
+  },
+  sendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendBtnDisabled: { backgroundColor: COLORS.background },
+});
