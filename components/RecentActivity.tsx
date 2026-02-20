@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, FlatList, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { UserActivityLog } from '@/lib/types';
 import {
   Clock, Search, Heart, CalendarCheck, ShoppingBag,
-  Printer, Zap, Wrench, MessageSquare, Home, ChevronRight,
+  Printer, Zap, Wrench, MessageSquare, Home, ChevronRight, X
 } from 'lucide-react-native';
 
 function getIcon(iconName: string | null, actionType: string) {
@@ -52,6 +52,11 @@ export default function RecentActivity() {
   const [activities, setActivities] = useState<UserActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Modal State
+  const [modalVisible, setModalVisible] = useState(false);
+  const [allActivities, setAllActivities] = useState<UserActivityLog[]>([]);
+  const [loadingAll, setLoadingAll] = useState(false);
+
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -62,12 +67,28 @@ export default function RecentActivity() {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(1); // Keeps exactly 1 item visible on the homepage preview
 
       setActivities((data as UserActivityLog[]) || []);
       setLoading(false);
     })();
   }, []);
+
+  const openFullHistory = async () => {
+    setModalVisible(true);
+    setLoadingAll(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase
+        .from('user_activity_log')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50); // Fetch up to 50 for the full modal list
+      setAllActivities((data as UserActivityLog[]) || []);
+    }
+    setLoadingAll(false);
+  };
 
   if (loading) {
     return (
@@ -88,7 +109,7 @@ export default function RecentActivity() {
         </View>
         <TouchableOpacity 
           style={styles.seeAllBtn}
-          onPress={() => console.log('Navigate to full history')}
+          onPress={openFullHistory}
           activeOpacity={0.7}
         >
           <Text style={styles.seeAllText}>See All</Text>
@@ -96,6 +117,7 @@ export default function RecentActivity() {
         </TouchableOpacity>
       </View>
 
+      {/* Preview Map (only 1 item) */}
       {activities.map((item) => (
         <View key={item.id} style={styles.row}>
           <View style={[styles.iconBox, { backgroundColor: getIconBg(item.action_type) }]}>
@@ -110,6 +132,51 @@ export default function RecentActivity() {
           </View>
         </View>
       ))}
+
+      {/* Full History Modal */}
+      <Modal
+        visible={modalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Activity History</Text>
+            <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
+              <X size={24} color={COLORS.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          {loadingAll ? (
+            <View style={styles.loadingWrapModal}>
+              <ActivityIndicator size="large" color={COLORS.primary} />
+            </View>
+          ) : (
+            <FlatList
+              data={allActivities}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.modalList}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <View style={styles.row}>
+                  <View style={[styles.iconBox, { backgroundColor: getIconBg(item.action_type) }]}>
+                    {getIcon(item.icon_name, item.action_type)}
+                  </View>
+                  <View style={styles.rowContent}>
+                    <Text style={styles.rowTitle} numberOfLines={1}>{item.title}</Text>
+                    {item.subtitle && (
+                      <Text style={styles.rowSub} numberOfLines={1}>{item.subtitle}</Text>
+                    )}
+                    <Text style={styles.rowTime}>{timeAgo(item.created_at)}</Text>
+                  </View>
+                </View>
+              )}
+              ListEmptyComponent={<Text style={styles.emptyText}>No recent activity found.</Text>}
+            />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -154,4 +221,44 @@ const styles = StyleSheet.create({
   rowTitle: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textPrimary, marginBottom: 2 },
   rowSub: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 },
   rowTime: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
+
+  // Modal Styles
+  modalContainer: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    paddingTop: Platform.OS === 'android' ? 24 : Platform.OS === 'ios' ? 12 : 0,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  modalTitle: {
+    fontFamily: FONT.headingBold,
+    fontSize: 18,
+    color: COLORS.textPrimary,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  modalList: {
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.xl,
+  },
+  loadingWrapModal: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontFamily: FONT.regular,
+    fontSize: 14,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+    marginTop: SPACING.xl,
+  }
 });
