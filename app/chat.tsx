@@ -14,6 +14,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { ChevronLeft, Send, Camera } from 'lucide-react-native';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -72,8 +73,8 @@ export default function ChatScreen() {
   const [resolvedThreadId, setResolvedThreadId] = useState<string | null>(threadId || null);
   
   const flatListRef = useRef<FlatList>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
-  // 1. Initial Load
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -88,12 +89,15 @@ export default function ChatScreen() {
     })();
   }, [threadId, ownerId]);
 
-  // 2. Realtime Subscription (Makes the chat truly "Live")
   useEffect(() => {
     if (!resolvedThreadId) return;
 
-    const channel = supabase
-      .channel(`messages_${resolvedThreadId}`)
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+    }
+
+    channelRef.current = supabase
+      .channel(`chat_${resolvedThreadId}_${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -105,19 +109,32 @@ export default function ChatScreen() {
         (payload) => {
           const newMsg = payload.new as Msg;
           setMessages((prev) => {
-            // Prevent duplicates if we already added it locally via optimistic UI
             if (prev.some((m) => m.id === newMsg.id)) return prev;
+            if (prev.some((m) => m.id.startsWith('temp-') && m.content === newMsg.content && m.sender_id === newMsg.sender_id)) {
+              return prev.map((m) =>
+                m.id.startsWith('temp-') && m.content === newMsg.content && m.sender_id === newMsg.sender_id
+                  ? newMsg
+                  : m
+              );
+            }
             return [...prev, newMsg];
           });
           setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+
+          if (currentUserId && newMsg.receiver_id === currentUserId && !newMsg.read) {
+            supabase.from('messages').update({ read: true }).eq('id', newMsg.id).then(() => {});
+          }
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
-  }, [resolvedThreadId]);
+  }, [resolvedThreadId, currentUserId]);
 
   const loadThread = async (userId: string, tId: string) => {
     const { data: thread } = await supabase

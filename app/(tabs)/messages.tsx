@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Search, Edit, CheckCheck, Menu } from 'lucide-react-native';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 const BUBBLE_COLORS = [
   '#DC143C', '#4A90E2', '#16A34A', '#F59E0B', '#0CC0B0',
@@ -57,6 +58,7 @@ export default function MessagesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const fetchThreads = async () => {
     try {
@@ -126,6 +128,45 @@ export default function MessagesScreen() {
   };
 
   useFocusEffect(useCallback(() => { fetchThreads(); }, []));
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    channelRef.current = supabase
+      .channel('messages_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          const newMsg = payload.new as any;
+          if (newMsg.sender_id === currentUserId || newMsg.receiver_id === currentUserId) {
+            fetchThreads();
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'message_threads',
+        },
+        () => {
+          fetchThreads();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+    };
+  }, [currentUserId]);
 
   const filtered = threads.filter((t) => {
     if (!search.trim()) return true;
