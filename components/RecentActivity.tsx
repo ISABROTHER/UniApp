@@ -62,7 +62,7 @@ export default function RecentActivity() {
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(4); // Modern standard: Keep homepage preview tightly limited to 3 or 4
+        .limit(1);
 
       setActivities((data as UserActivityLog[]) || []);
       setLoading(false);
@@ -87,8 +87,8 @@ export default function RecentActivity() {
           <Text style={styles.sectionTitle}>Recent Activity</Text>
         </View>
         <TouchableOpacity 
-          style={styles.seeAllBtn} 
-          onPress={() => console.log("Navigate to full history screen")}
+          style={styles.seeAllBtn}
+          onPress={() => console.log('Navigate to full history')}
           activeOpacity={0.7}
         >
           <Text style={styles.seeAllText}>See All</Text>
