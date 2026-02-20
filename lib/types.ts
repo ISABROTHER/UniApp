@@ -304,10 +304,9 @@ export interface Notification {
   user_id: string;
   type: string;
   title: string;
-  body: string;
+  message: string;
   data: Record<string, unknown> | null;
-  is_read: boolean;
-  read_at: string | null;
+  read: boolean;
   created_at: string;
 }
 

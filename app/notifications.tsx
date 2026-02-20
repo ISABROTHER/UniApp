@@ -1,23 +1,81 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Notification } from '@/lib/types';
-import { ArrowLeft, Bell, CheckCheck, Calendar, Wrench, FileText, Zap, AlertCircle, MessageSquare, Star } from 'lucide-react-native';
+import { ArrowLeft, Bell, CheckCheck, Calendar, Wrench, FileText, Zap, AlertCircle, MessageSquare, Star, Trash2 } from 'lucide-react-native';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   useFocusEffect(useCallback(() => {
     fetchNotifications();
   }, []));
 
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    channelRef.current = supabase
+      .channel('notifications_realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${currentUserId}`,
+        },
+        (payload) => {
+          const newNotif = payload.new as Notification;
+          setNotifications((prev) => [newNotif, ...prev]);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${currentUserId}`,
+        },
+        (payload) => {
+          const updated = payload.new as Notification;
+          setNotifications((prev) =>
+            prev.map((n) => (n.id === updated.id ? updated : n))
+          );
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'notifications',
+        },
+        (payload) => {
+          const deleted = payload.old as { id: string };
+          setNotifications((prev) => prev.filter((n) => n.id !== deleted.id));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+      }
+    };
+  }, [currentUserId]);
+
   const fetchNotifications = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
+    setCurrentUserId(user.id);
 
     const { data } = await supabase.from('notifications')
       .select('*')
@@ -30,15 +88,27 @@ export default function NotificationsScreen() {
   };
 
   const markRead = async (id: string) => {
-    await supabase.from('notifications').update({ is_read: true, read_at: new Date().toISOString() }).eq('id', id);
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    await supabase.from('notifications').update({ read: true }).eq('id', id);
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
   const markAllRead = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from('notifications').update({ is_read: true, read_at: new Date().toISOString() }).eq('user_id', user.id).eq('is_read', false);
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
+  const deleteNotification = async (id: string) => {
+    await supabase.from('notifications').delete().eq('id', id);
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  const clearAllRead = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from('notifications').delete().eq('user_id', user.id).eq('read', true);
+    setNotifications(prev => prev.filter(n => !n.read));
   };
 
   const notifIcon = (type: string) => {
@@ -73,7 +143,8 @@ export default function NotificationsScreen() {
     return dateStr.slice(0, 10);
   };
 
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const readCount = notifications.filter(n => n.read).length;
 
   return (
     <View style={styles.container}>
@@ -82,12 +153,19 @@ export default function NotificationsScreen() {
           <ArrowLeft size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-        {unreadCount > 0 && (
-          <TouchableOpacity style={styles.markAllBtn} onPress={markAllRead}>
-            <CheckCheck size={16} color={COLORS.primary} />
-            <Text style={styles.markAllText}>Mark all read</Text>
-          </TouchableOpacity>
-        )}
+        <View style={styles.headerActions}>
+          {unreadCount > 0 && (
+            <TouchableOpacity style={styles.markAllBtn} onPress={markAllRead}>
+              <CheckCheck size={16} color={COLORS.primary} />
+              <Text style={styles.markAllText}>Mark all read</Text>
+            </TouchableOpacity>
+          )}
+          {readCount > 0 && (
+            <TouchableOpacity style={styles.clearBtn} onPress={clearAllRead}>
+              <Trash2 size={14} color={COLORS.textSecondary} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {unreadCount > 0 && (
@@ -110,7 +188,7 @@ export default function NotificationsScreen() {
           notifications.map((n) => (
             <TouchableOpacity
               key={n.id}
-              style={[styles.notifCard, !n.is_read && styles.notifCardUnread]}
+              style={[styles.notifCard, !n.read && styles.notifCardUnread]}
               onPress={() => markRead(n.id)}
               activeOpacity={0.8}
             >
@@ -119,12 +197,21 @@ export default function NotificationsScreen() {
               </View>
               <View style={styles.notifBody}>
                 <View style={styles.notifTitleRow}>
-                  <Text style={[styles.notifTitle, !n.is_read && styles.notifTitleUnread]} numberOfLines={1}>{n.title}</Text>
-                  {!n.is_read && <View style={styles.unreadDot} />}
+                  <Text style={[styles.notifTitle, !n.read && styles.notifTitleUnread]} numberOfLines={1}>{n.title}</Text>
+                  {!n.read && <View style={styles.unreadDot} />}
                 </View>
-                <Text style={styles.notifText} numberOfLines={2}>{n.body}</Text>
+                <Text style={styles.notifText} numberOfLines={2}>{n.message}</Text>
                 <Text style={styles.notifTime}>{timeAgo(n.created_at)}</Text>
               </View>
+              {n.read && (
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={() => deleteNotification(n.id)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Trash2 size={14} color={COLORS.textTertiary} />
+                </TouchableOpacity>
+              )}
             </TouchableOpacity>
           ))
         )}
@@ -139,8 +226,10 @@ const styles = StyleSheet.create({
   header: { backgroundColor: COLORS.white, flexDirection: 'row', alignItems: 'center', paddingTop: Platform.OS === 'web' ? 20 : 56, paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, gap: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontFamily: FONT.heading, fontSize: 18, color: COLORS.textPrimary, flex: 1 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   markAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   markAllText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.primary },
+  clearBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
 
   unreadBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COLORS.primaryFaded, paddingHorizontal: SPACING.md, paddingVertical: 10 },
   unreadText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.primary },
@@ -162,4 +251,5 @@ const styles = StyleSheet.create({
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary },
   notifText: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, lineHeight: 20, marginBottom: 4 },
   notifTime: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
+  deleteBtn: { padding: 4 },
 });
