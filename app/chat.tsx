@@ -76,6 +76,15 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
+  // Cross-platform alert fallback
+  const showAlert = (title: string, msg: string) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}: ${msg}`);
+    } else {
+      Alert.alert(title, msg);
+    }
+  };
+
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -90,7 +99,6 @@ export default function ChatScreen() {
       } else if (ownerId) {
         await getOrCreateThread(user.id, ownerId);
       } else {
-        // Fallback if accessed without params
         setLoading(false);
       }
     })();
@@ -103,7 +111,6 @@ export default function ChatScreen() {
       supabase.removeChannel(channelRef.current);
     }
 
-    // Real-time listener for "live wired" experience
     channelRef.current = supabase
       .channel(`chat_${resolvedThreadId}_${Date.now()}`)
       .on(
@@ -118,7 +125,6 @@ export default function ChatScreen() {
           const newMsg = payload.new as Msg;
           setMessages((prev) => {
             if (prev.some((m) => m.id === newMsg.id)) return prev;
-            // Replace optimistic local message with the confirmed real one from DB
             if (prev.some((m) => m.id.startsWith('temp-') && m.content === newMsg.content && m.sender_id === newMsg.sender_id)) {
               return prev.map((m) =>
                 m.id.startsWith('temp-') && m.content === newMsg.content && m.sender_id === newMsg.sender_id
@@ -167,10 +173,9 @@ export default function ChatScreen() {
 
   const getOrCreateThread = async (userId: string, targetOwnerId: string) => {
     try {
-      // Fallback logic: If the hostel has no owner in the DB yet, chat with yourself for demo vibes
       let safeTargetId = targetOwnerId;
       if (!safeTargetId || safeTargetId === 'undefined') {
-        safeTargetId = userId; 
+        safeTargetId = userId; // Fallback demo
       }
 
       setTargetUserId(safeTargetId); 
@@ -188,7 +193,7 @@ export default function ChatScreen() {
         setResolvedThreadId(existing.id);
         await fetchMessages(userId, existing.id);
       } else {
-        const { data: newThread, error: insertError } = await supabase
+        const { data: newThread } = await supabase
           .from('message_threads')
           .insert({ participant_1: userId, participant_2: safeTargetId })
           .select('id')
@@ -197,8 +202,6 @@ export default function ChatScreen() {
         if (newThread) {
           setResolvedThreadId(newThread.id);
           setMessages([]);
-        } else {
-          console.warn('Could not eagerly create thread:', insertError);
         }
         setLoading(false); 
       }
@@ -237,44 +240,24 @@ export default function ChatScreen() {
 
   const sendMessage = async () => {
     if (!text.trim()) return;
+    
+    // LIVE WIRED: Grab content and clear input INSTANTLY
+    const content = text.trim();
+    setText('');
 
-    if (!currentUserId) {
-      Alert.alert("Not Logged In", "You must be signed in to send messages.");
-      return;
-    }
-
-    if (!targetUserId) {
-      Alert.alert("Recipient Error", "Cannot find the person you are trying to message.");
+    if (!currentUserId || !targetUserId) {
+      showAlert("Notice", "Missing user credentials or recipient. Please log in.");
+      setText(content); // Revert input if failed
       return;
     }
     
     let tId = resolvedThreadId;
 
-    // Create thread on the fly if it failed to create earlier
-    if (!tId) {
-      const { data: newThread, error: createErr } = await supabase
-        .from('message_threads')
-        .insert({ participant_1: currentUserId, participant_2: targetUserId })
-        .select('id')
-        .maybeSingle();
-
-      if (newThread) {
-        tId = newThread.id;
-        setResolvedThreadId(newThread.id);
-      } else {
-        Alert.alert("Connection Error", "Could not start the conversation. Please try again.");
-        return;
-      }
-    }
-
-    const content = text.trim();
-    setText('');
-
-    // Optimistic UI Update (Makes it feel instantly live)
+    // LIVE WIRED: Create a temporary optimistic message
     const tempId = `temp-${Date.now()}`;
     const tempMsg: Msg = {
       id: tempId,
-      thread_id: tId,
+      thread_id: tId || 'temp-thread',
       sender_id: currentUserId,
       receiver_id: targetUserId,
       content,
@@ -282,29 +265,51 @@ export default function ChatScreen() {
       created_at: new Date().toISOString(),
     };
     
+    // Pop onto screen immediately
     setMessages(prev => [...prev, tempMsg]);
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
-    // Actual Database Insert
-    const { data: msg, error } = await supabase.from('messages').insert({
-      thread_id: tId,
-      sender_id: currentUserId,
-      receiver_id: targetUserId,
-      content,
-      read: false,
-    }).select().maybeSingle();
+    try {
+      // Lazy-create thread if it doesn't exist yet
+      if (!tId) {
+        const { data: newThread, error: createErr } = await supabase
+          .from('message_threads')
+          .insert({ participant_1: currentUserId, participant_2: targetUserId })
+          .select('id')
+          .maybeSingle();
 
-    if (msg) {
-      // Replace temporary message with the real one from DB silently
-      setMessages(prev => prev.map(m => m.id === tempId ? (msg as Msg) : m));
-      await supabase.from('message_threads')
-        .update({ last_message_at: new Date().toISOString() })
-        .eq('id', tId);
-    } else if (error) {
-      console.error("Send error:", error);
-      // Remove failed message and alert user
+        if (newThread) {
+          tId = newThread.id;
+          setResolvedThreadId(newThread.id);
+        } else {
+          throw new Error("Could not start conversation check network connection.");
+        }
+      }
+
+      // Actual Database Insert
+      const { data: msg, error } = await supabase.from('messages').insert({
+        thread_id: tId,
+        sender_id: currentUserId,
+        receiver_id: targetUserId,
+        content,
+        read: false,
+      }).select().maybeSingle();
+
+      if (msg) {
+        // Swap temp message with real DB message silently
+        setMessages(prev => prev.map(m => m.id === tempId ? (msg as Msg) : m));
+        await supabase.from('message_threads')
+          .update({ last_message_at: new Date().toISOString() })
+          .eq('id', tId);
+      } else if (error) {
+        throw error;
+      }
+    } catch (err: any) {
+      console.error("Send error:", err);
+      // Remove failed bubble and restore text so they can try again
       setMessages(prev => prev.filter(m => m.id !== tempId));
-      Alert.alert("Delivery Failed", "Check your connection and try again.");
+      setText(content);
+      showAlert("Delivery Failed", err.message || "Message could not be sent. Try again.");
     }
   };
 
@@ -349,6 +354,7 @@ export default function ChatScreen() {
           data={messages}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messageList}
+          keyboardShouldPersistTaps="handled" // Fixes keyboard swallowing taps
           onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
           renderItem={({ item, index }) => {
             const isMine = item.sender_id === currentUserId;
@@ -401,6 +407,7 @@ export default function ChatScreen() {
             placeholderTextColor="#8E8E93"
             multiline
             maxLength={1000}
+            onSubmitEditing={sendMessage} // Allows sending via keyboard Enter key
           />
           <TouchableOpacity
             style={styles.sendBtn}
