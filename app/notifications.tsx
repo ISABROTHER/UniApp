@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Notification } from '@/lib/types';
-import { ArrowLeft, Bell, CheckCheck, Calendar, Wrench, FileText, Zap, AlertCircle, MessageSquare, Star, Trash2 } from 'lucide-react-native';
+import { ArrowLeft, Bell, CheckCheck, Calendar, Wrench, FileText, Zap, AlertCircle, MessageSquare, Star, Trash2, PlusCircle } from 'lucide-react-native';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 export default function NotificationsScreen() {
@@ -89,13 +89,13 @@ export default function NotificationsScreen() {
 
   const markRead = async (id: string) => {
     await supabase.from('notifications').update({ read: true }).eq('id', id);
+    // Optimistic UI update (Real-time will also catch this)
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
   const markAllRead = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+    if (!currentUserId) return;
+    await supabase.from('notifications').update({ read: true }).eq('user_id', currentUserId).eq('read', false);
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
   };
 
@@ -105,11 +105,35 @@ export default function NotificationsScreen() {
   };
 
   const clearAllRead = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase.from('notifications').delete().eq('user_id', user.id).eq('read', true);
+    if (!currentUserId) return;
+    await supabase.from('notifications').delete().eq('user_id', currentUserId).eq('read', true);
     setNotifications(prev => prev.filter(n => !n.read));
   };
+
+  // --- TEMPORARY DEV SEED FUNCTION --- //
+  const seedTestNotifications = async () => {
+    if (!currentUserId) {
+      Alert.alert("Error", "You must be logged in to seed data.");
+      return;
+    }
+
+    const testData = [
+      { user_id: currentUserId, type: 'booking', title: 'Booking Confirmed! 🎉', message: 'Your room at Valco Hostel has been officially booked for the upcoming semester.', read: false },
+      { user_id: currentUserId, type: 'maintenance', title: 'Plumbing Fixed 🔧', message: 'The maintenance team has resolved the issue with your shower. Have a great day!', read: true },
+      { user_id: currentUserId, type: 'tenancy', title: 'Action Required: Agreement 📝', message: 'Please review and digitally sign your updated tenancy agreement by Friday.', read: false },
+      { user_id: currentUserId, type: 'utility', title: 'Low Power Warning ⚡', message: 'Your prepaid electricity token is running low (below 15 kWh). Top up soon to avoid power cuts.', read: false },
+      { user_id: currentUserId, type: 'message', title: 'New Message from Owner 💬', message: '"Hello! Just reminding you that the main gate locks at 11 PM today. See you later!"', read: true },
+      { user_id: currentUserId, type: 'review', title: 'Rate your stay ⭐', message: 'How was your experience this week? Leave a quick review to help other students.', read: false },
+      { user_id: currentUserId, type: 'system', title: 'Welcome to UniApp! 🚀', message: 'Everything is set up perfectly. Check out the new features on your dashboard.', read: true },
+    ];
+
+    const { error } = await supabase.from('notifications').insert(testData);
+    if (error) {
+      console.error(error);
+      Alert.alert("Failed", "Could not seed data. Check console.");
+    }
+  };
+  // ----------------------------------- //
 
   const notifIcon = (type: string) => {
     if (type.includes('booking')) return <Calendar size={20} color={COLORS.primary} />;
@@ -148,19 +172,22 @@ export default function NotificationsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* 1. Glassmorphism on the Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
           <ArrowLeft size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         
-        {/* 6. Polished Action Buttons */}
         <View style={styles.headerActions}>
+          {/* TEMPORARY SEED BUTTON */}
+          <TouchableOpacity style={styles.seedBtn} onPress={seedTestNotifications} activeOpacity={0.7}>
+            <PlusCircle size={16} color={COLORS.white} />
+            <Text style={styles.seedBtnText}>Seed</Text>
+          </TouchableOpacity>
+
           {unreadCount > 0 && (
             <TouchableOpacity style={styles.markAllBtn} onPress={markAllRead} activeOpacity={0.7}>
               <CheckCheck size={16} color={COLORS.primary} />
-              <Text style={styles.markAllText}>Mark all read</Text>
             </TouchableOpacity>
           )}
           {readCount > 0 && (
@@ -171,7 +198,6 @@ export default function NotificationsScreen() {
         </View>
       </View>
 
-      {/* 5. Premium Unread Banner */}
       {unreadCount > 0 && (
         <View style={styles.unreadBanner}>
           <Bell size={16} color={COLORS.primary} />
@@ -187,7 +213,6 @@ export default function NotificationsScreen() {
           <Text style={styles.loadingText}>Loading...</Text>
         ) : notifications.length === 0 ? (
           
-          /* 7. Enhanced Empty State */
           <View style={styles.emptyStateCard}>
             <View style={styles.emptyIconBg}>
               <Bell size={36} color={COLORS.textTertiary} />
@@ -198,8 +223,6 @@ export default function NotificationsScreen() {
           
         ) : (
           notifications.map((n) => (
-            
-            /* 2 & 3 & 4. Glassmorphism, Airy Layout, Stronger Unread on Cards */
             <TouchableOpacity
               key={n.id}
               style={[styles.notifCard, !n.read && styles.notifCardUnread]}
@@ -243,7 +266,7 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: '#F7F7F9' // Slightly cooler off-white background to make glass pop
+    backgroundColor: '#F7F7F9' 
   },
   
   header: { 
@@ -273,16 +296,23 @@ const styles = StyleSheet.create({
     fontFamily: FONT.heading, fontSize: 18, color: COLORS.textPrimary, flex: 1 
   },
   headerActions: { 
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm 
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.xs 
   },
-  markAllBtn: { 
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(220,20,60,0.06)', // Very subtle primary background
+  seedBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: COLORS.teal,
     paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: RADIUS.full,
+    marginRight: 4,
   },
-  markAllText: { 
-    fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary 
+  seedBtnText: {
+    fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.white
+  },
+  markAllBtn: { 
+    width: 36, height: 36, 
+    borderRadius: RADIUS.full, 
+    backgroundColor: 'rgba(220,20,60,0.06)', 
+    justifyContent: 'center', alignItems: 'center' 
   },
   clearBtn: { 
     width: 36, height: 36, 
@@ -360,8 +390,8 @@ const styles = StyleSheet.create({
   },
   notifCardUnread: { 
     borderColor: 'rgba(220,20,60,0.15)', 
-    backgroundColor: 'rgba(220,20,60,0.02)', // Very soft warm tint
-    borderLeftWidth: 4, // Left accent bar
+    backgroundColor: 'rgba(220,20,60,0.02)',
+    borderLeftWidth: 4, 
     borderLeftColor: COLORS.primary,
     shadowOpacity: 0.08,
     shadowRadius: 16,
@@ -379,7 +409,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT.medium, fontSize: 15, color: COLORS.textPrimary, flex: 1 
   },
   notifTitleUnread: { 
-    fontFamily: FONT.bold, color: COLORS.textPrimary // Fully bold for unread
+    fontFamily: FONT.bold, color: COLORS.textPrimary
   },
   unreadDot: { 
     width: 10, height: 10, 
