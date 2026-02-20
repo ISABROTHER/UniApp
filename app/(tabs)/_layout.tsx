@@ -135,17 +135,26 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   tabBar: {
-    backgroundColor: COLORS.white,
-    borderTopWidth: 0.5,
-    borderTopColor: COLORS.border,
+    // 1. Position Absolute makes it float over the content
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    
+    // 2. Glassmorphic Background matching our headers
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.4)',
+    
+    // 3. Spacing and Shadow
     height: Platform.OS === 'web' ? 72 : 96,
     paddingTop: 0,
     paddingBottom: Platform.OS === 'web' ? 10 : 30,
-    elevation: 0,
+    elevation: 0, // Remove Android default harsh shadow
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 15,
   },
   tabItem: {
     justifyContent: 'center',
