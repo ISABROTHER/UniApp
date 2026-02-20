@@ -90,6 +90,7 @@ export default function ChatScreen() {
       } else if (ownerId) {
         await getOrCreateThread(user.id, ownerId);
       } else {
+        // Fallback if accessed without params
         setLoading(false);
       }
     })();
@@ -102,6 +103,7 @@ export default function ChatScreen() {
       supabase.removeChannel(channelRef.current);
     }
 
+    // Real-time listener for "live wired" experience
     channelRef.current = supabase
       .channel(`chat_${resolvedThreadId}_${Date.now()}`)
       .on(
@@ -116,6 +118,7 @@ export default function ChatScreen() {
           const newMsg = payload.new as Msg;
           setMessages((prev) => {
             if (prev.some((m) => m.id === newMsg.id)) return prev;
+            // Replace optimistic local message with the confirmed real one from DB
             if (prev.some((m) => m.id.startsWith('temp-') && m.content === newMsg.content && m.sender_id === newMsg.sender_id)) {
               return prev.map((m) =>
                 m.id.startsWith('temp-') && m.content === newMsg.content && m.sender_id === newMsg.sender_id
@@ -164,21 +167,21 @@ export default function ChatScreen() {
 
   const getOrCreateThread = async (userId: string, targetOwnerId: string) => {
     try {
-      if (!targetOwnerId || targetOwnerId === 'undefined') {
-        console.error('Invalid ownerId provided');
-        setLoading(false);
-        return;
+      // Fallback logic: If the hostel has no owner in the DB yet, chat with yourself for demo vibes
+      let safeTargetId = targetOwnerId;
+      if (!safeTargetId || safeTargetId === 'undefined') {
+        safeTargetId = userId; 
       }
 
-      setTargetUserId(targetOwnerId); 
+      setTargetUserId(safeTargetId); 
       
-      const { data: member } = await supabase.from('members').select('id, full_name, faculty').eq('id', targetOwnerId).maybeSingle();
+      const { data: member } = await supabase.from('members').select('id, full_name, faculty').eq('id', safeTargetId).maybeSingle();
       if (member) setOtherMember(member as OtherMember);
 
-      const { data: existing, error: findError } = await supabase
+      const { data: existing } = await supabase
         .from('message_threads')
         .select('id')
-        .or(`and(participant_1.eq.${userId},participant_2.eq.${targetOwnerId}),and(participant_1.eq.${targetOwnerId},participant_2.eq.${userId})`)
+        .or(`and(participant_1.eq.${userId},participant_2.eq.${safeTargetId}),and(participant_1.eq.${safeTargetId},participant_2.eq.${userId})`)
         .maybeSingle();
 
       if (existing) {
@@ -187,7 +190,7 @@ export default function ChatScreen() {
       } else {
         const { data: newThread, error: insertError } = await supabase
           .from('message_threads')
-          .insert({ participant_1: userId, participant_2: targetOwnerId })
+          .insert({ participant_1: userId, participant_2: safeTargetId })
           .select('id')
           .maybeSingle();
 
@@ -195,13 +198,13 @@ export default function ChatScreen() {
           setResolvedThreadId(newThread.id);
           setMessages([]);
         } else {
-          console.error('Could not create thread:', insertError);
+          console.warn('Could not eagerly create thread:', insertError);
         }
-        setLoading(false); // Make sure to disable loading even if insert fails
+        setLoading(false); 
       }
     } catch (err) {
       console.error('getOrCreateThread error:', err);
-      setLoading(false); // Stop infinite loading on error
+      setLoading(false);
     }
   };
 
@@ -222,7 +225,7 @@ export default function ChatScreen() {
     } catch (err) {
       console.error('fetchMessages error:', err);
     } finally {
-      setLoading(false); // Make sure loading is always removed
+      setLoading(false); 
     }
 
     await supabase.from('messages')
@@ -233,7 +236,17 @@ export default function ChatScreen() {
   };
 
   const sendMessage = async () => {
-    if (!text.trim() || !currentUserId || !targetUserId) return;
+    if (!text.trim()) return;
+
+    if (!currentUserId) {
+      Alert.alert("Not Logged In", "You must be signed in to send messages.");
+      return;
+    }
+
+    if (!targetUserId) {
+      Alert.alert("Recipient Error", "Cannot find the person you are trying to message.");
+      return;
+    }
     
     let tId = resolvedThreadId;
 
@@ -249,8 +262,7 @@ export default function ChatScreen() {
         tId = newThread.id;
         setResolvedThreadId(newThread.id);
       } else {
-        console.error('Failed to create thread dynamically:', createErr);
-        Alert.alert("Error", "Could not start conversation. Please try again.");
+        Alert.alert("Connection Error", "Could not start the conversation. Please try again.");
         return;
       }
     }
@@ -258,7 +270,7 @@ export default function ChatScreen() {
     const content = text.trim();
     setText('');
 
-    // Optimistic UI Update
+    // Optimistic UI Update (Makes it feel instantly live)
     const tempId = `temp-${Date.now()}`;
     const tempMsg: Msg = {
       id: tempId,
@@ -283,20 +295,20 @@ export default function ChatScreen() {
     }).select().maybeSingle();
 
     if (msg) {
-      // Replace temporary message with the real one from DB
+      // Replace temporary message with the real one from DB silently
       setMessages(prev => prev.map(m => m.id === tempId ? (msg as Msg) : m));
       await supabase.from('message_threads')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', tId);
     } else if (error) {
       console.error("Send error:", error);
-      // Revert if failed
+      // Remove failed message and alert user
       setMessages(prev => prev.filter(m => m.id !== tempId));
-      Alert.alert("Delivery Failed", "Message could not be sent.");
+      Alert.alert("Delivery Failed", "Check your connection and try again.");
     }
   };
 
-  const displayName = otherMember?.full_name || name || 'Chat';
+  const displayName = otherMember?.full_name || name || 'Demo Owner';
   const avatarColor = getAvatarColor(displayName);
   const initials = getInitials(displayName);
 
@@ -321,7 +333,7 @@ export default function ChatScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading conversation...</Text>
+          <Text style={styles.loadingText}>Connecting...</Text>
         </View>
       ) : messages.length === 0 ? (
         <View style={styles.emptyContainer}>
