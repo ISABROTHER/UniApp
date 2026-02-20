@@ -20,14 +20,9 @@ import OnboardingProgress from '@/components/OnboardingProgress';
 import { useActivityLogger, ensureUserStats } from '@/hooks/useRetention';
 import {
   Users,
-  Wrench,
   ShoppingBag,
   Printer,
-  FileText,
-  CreditCard,
   ChevronRight,
-  Home,
-  Bell,
 } from 'lucide-react-native';
 
 const { width: SW } = Dimensions.get('window');
@@ -157,90 +152,52 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {userStats && (
-        <View style={styles.statsStrip}>
-          <View style={styles.statItem}>
-            <Text style={styles.statNum}>{userStats.hostels_viewed}</Text>
-            <Text style={styles.statLabel}>Viewed</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNum}>{userStats.favourites_saved}</Text>
-            <Text style={styles.statLabel}>Saved</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNum}>{userStats.bookings_made}</Text>
-            <Text style={styles.statLabel}>Bookings</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statNum}>{userStats.services_used}</Text>
-            <Text style={styles.statLabel}>Services</Text>
-          </View>
-        </View>
-      )}
+      {/* Stats & Quick Navigation Strip */}
+      <View style={styles.statsStrip}>
+        <TouchableOpacity 
+          style={styles.statItem} 
+          onPress={() => router.push('/(tabs)/search' as any)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.statNum}>142</Text>
+          <Text style={styles.statLabel}>Beds</Text>
+        </TouchableOpacity>
+        
+        <View style={styles.statDivider} />
+        
+        <TouchableOpacity 
+          style={styles.statItem} 
+          onPress={() => router.push('/(tabs)/messages' as any)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.statNum}>3</Text>
+          <Text style={styles.statLabel}>Messages</Text>
+        </TouchableOpacity>
+        
+        <View style={styles.statDivider} />
+        
+        <TouchableOpacity 
+          style={styles.statItem} 
+          onPress={() => router.push('/(tabs)/bookings' as any)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.statNum}>{userStats?.bookings_made || 0}</Text>
+          <Text style={styles.statLabel}>Bookings</Text>
+        </TouchableOpacity>
+        
+        <View style={styles.statDivider} />
+        
+        <TouchableOpacity 
+          style={styles.statItem} 
+          onPress={() => router.push('/notifications' as any)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.statNum}>5</Text>
+          <Text style={styles.statLabel}>Alerts</Text>
+        </TouchableOpacity>
+      </View>
 
       <OnboardingProgress compact={true} />
-
-      <View style={styles.quickActionsSection}>
-        <View style={styles.quickActionsGrid}>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/tenancy' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
-              <FileText size={22} color={COLORS.info} />
-            </View>
-            <Text style={styles.qaLabel}>Tenancy</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/utilities' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
-              <ShoppingBag size={22} color={COLORS.warning} />
-            </View>
-            <Text style={styles.qaLabel}>StuMark</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/laundry' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#EDE9FE' }]}>
-              <ShoppingBag size={22} color='#7C3AED' />
-            </View>
-            <Text style={styles.qaLabel}>Laundry</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/print' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
-              <Printer size={22} color={COLORS.success} />
-            </View>
-            <Text style={styles.qaLabel}>Print</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/roommates' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
-              <Users size={22} color={COLORS.error} />
-            </View>
-            <Text style={styles.qaLabel}>Roommates</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/maintenance' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FFF7ED' }]}>
-              <Wrench size={22} color='#EA580C' />
-            </View>
-            <Text style={styles.qaLabel}>Repairs</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/messages' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
-              <Home size={22} color={COLORS.accent} />
-            </View>
-            <Text style={styles.qaLabel}>Messages</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/(tabs)/bookings' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
-              <CreditCard size={22} color={COLORS.warning} />
-            </View>
-            <Text style={styles.qaLabel}>Bookings</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/notifications' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#F0FDF4' }]}>
-              <Bell size={22} color={COLORS.success} />
-            </View>
-            <Text style={styles.qaLabel}>Alerts</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
 
       <View style={styles.bannersSection}>
         <View style={styles.sectionRow}>
@@ -319,23 +276,6 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontFamily: FONT.bold, fontSize: 14, color: COLORS.white },
 
-  quickActionsSection: {
-    backgroundColor: COLORS.white,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.md,
-    paddingTop: SPACING.md,
-    marginTop: 1,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm,
-  },
-  qa: { width: (SW - SPACING.md * 2 - SPACING.sm * 2) / 3, alignItems: 'center', gap: 8 },
-  qaIcon: {
-    width: 60, height: 60, borderRadius: RADIUS.lg,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  qaLabel: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' },
-
   bannersSection: {
     paddingTop: SPACING.md,
     paddingBottom: SPACING.md,
@@ -374,5 +314,4 @@ const styles = StyleSheet.create({
   bannerCtaText: { fontFamily: FONT.semiBold, fontSize: 13 },
 
   sectionTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
-  seeAll: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
 });
