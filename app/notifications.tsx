@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
@@ -88,52 +88,56 @@ export default function NotificationsScreen() {
   };
 
   const markRead = async (id: string) => {
+    // If it's a fake local notification (has no real DB id), just update local state
+    if (id.startsWith('temp-')) {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+      return;
+    }
+    
     await supabase.from('notifications').update({ read: true }).eq('id', id);
-    // Optimistic UI update (Real-time will also catch this)
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
   };
 
   const markAllRead = async () => {
-    if (!currentUserId) return;
-    await supabase.from('notifications').update({ read: true }).eq('user_id', currentUserId).eq('read', false);
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    if (currentUserId) {
+      await supabase.from('notifications').update({ read: true }).eq('user_id', currentUserId).eq('read', false);
+    }
   };
 
   const deleteNotification = async (id: string) => {
-    await supabase.from('notifications').delete().eq('id', id);
     setNotifications(prev => prev.filter(n => n.id !== id));
+    if (!id.startsWith('temp-')) {
+      await supabase.from('notifications').delete().eq('id', id);
+    }
   };
 
   const clearAllRead = async () => {
-    if (!currentUserId) return;
-    await supabase.from('notifications').delete().eq('user_id', currentUserId).eq('read', true);
     setNotifications(prev => prev.filter(n => !n.read));
+    if (currentUserId) {
+      await supabase.from('notifications').delete().eq('user_id', currentUserId).eq('read', true);
+    }
   };
 
-  // --- TEMPORARY DEV SEED FUNCTION --- //
-  const seedTestNotifications = async () => {
-    if (!currentUserId) {
-      Alert.alert("Error", "You must be logged in to seed data.");
-      return;
-    }
+  // --- TEMPORARY DEV SEED FUNCTION (Bypasses DB, purely local UI test) --- //
+  const seedTestNotifications = () => {
+    const now = new Date().toISOString();
+    const tempId = () => `temp-${Math.random().toString(36).substring(2, 9)}`;
+    const userId = currentUserId || 'test-user';
 
-    const testData = [
-      { user_id: currentUserId, type: 'booking', title: 'Booking Confirmed! 🎉', message: 'Your room at Valco Hostel has been officially booked for the upcoming semester.', read: false },
-      { user_id: currentUserId, type: 'maintenance', title: 'Plumbing Fixed 🔧', message: 'The maintenance team has resolved the issue with your shower. Have a great day!', read: true },
-      { user_id: currentUserId, type: 'tenancy', title: 'Action Required: Agreement 📝', message: 'Please review and digitally sign your updated tenancy agreement by Friday.', read: false },
-      { user_id: currentUserId, type: 'utility', title: 'Low Power Warning ⚡', message: 'Your prepaid electricity token is running low (below 15 kWh). Top up soon to avoid power cuts.', read: false },
-      { user_id: currentUserId, type: 'message', title: 'New Message from Owner 💬', message: '"Hello! Just reminding you that the main gate locks at 11 PM today. See you later!"', read: true },
-      { user_id: currentUserId, type: 'review', title: 'Rate your stay ⭐', message: 'How was your experience this week? Leave a quick review to help other students.', read: false },
-      { user_id: currentUserId, type: 'system', title: 'Welcome to UniApp! 🚀', message: 'Everything is set up perfectly. Check out the new features on your dashboard.', read: true },
+    const fakeData: Notification[] = [
+      { id: tempId(), user_id: userId, type: 'booking', title: 'Booking Confirmed! 🎉', message: 'Your room at Valco Hostel has been officially booked for the upcoming semester.', read: false, created_at: now },
+      { id: tempId(), user_id: userId, type: 'maintenance', title: 'Plumbing Fixed 🔧', message: 'The maintenance team has resolved the issue with your shower. Have a great day!', read: true, created_at: now },
+      { id: tempId(), user_id: userId, type: 'tenancy', title: 'Action Required: Agreement 📝', message: 'Please review and digitally sign your updated tenancy agreement by Friday.', read: false, created_at: now },
+      { id: tempId(), user_id: userId, type: 'utility', title: 'Low Power Warning ⚡', message: 'Your prepaid electricity token is running low (below 15 kWh). Top up soon to avoid power cuts.', read: false, created_at: now },
+      { id: tempId(), user_id: userId, type: 'message', title: 'New Message from Owner 💬', message: '"Hello! Just reminding you that the main gate locks at 11 PM today. See you later!"', read: true, created_at: now },
+      { id: tempId(), user_id: userId, type: 'review', title: 'Rate your stay ⭐', message: 'How was your experience this week? Leave a quick review to help other students.', read: false, created_at: now },
+      { id: tempId(), user_id: userId, type: 'system', title: 'Welcome to UniApp! 🚀', message: 'Everything is set up perfectly. Check out the new features on your dashboard.', read: true, created_at: now },
     ];
 
-    const { error } = await supabase.from('notifications').insert(testData);
-    if (error) {
-      console.error(error);
-      Alert.alert("Failed", "Could not seed data. Check console.");
-    }
+    setNotifications(prev => [...fakeData, ...prev]);
   };
-  // ----------------------------------- //
+  // ---------------------------------------------------------------------- //
 
   const notifIcon = (type: string) => {
     if (type.includes('booking')) return <Calendar size={20} color={COLORS.primary} />;
@@ -182,7 +186,7 @@ export default function NotificationsScreen() {
           {/* TEMPORARY SEED BUTTON */}
           <TouchableOpacity style={styles.seedBtn} onPress={seedTestNotifications} activeOpacity={0.7}>
             <PlusCircle size={16} color={COLORS.white} />
-            <Text style={styles.seedBtnText}>Seed</Text>
+            <Text style={styles.seedBtnText}>Seed UI</Text>
           </TouchableOpacity>
 
           {unreadCount > 0 && (
