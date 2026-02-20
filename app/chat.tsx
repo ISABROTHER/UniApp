@@ -9,6 +9,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -67,7 +68,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [otherMember, setOtherMember] = useState<OtherMember | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [targetUserId, setTargetUserId] = useState<string | null>(null); // NEW: Safely tracks who we are talking to
+  const [targetUserId, setTargetUserId] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [resolvedThreadId, setResolvedThreadId] = useState<string | null>(threadId || null);
@@ -78,13 +79,18 @@ export default function ChatScreen() {
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
       setCurrentUserId(user.id);
 
       if (threadId) {
         await loadThread(user.id, threadId);
       } else if (ownerId) {
         await getOrCreateThread(user.id, ownerId);
+      } else {
+        setLoading(false);
       }
     })();
   }, [threadId, ownerId]);
@@ -137,46 +143,65 @@ export default function ChatScreen() {
   }, [resolvedThreadId, currentUserId]);
 
   const loadThread = async (userId: string, tId: string) => {
-    const { data: thread } = await supabase
-      .from('message_threads')
-      .select('participant_1, participant_2')
-      .eq('id', tId)
-      .maybeSingle();
+    try {
+      const { data: thread } = await supabase
+        .from('message_threads')
+        .select('participant_1, participant_2')
+        .eq('id', tId)
+        .maybeSingle();
 
-    if (thread) {
-      const otherId = thread.participant_1 === userId ? thread.participant_2 : thread.participant_1;
-      setTargetUserId(otherId); // Ensures we can always send, even if profile fetch fails
-      await fetchOtherMember(otherId);
+      if (thread) {
+        const otherId = thread.participant_1 === userId ? thread.participant_2 : thread.participant_1;
+        setTargetUserId(otherId);
+        await fetchOtherMember(otherId);
+      }
+      await fetchMessages(userId, tId);
+    } catch (err) {
+      console.error('loadThread error:', err);
+      setLoading(false);
     }
-    await fetchMessages(userId, tId);
   };
 
   const getOrCreateThread = async (userId: string, targetOwnerId: string) => {
-    setTargetUserId(targetOwnerId); // Safe fallback
-    
-    const { data: member } = await supabase.from('members').select('id, full_name, faculty').eq('id', targetOwnerId).maybeSingle();
-    if (member) setOtherMember(member as OtherMember);
-
-    const { data: existing } = await supabase
-      .from('message_threads')
-      .select('id')
-      .or(`and(participant_1.eq.${userId},participant_2.eq.${targetOwnerId}),and(participant_1.eq.${targetOwnerId},participant_2.eq.${userId})`)
-      .maybeSingle();
-
-    if (existing) {
-      setResolvedThreadId(existing.id);
-      await fetchMessages(userId, existing.id);
-    } else {
-      const { data: newThread } = await supabase
-        .from('message_threads')
-        .insert({ participant_1: userId, participant_2: targetOwnerId })
-        .select('id')
-        .maybeSingle();
-      if (newThread) {
-        setResolvedThreadId(newThread.id);
-        setMessages([]);
+    try {
+      if (!targetOwnerId || targetOwnerId === 'undefined') {
+        console.error('Invalid ownerId provided');
         setLoading(false);
+        return;
       }
+
+      setTargetUserId(targetOwnerId); 
+      
+      const { data: member } = await supabase.from('members').select('id, full_name, faculty').eq('id', targetOwnerId).maybeSingle();
+      if (member) setOtherMember(member as OtherMember);
+
+      const { data: existing, error: findError } = await supabase
+        .from('message_threads')
+        .select('id')
+        .or(`and(participant_1.eq.${userId},participant_2.eq.${targetOwnerId}),and(participant_1.eq.${targetOwnerId},participant_2.eq.${userId})`)
+        .maybeSingle();
+
+      if (existing) {
+        setResolvedThreadId(existing.id);
+        await fetchMessages(userId, existing.id);
+      } else {
+        const { data: newThread, error: insertError } = await supabase
+          .from('message_threads')
+          .insert({ participant_1: userId, participant_2: targetOwnerId })
+          .select('id')
+          .maybeSingle();
+
+        if (newThread) {
+          setResolvedThreadId(newThread.id);
+          setMessages([]);
+        } else {
+          console.error('Could not create thread:', insertError);
+        }
+        setLoading(false); // Make sure to disable loading even if insert fails
+      }
+    } catch (err) {
+      console.error('getOrCreateThread error:', err);
+      setLoading(false); // Stop infinite loading on error
     }
   };
 
@@ -186,14 +211,19 @@ export default function ChatScreen() {
   };
 
   const fetchMessages = async (userId: string, tId: string) => {
-    const { data: msgs } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('thread_id', tId)
-      .order('created_at', { ascending: true });
+    try {
+      const { data: msgs } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('thread_id', tId)
+        .order('created_at', { ascending: true });
 
-    setMessages((msgs as Msg[]) || []);
-    setLoading(false);
+      setMessages((msgs as Msg[]) || []);
+    } catch (err) {
+      console.error('fetchMessages error:', err);
+    } finally {
+      setLoading(false); // Make sure loading is always removed
+    }
 
     await supabase.from('messages')
       .update({ read: true })
@@ -203,13 +233,32 @@ export default function ChatScreen() {
   };
 
   const sendMessage = async () => {
-    const tId = resolvedThreadId;
-    if (!text.trim() || !currentUserId || !tId || !targetUserId) return;
+    if (!text.trim() || !currentUserId || !targetUserId) return;
     
+    let tId = resolvedThreadId;
+
+    // Create thread on the fly if it failed to create earlier
+    if (!tId) {
+      const { data: newThread, error: createErr } = await supabase
+        .from('message_threads')
+        .insert({ participant_1: currentUserId, participant_2: targetUserId })
+        .select('id')
+        .maybeSingle();
+
+      if (newThread) {
+        tId = newThread.id;
+        setResolvedThreadId(newThread.id);
+      } else {
+        console.error('Failed to create thread dynamically:', createErr);
+        Alert.alert("Error", "Could not start conversation. Please try again.");
+        return;
+      }
+    }
+
     const content = text.trim();
     setText('');
 
-    // Optimistic UI Update (Makes it feel instantly live)
+    // Optimistic UI Update
     const tempId = `temp-${Date.now()}`;
     const tempMsg: Msg = {
       id: tempId,
@@ -243,6 +292,7 @@ export default function ChatScreen() {
       console.error("Send error:", error);
       // Revert if failed
       setMessages(prev => prev.filter(m => m.id !== tempId));
+      Alert.alert("Delivery Failed", "Message could not be sent.");
     }
   };
 
@@ -271,7 +321,7 @@ export default function ChatScreen() {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading...</Text>
+          <Text style={styles.loadingText}>Loading conversation...</Text>
         </View>
       ) : messages.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -343,7 +393,7 @@ export default function ChatScreen() {
           <TouchableOpacity
             style={styles.sendBtn}
             onPress={sendMessage}
-            disabled={!text.trim()}
+            disabled={!text.trim() || loading}
             activeOpacity={0.8}
           >
             <Send size={20} color={text.trim() ? "#007AFF" : "#C7C7CC"} />
