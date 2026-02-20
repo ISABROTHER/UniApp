@@ -205,6 +205,7 @@ export default function MessagesScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -293,7 +294,6 @@ export default function MessagesScreen() {
           })}
         </View>
 
-        <View style={{ height: 32 }} />
       </ScrollView>
     </View>
   );
@@ -318,6 +318,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 10,
   },
   searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 16, color: '#000', padding: 0 },
+
+  // Added generous padding to prevent tab bar occlusion
+  scrollContent: {
+    paddingBottom: Platform.OS === 'ios' ? 120 : 100,
+  },
 
   activeSection: { borderBottomWidth: 1, borderBottomColor: '#F2F2F7', paddingBottom: 16, paddingTop: 8 },
   activeRow: { paddingHorizontal: 16, gap: 20 },
