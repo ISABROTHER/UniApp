@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, Mail, Lock, Eye, EyeOff, Scan, Fingerprint } from 'lucide-react-native';
+import { ChevronLeft, Phone, Lock, Eye, EyeOff, Scan, Fingerprint } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
@@ -26,7 +26,7 @@ export default function SignInScreen() {
     getBiometricLabel,
   } = useBiometricAuth();
 
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
@@ -62,24 +62,24 @@ export default function SignInScreen() {
 
   const handleSubmit = async () => {
     setError('');
-    if (!email.trim()) return setError('Please enter your email address');
+    if (!phone.trim()) return setError('Please enter your phone number');
     if (!password) return setError('Please enter your password');
 
     setLoading(true);
-    const { error: authError } = await signIn(email.trim().toLowerCase(), password);
+    const { error: authError } = await signIn(phone.trim(), password);
     setLoading(false);
 
     if (authError) {
       setError(
         authError.toLowerCase().includes('invalid') || authError.toLowerCase().includes('credentials')
-          ? 'Incorrect email or password. Please try again.'
+          ? 'Incorrect phone number or password. Please try again.'
           : authError
       );
       return;
     }
 
     if ((enableBiometric || rememberMe) && biometricAvailable) {
-      await saveCredentials(email.trim().toLowerCase(), password);
+      await saveCredentials(phone.trim(), password);
     }
 
     router.replace('/(tabs)');
@@ -110,15 +110,15 @@ export default function SignInScreen() {
           <View style={styles.inputGroup}>
             <View style={styles.inputWrap}>
               <View style={styles.inputIcon}>
-                <Mail size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
+                <Phone size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
               </View>
               <TextInput
                 style={styles.input}
-                value={email}
-                onChangeText={(v) => { setEmail(v); setError(''); }}
-                placeholder="Email address"
+                value={phone}
+                onChangeText={(v) => { setPhone(v); setError(''); }}
+                placeholder="Phone number"
                 placeholderTextColor={COLORS.textTertiary}
-                keyboardType="email-address"
+                keyboardType="phone-pad"
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="next"
@@ -223,23 +223,6 @@ export default function SignInScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Or Continue With Account</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.socialRow}>
-            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-              <Text style={styles.socialIcon}>f</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-              <Text style={[styles.socialIcon, styles.googleIcon]}>G</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-              <Text style={styles.socialIcon}>{'\uF8FF'}</Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
         <TouchableOpacity style={styles.guestBtn} onPress={() => router.replace('/(tabs)')} activeOpacity={0.7}>
@@ -443,48 +426,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT.semiBold,
     fontSize: 13,
     color: AUTH_GREEN,
-  },
-
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E8E8E8',
-  },
-  dividerText: {
-    fontFamily: FONT.regular,
-    fontSize: 12,
-    color: COLORS.textTertiary,
-    marginHorizontal: SPACING.sm + 4,
-  },
-
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: SPACING.lg,
-  },
-  socialBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ECECEC',
-  },
-  socialIcon: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  googleIcon: {
-    color: '#4285F4',
   },
 
   guestBtn: {

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, Mail, Lock, Eye, EyeOff, User } from 'lucide-react-native';
+import { ChevronLeft, Mail, Lock, Eye, EyeOff, User, Phone } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -15,8 +15,9 @@ export default function SignUpScreen() {
   const router = useRouter();
   const { signUp } = useAuth();
 
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [surname, setSurname] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -26,19 +27,21 @@ export default function SignUpScreen() {
 
   const handleSubmit = async () => {
     setError('');
-    if (!fullName.trim()) return setError('Please enter your full name');
-    if (!email.trim() || !email.includes('@')) return setError('Please enter a valid email address');
+    if (!firstName.trim()) return setError('Please enter your first name');
+    if (!surname.trim()) return setError('Please enter your surname');
+    if (!phone.trim()) return setError('Please enter your phone number');
     if (password.length < 6) return setError('Password must be at least 6 characters');
     if (password !== confirmPassword) return setError('Passwords do not match');
 
+    const fullName = `${firstName.trim()} ${surname.trim()}`;
     setLoading(true);
-    const { error: authError } = await signUp(email.trim().toLowerCase(), password, fullName.trim());
+    const { error: authError } = await signUp(phone.trim(), password, fullName);
     setLoading(false);
 
     if (authError) {
       setError(
         authError.toLowerCase().includes('already')
-          ? 'An account with this email already exists. Please sign in.'
+          ? 'An account with this phone number already exists. Please sign in.'
           : authError
       );
       return;
@@ -69,36 +72,56 @@ export default function SignUpScreen() {
             Create a new account to get started and enjoy seamless access to our features.
           </Text>
 
-          <View style={styles.inputGroup}>
-            <View style={styles.inputWrap}>
-              <View style={styles.inputIcon}>
-                <User size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
+          <View style={styles.nameRow}>
+            <View style={[styles.inputGroup, styles.flex1]}>
+              <View style={styles.inputWrap}>
+                <View style={styles.inputIcon}>
+                  <User size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={firstName}
+                  onChangeText={(v) => { setFirstName(v); setError(''); }}
+                  placeholder="First name"
+                  placeholderTextColor={COLORS.textTertiary}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                />
               </View>
-              <TextInput
-                style={styles.input}
-                value={fullName}
-                onChangeText={(v) => { setFullName(v); setError(''); }}
-                placeholder="Name"
-                placeholderTextColor={COLORS.textTertiary}
-                autoCapitalize="words"
-                autoCorrect={false}
-                returnKeyType="next"
-              />
+            </View>
+
+            <View style={[styles.inputGroup, styles.flex1]}>
+              <View style={styles.inputWrap}>
+                <View style={styles.inputIcon}>
+                  <User size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  value={surname}
+                  onChangeText={(v) => { setSurname(v); setError(''); }}
+                  placeholder="Surname"
+                  placeholderTextColor={COLORS.textTertiary}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  returnKeyType="next"
+                />
+              </View>
             </View>
           </View>
 
           <View style={styles.inputGroup}>
             <View style={styles.inputWrap}>
               <View style={styles.inputIcon}>
-                <Mail size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
+                <Phone size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
               </View>
               <TextInput
                 style={styles.input}
-                value={email}
-                onChangeText={(v) => { setEmail(v); setError(''); }}
-                placeholder="Email address"
+                value={phone}
+                onChangeText={(v) => { setPhone(v); setError(''); }}
+                placeholder="Phone number"
                 placeholderTextColor={COLORS.textTertiary}
-                keyboardType="email-address"
+                keyboardType="phone-pad"
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="next"
@@ -175,23 +198,6 @@ export default function SignUpScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>Or Continue With Account</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.socialRow}>
-            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-              <Text style={styles.socialIcon}>f</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-              <Text style={[styles.socialIcon, styles.googleIcon]}>G</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
-              <Text style={styles.socialIcon}>{'\uF8FF'}</Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -241,6 +247,14 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     lineHeight: 21,
     marginBottom: SPACING.lg + 4,
+  },
+
+  nameRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  flex1: {
+    flex: 1,
   },
 
   inputGroup: {
@@ -327,45 +341,4 @@ const styles = StyleSheet.create({
     color: AUTH_GREEN,
   },
 
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E8E8E8',
-  },
-  dividerText: {
-    fontFamily: FONT.regular,
-    fontSize: 12,
-    color: COLORS.textTertiary,
-    marginHorizontal: SPACING.sm + 4,
-  },
-
-  socialRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: SPACING.lg,
-  },
-  socialBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F5F5F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ECECEC',
-  },
-  socialIcon: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: COLORS.textPrimary,
-  },
-  googleIcon: {
-    color: '#4285F4',
-  },
 });

@@ -5,37 +5,55 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, Mail, CircleCheck as CheckCircle } from 'lucide-react-native';
+import { ChevronLeft, Phone, CircleCheck as CheckCircle } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { useAuth } from '@/contexts/AuthContext';
 
 const AUTH_GREEN = COLORS.authGreen;
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const { resetPassword } = useAuth();
 
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [recoveryCode, setRecoveryCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [sent, setSent] = useState(false);
+  const [step, setStep] = useState<'phone' | 'recovery' | 'success'>('phone');
 
-  const handleSubmit = async () => {
+  const handlePhoneSubmit = async () => {
     setError('');
-    if (!email.trim() || !email.includes('@')) {
-      return setError('Please enter a valid email address');
+    if (!phone.trim()) {
+      return setError('Please enter your phone number');
     }
 
     setLoading(true);
-    const { error: resetError } = await resetPassword(email.trim().toLowerCase());
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setStep('recovery');
+    } catch (e) {
+      setError('Failed to process. Please try again.');
+    }
     setLoading(false);
+  };
 
-    if (resetError) {
-      setError(resetError);
-      return;
+  const handleRecoverySubmit = async () => {
+    setError('');
+    if (!recoveryCode.trim()) {
+      return setError('Please enter your recovery code');
+    }
+    if (newPassword.length < 6) {
+      return setError('Password must be at least 6 characters');
     }
 
-    setSent(true);
+    setLoading(true);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setStep('success');
+    } catch (e) {
+      setError('Failed to reset password. Please try again.');
+    }
+    setLoading(false);
   };
 
   return (
@@ -55,17 +73,17 @@ export default function ForgotPasswordScreen() {
             <ChevronLeft size={24} color={COLORS.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
 
-          <Text style={styles.title}>Forgot Password</Text>
+          <Text style={styles.title}>Recovery Password</Text>
           <Text style={styles.subtitle}>
-            Enter your email address to receive a reset link and regain access to your account.
+            Enter your phone number and recovery code to reset your password.
           </Text>
 
-          {sent ? (
+          {step === 'success' ? (
             <View style={styles.successBox}>
               <CheckCircle size={40} color={AUTH_GREEN} strokeWidth={1.5} />
-              <Text style={styles.successTitle}>Check your email</Text>
+              <Text style={styles.successTitle}>Password Reset</Text>
               <Text style={styles.successText}>
-                We've sent a password reset link to {email}. Please check your inbox.
+                Your password has been successfully reset. You can now log in with your new password.
               </Text>
               <TouchableOpacity
                 style={styles.submitBtn}
@@ -75,24 +93,24 @@ export default function ForgotPasswordScreen() {
                 <Text style={styles.submitBtnText}>Back to Login</Text>
               </TouchableOpacity>
             </View>
-          ) : (
+          ) : step === 'phone' ? (
             <>
               <View style={styles.inputGroup}>
                 <View style={styles.inputWrap}>
                   <View style={styles.inputIcon}>
-                    <Mail size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
+                    <Phone size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
                   </View>
                   <TextInput
                     style={styles.input}
-                    value={email}
-                    onChangeText={(v) => { setEmail(v); setError(''); }}
-                    placeholder="Email address"
+                    value={phone}
+                    onChangeText={(v) => { setPhone(v); setError(''); }}
+                    placeholder="Phone number"
                     placeholderTextColor={COLORS.textTertiary}
-                    keyboardType="email-address"
+                    keyboardType="phone-pad"
                     autoCapitalize="none"
                     autoCorrect={false}
                     returnKeyType="done"
-                    onSubmitEditing={handleSubmit}
+                    editable={!loading}
                   />
                 </View>
               </View>
@@ -105,13 +123,76 @@ export default function ForgotPasswordScreen() {
 
               <TouchableOpacity
                 style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
-                onPress={handleSubmit}
+                onPress={handlePhoneSubmit}
                 disabled={loading}
                 activeOpacity={0.85}
               >
                 <Text style={styles.submitBtnText}>
-                  {loading ? 'Sending...' : 'Continue'}
+                  {loading ? 'Processing...' : 'Continue'}
                 </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <View style={styles.inputGroup}>
+                <View style={styles.inputWrap}>
+                  <TextInput
+                    style={styles.input}
+                    value={recoveryCode}
+                    onChangeText={(v) => { setRecoveryCode(v); setError(''); }}
+                    placeholder="Recovery code"
+                    placeholderTextColor={COLORS.textTertiary}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <View style={styles.inputWrap}>
+                  <TextInput
+                    style={[styles.input, styles.passwordInput]}
+                    value={newPassword}
+                    onChangeText={(v) => { setNewPassword(v); setError(''); }}
+                    placeholder="New password"
+                    placeholderTextColor={COLORS.textTertiary}
+                    secureTextEntry={!showPassword}
+                    returnKeyType="done"
+                    editable={!loading}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeBtn}
+                    onPress={() => setShowPassword(p => !p)}
+                    disabled={loading}
+                  >
+                    <Text style={styles.eyeText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              {error ? (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+                onPress={handleRecoverySubmit}
+                disabled={loading}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.submitBtnText}>
+                  {loading ? 'Resetting...' : 'Reset Password'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => { setStep('phone'); setError(''); setRecoveryCode(''); setNewPassword(''); }}
+                style={styles.backLink}
+              >
+                <Text style={styles.backLinkText}>Back to phone number</Text>
               </TouchableOpacity>
             </>
           )}
@@ -189,6 +270,21 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     height: '100%',
   },
+  passwordInput: {
+    paddingRight: 40,
+  },
+  eyeBtn: {
+    position: 'absolute',
+    right: 14,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 36,
+  },
+  eyeText: {
+    fontSize: 16,
+  },
 
   errorBox: {
     backgroundColor: COLORS.errorLight,
@@ -239,5 +335,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 21,
     marginBottom: SPACING.lg,
+  },
+
+  backLink: {
+    marginTop: SPACING.md,
+    alignItems: 'center',
+    paddingVertical: SPACING.sm,
+  },
+  backLinkText: {
+    fontFamily: FONT.medium,
+    fontSize: 13,
+    color: AUTH_GREEN,
   },
 });
