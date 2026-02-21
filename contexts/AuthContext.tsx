@@ -10,8 +10,8 @@ interface AuthContextType {
   isAdmin: boolean;
   isOwner: boolean;
   isStudent: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, fullName: string, role?: 'student' | 'owner') => Promise<{ error: string | null }>;
+  signIn: (phone: string, password: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, fullName: string, phone: string, role?: 'student' | 'owner') => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshMember: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: string | null }>;
@@ -24,8 +24,8 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isOwner: false,
   isStudent: true,
-  signIn: async () => ({ error: null }),
-  signUp: async () => ({ error: null }),
+  signIn: async (_phone: string, _password: string) => ({ error: null }),
+  signUp: async (_email: string, _password: string, _fullName: string, _phone: string) => ({ error: null }),
   signOut: async () => {},
   refreshMember: async () => {},
   resetPassword: async () => ({ error: null }),
@@ -75,12 +75,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const signIn = async (phone: string, password: string) => {
+    const { data: memberData, error: lookupError } = await supabase
+      .from('members')
+      .select('email')
+      .eq('phone', phone.trim())
+      .maybeSingle();
+
+    if (lookupError) return { error: lookupError.message };
+    if (!memberData?.email) return { error: 'No account found with this phone number.' };
+
+    const { error } = await supabase.auth.signInWithPassword({ email: memberData.email, password });
     return { error: error?.message ?? null };
   };
 
-  const signUp = async (email: string, password: string, fullName: string, role: 'student' | 'owner' = 'student') => {
+  const signUp = async (email: string, password: string, fullName: string, phone: string, role: 'student' | 'owner' = 'student') => {
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { error: error.message };
 
@@ -88,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error: profileError } = await supabase.from('members').insert({
         id: data.user.id,
         email,
+        phone: phone.trim(),
         full_name: fullName,
         role,
         membership_status: 'active',

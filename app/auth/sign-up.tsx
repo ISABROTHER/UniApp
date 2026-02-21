@@ -18,6 +18,7 @@ export default function SignUpScreen() {
   const [firstName, setFirstName] = useState('');
   const [surname, setSurname] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -30,18 +31,20 @@ export default function SignUpScreen() {
     if (!firstName.trim()) return setError('Please enter your first name');
     if (!surname.trim()) return setError('Please enter your surname');
     if (!phone.trim()) return setError('Please enter your phone number');
+    if (!email.trim()) return setError('Please enter your email address');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError('Please enter a valid email address');
     if (password.length < 6) return setError('Password must be at least 6 characters');
     if (password !== confirmPassword) return setError('Passwords do not match');
 
     const fullName = `${firstName.trim()} ${surname.trim()}`;
     setLoading(true);
-    const { error: authError } = await signUp(phone.trim(), password, fullName);
+    const { error: authError } = await signUp(email.trim(), password, fullName, phone.trim());
     setLoading(false);
 
     if (authError) {
       setError(
         authError.toLowerCase().includes('already')
-          ? 'An account with this phone number already exists. Please sign in.'
+          ? 'An account with this email already exists. Please sign in.'
           : authError
       );
       return;
@@ -122,6 +125,25 @@ export default function SignUpScreen() {
                 placeholder="Phone number"
                 placeholderTextColor={COLORS.textTertiary}
                 keyboardType="phone-pad"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+              />
+            </View>
+          </View>
+
+          <View style={styles.inputGroup}>
+            <View style={styles.inputWrap}>
+              <View style={styles.inputIcon}>
+                <Mail size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
+              </View>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={(v) => { setEmail(v); setError(''); }}
+                placeholder="Email address"
+                placeholderTextColor={COLORS.textTertiary}
+                keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="next"
