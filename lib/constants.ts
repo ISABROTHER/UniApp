@@ -30,6 +30,9 @@ export const COLORS = {
   textSecondary: '#6B7280',
   textTertiary: '#9CA3AF',
 
+  authGreen: '#2EAF7D',
+  authGreenLight: 'rgba(46, 175, 125, 0.08)',
+
   overlay: 'rgba(0,0,0,0.5)',
   gradient: ['#1A2332', '#2563EB'],
 

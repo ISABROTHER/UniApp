@@ -14,6 +14,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string, role?: 'student' | 'owner') => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshMember: () => Promise<void>;
+  resetPassword: (email: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -27,6 +28,7 @@ const AuthContext = createContext<AuthContextType>({
   signUp: async () => ({ error: null }),
   signOut: async () => {},
   refreshMember: async () => {},
+  resetPassword: async () => ({ error: null }),
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -96,6 +98,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   };
 
+  const resetPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    return { error: error?.message ?? null };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setMember(null);
@@ -115,6 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signUp,
         signOut,
         refreshMember,
+        resetPassword,
       }}
     >
       {children}

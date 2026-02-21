@@ -61,6 +61,7 @@ export default function RootLayout() {
         <Stack.Screen name="print-chat" />
         <Stack.Screen name="auth/sign-in" />
         <Stack.Screen name="auth/sign-up" />
+        <Stack.Screen name="auth/forgot-password" />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style="auto" />
