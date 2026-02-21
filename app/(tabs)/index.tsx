@@ -8,6 +8,7 @@ import {
   Platform,
   RefreshControl,
   Dimensions,
+  Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -62,6 +63,30 @@ const SERVICE_BANNERS = [
   },
 ];
 
+interface LiveStats {
+  availableBeds: number;
+  unreadMessages: number;
+  unreadAlerts: number;
+}
+
+function AnimatedStatNum({ value }: { value: number }) {
+  const animVal = useRef(new Animated.Value(0)).current;
+  const [display, setDisplay] = useState(0);
+
+  useEffect(() => {
+    animVal.setValue(0);
+    Animated.timing(animVal, {
+      toValue: value,
+      duration: 800,
+      useNativeDriver: false,
+    }).start();
+    const listener = animVal.addListener(({ value: v }) => setDisplay(Math.round(v)));
+    return () => animVal.removeListener(listener);
+  }, [value]);
+
+  return <Text style={styles.statNum}>{display}</Text>;
+}
+
 function ServiceBannerCard({ banner, onPress }: { banner: typeof SERVICE_BANNERS[number]; onPress: () => void }) {
   const Icon = banner.icon;
   return (
@@ -88,6 +113,11 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [bannerIndex, setBannerIndex] = useState(0);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [liveStats, setLiveStats] = useState<LiveStats>({
+    availableBeds: 0,
+    unreadMessages: 0,
+    unreadAlerts: 0,
+  });
   const bannerScrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -102,14 +132,54 @@ export default function HomeScreen() {
   const fetchData = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
+      const [bedsResult, statsResult] = await Promise.all([
+        supabase
+          .from('hostels')
+          .select('available_rooms')
+          .eq('status', 'active'),
+        user ? ensureUserStats(user.id).then(() =>
+          supabase.from('user_stats').select('*').eq('user_id', user.id).maybeSingle()
+        ) : Promise.resolve({ data: null }),
+      ]);
+
+      const totalBeds = (bedsResult.data || []).reduce(
+        (sum: number, h: { available_rooms: number }) => sum + (h.available_rooms || 0), 0
+      );
+
       if (user) {
-        await ensureUserStats(user.id);
-        const { data: stats } = await supabase
-          .from('user_stats')
-          .select('*')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        const [msgResult, alertResult] = await Promise.all([
+          supabase
+            .from('conversations')
+            .select('unread_count_a, unread_count_b, participant_a, participant_b')
+            .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`),
+          supabase
+            .from('notifications')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', user.id)
+            .eq('read', false),
+        ]);
+
+        const unreadMessages = (msgResult.data || []).reduce((sum: number, c: {
+          participant_a: string;
+          participant_b: string;
+          unread_count_a: number;
+          unread_count_b: number;
+        }) => {
+          const isA = c.participant_a === user.id;
+          return sum + (isA ? (c.unread_count_a || 0) : (c.unread_count_b || 0));
+        }, 0);
+
+        setLiveStats({
+          availableBeds: totalBeds,
+          unreadMessages,
+          unreadAlerts: alertResult.count || 0,
+        });
+
+        const { data: stats } = statsResult as { data: UserStats | null };
         setUserStats(stats as UserStats | null);
+      } else {
+        setLiveStats(prev => ({ ...prev, availableBeds: totalBeds }));
       }
     } catch (err) {
       console.error('fetchData error:', err);
@@ -153,87 +223,83 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Stats & Quick Navigation Strip */}
       <View style={styles.statsStrip}>
-        <TouchableOpacity 
-          style={styles.statItem} 
+        <TouchableOpacity
+          style={styles.statItem}
           onPress={() => router.push('/(tabs)/search' as any)}
           activeOpacity={0.7}
         >
-          <Text style={styles.statNum}>142</Text>
+          <AnimatedStatNum value={liveStats.availableBeds} />
           <Text style={styles.statLabel}>Beds</Text>
         </TouchableOpacity>
-        
+
         <View style={styles.statDivider} />
-        
-        <TouchableOpacity 
-          style={styles.statItem} 
+
+        <TouchableOpacity
+          style={styles.statItem}
           onPress={() => router.push('/(tabs)/messages' as any)}
           activeOpacity={0.7}
         >
-          <Text style={styles.statNum}>3</Text>
+          <AnimatedStatNum value={liveStats.unreadMessages} />
           <Text style={styles.statLabel}>Messages</Text>
         </TouchableOpacity>
-        
+
         <View style={styles.statDivider} />
-        
-        <TouchableOpacity 
-          style={styles.statItem} 
+
+        <TouchableOpacity
+          style={styles.statItem}
           onPress={() => router.push('/(tabs)/bookings' as any)}
           activeOpacity={0.7}
         >
-          <Text style={styles.statNum}>{userStats?.bookings_made || 0}</Text>
+          <AnimatedStatNum value={userStats?.bookings_made || 0} />
           <Text style={styles.statLabel}>Bookings</Text>
         </TouchableOpacity>
-        
+
         <View style={styles.statDivider} />
-        
-        <TouchableOpacity 
-          style={styles.statItem} 
+
+        <TouchableOpacity
+          style={styles.statItem}
           onPress={() => router.push('/notifications' as any)}
           activeOpacity={0.7}
         >
-          <Text style={styles.statNum}>5</Text>
-          <Text style={styles.statLabel}>Alerts</Text>
+          <AnimatedStatNum value={liveStats.unreadAlerts} />
+          <Text style={[styles.statLabel, liveStats.unreadAlerts > 0 && styles.statLabelAlert]}>Alerts</Text>
         </TouchableOpacity>
       </View>
 
       <OnboardingProgress compact={true} />
 
-      {/* Simplified Quick Access Grid with Premium Thin Lines */}
       <View style={styles.quickActionsSection}>
         <View style={styles.quickActionsGrid}>
-          
-          {/* Row 1 */}
+
           <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/(tabs)/bookings' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
               <Home size={28} color={COLORS.accent} />
             </View>
             <Text style={styles.qaLabel}>Housing</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/(tabs)/laundry' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#EDE9FE' }]}>
               <ShoppingBag size={28} color='#7C3AED' />
             </View>
             <Text style={styles.qaLabel}>Smart Wash</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/(tabs)/utilities' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
               <ShoppingBag size={28} color={COLORS.warning} />
             </View>
             <Text style={styles.qaLabel}>StuMark</Text>
           </TouchableOpacity>
-          
-          {/* Row 2 */}
+
           <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/print' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
               <Printer size={28} color={COLORS.success} />
             </View>
             <Text style={styles.qaLabel}>DigiPrint</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/roommates' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
               <Users size={28} color={COLORS.error} />
@@ -241,7 +307,6 @@ export default function HomeScreen() {
             <Text style={styles.qaLabel}>Roommates</Text>
           </TouchableOpacity>
 
-          {/* Empty 6th cell to keep the grid perfectly balanced */}
           <View style={styles.qa} />
 
         </View>
@@ -301,22 +366,23 @@ const styles = StyleSheet.create({
   headerLeft: { flex: 1 },
   greetingText: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary },
   headerTitle: { fontFamily: FONT.headingBold, fontSize: 24, color: COLORS.textPrimary },
-  
+
   statsStrip: {
-    flexDirection: 'row', 
+    flexDirection: 'row',
     backgroundColor: COLORS.white,
     paddingVertical: 8,
     paddingHorizontal: SPACING.md,
-    borderTopWidth: 1, 
+    borderTopWidth: 1,
     borderTopColor: COLORS.borderLight,
-    borderBottomWidth: 1, 
+    borderBottomWidth: 1,
     borderBottomColor: COLORS.borderLight,
   },
   statItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   statNum: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary, marginBottom: 2 },
   statLabel: { fontFamily: FONT.semiBold, fontSize: 11, color: COLORS.textPrimary },
+  statLabelAlert: { color: COLORS.primary },
   statDivider: { width: 1, backgroundColor: COLORS.borderLight, marginVertical: 2 },
-  
+
   avatar: {
     width: 36, height: 36, borderRadius: 18,
     backgroundColor: COLORS.primary,
@@ -332,14 +398,14 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   quickActionsGrid: {
-    flexDirection: 'row', 
-    flexWrap: 'wrap', 
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
-  qa: { 
-    width: '33.33%', 
-    alignItems: 'center', 
+  qa: {
+    width: '33.33%',
+    alignItems: 'center',
     paddingVertical: SPACING.md,
-    gap: 4 
+    gap: 4,
   },
   borderR: {
     borderRightWidth: 1,
