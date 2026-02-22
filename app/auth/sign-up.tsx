@@ -8,12 +8,14 @@ import { StatusBar } from 'expo-status-bar';
 import { ChevronLeft, Mail, Lock, Eye, EyeOff, User, Phone } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBiometricAuth } from '@/hooks/useBiometricAuth';
 
 const AUTH_GREEN = COLORS.authGreen;
 
 export default function SignUpScreen() {
   const router = useRouter();
   const { signUp } = useAuth();
+  const { isAvailable: biometricAvailable, saveCredentials } = useBiometricAuth();
 
   const [firstName, setFirstName] = useState('');
   const [surname, setSurname] = useState('');
@@ -48,6 +50,10 @@ export default function SignUpScreen() {
           : authError
       );
       return;
+    }
+
+    if (biometricAvailable && Platform.OS !== 'web') {
+      await saveCredentials(email.trim(), password);
     }
 
     router.replace('/(tabs)');

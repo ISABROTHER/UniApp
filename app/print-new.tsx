@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Platform, TextInput, Switch,
+  Platform, TextInput, Switch, ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as FileSystem from 'expo-file-system';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import {
   ArrowLeft, Shield, FileText, Upload,
   Printer, Truck, Package, AlertCircle, CheckCircle,
-  Lock,
+  Lock, X,
 } from 'lucide-react-native';
 
 const PAPER_SIZES = ['A4', 'A3', 'Letter', 'Legal'];
@@ -20,12 +21,24 @@ const BINDING_OPTIONS = [
   { value: 'comb', label: 'Comb' },
 ];
 
-const MOCK_FILES = [
-  { name: 'Assignment_3.pdf', size_kb: 342, pages: 8, type: 'pdf' },
-  { name: 'Research_Paper.docx', size_kb: 215, pages: 14, type: 'doc' },
-  { name: 'Presentation.pdf', size_kb: 1204, pages: 22, type: 'pdf' },
-  { name: 'Lab_Report.pdf', size_kb: 580, pages: 11, type: 'pdf' },
+const ACCEPTED_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-powerpoint',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'image/jpeg',
+  'image/png',
+  'text/plain',
 ];
+
+type PickedFile = {
+  name: string;
+  size: number;
+  uri: string;
+  mimeType: string;
+  base64?: string;
+};
 
 type PrintShop = {
   id: string;
@@ -36,13 +49,21 @@ type PrintShop = {
   supports_pickup: boolean;
 };
 
+function getFileExtLabel(mimeType: string): string {
+  if (mimeType.includes('pdf')) return 'pdf';
+  if (mimeType.includes('word') || mimeType.includes('docx')) return 'doc';
+  if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'ppt';
+  if (mimeType.includes('image')) return 'img';
+  return 'file';
+}
+
 export default function PrintNewScreen() {
   const router = useRouter();
   const { shopId, shopName } = useLocalSearchParams<{ shopId: string; shopName: string }>();
   const [shop, setShop] = useState<PrintShop | null>(null);
   const [step, setStep] = useState<'file' | 'settings' | 'review'>('file');
 
-  const [selectedFile, setSelectedFile] = useState<typeof MOCK_FILES[0] | null>(null);
+  const [pickedFile, setPickedFile] = useState<PickedFile | null>(null);
   const [docName, setDocName] = useState('');
   const [pages, setPages] = useState(1);
   const [copies, setCopies] = useState('1');
@@ -55,7 +76,9 @@ export default function PrintNewScreen() {
   const [instructions, setInstructions] = useState('');
   const [safePrintAgreed, setSafePrintAgreed] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (shopId) {
@@ -65,6 +88,50 @@ export default function PrintNewScreen() {
     }
   }, [shopId]);
 
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = ACCEPTED_TYPES.join(',');
+      input.style.display = 'none';
+      input.addEventListener('change', handleWebFileChange);
+      document.body.appendChild(input);
+      fileInputRef.current = input;
+      return () => {
+        input.removeEventListener('change', handleWebFileChange);
+        document.body.removeChild(input);
+      };
+    }
+  }, []);
+
+  const handleWebFileChange = (e: Event) => {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(',')[1];
+      const picked: PickedFile = {
+        name: file.name,
+        size: file.size,
+        uri: URL.createObjectURL(file),
+        mimeType: file.type || 'application/octet-stream',
+        base64,
+      };
+      setPickedFile(picked);
+      setDocName(file.name.replace(/\.[^/.]+$/, ''));
+    };
+    reader.readAsDataURL(file);
+    input.value = '';
+  };
+
+  const pickFileWeb = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   const pricePerPage = colorMode === 'color'
     ? (shop?.price_per_page_color ?? 2)
     : (shop?.price_per_page_bw ?? 0.5);
@@ -72,21 +139,79 @@ export default function PrintNewScreen() {
   const effectivePages = doubleSided ? Math.ceil(pages / 2) : pages;
   const totalPrice = effectivePages * parseInt(copies || '1', 10) * pricePerPage;
 
-  const pickFile = (file: typeof MOCK_FILES[0]) => {
-    setSelectedFile(file);
-    setDocName(file.name.replace(/\.[^/.]+$/, ''));
-    setPages(file.pages);
+  const uploadFile = async (userId: string): Promise<string> => {
+    if (!pickedFile) throw new Error('No file selected');
+
+    const ext = pickedFile.name.split('.').pop() || 'bin';
+    const storagePath = `${userId}/${Date.now()}_${pickedFile.name}`;
+
+    if (Platform.OS === 'web' && pickedFile.base64) {
+      const byteChars = atob(pickedFile.base64);
+      const byteNumbers = new Array(byteChars.length);
+      for (let i = 0; i < byteChars.length; i++) {
+        byteNumbers[i] = byteChars.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: pickedFile.mimeType });
+
+      const { data, error } = await supabase.storage
+        .from('print-documents')
+        .upload(storagePath, blob, {
+          contentType: pickedFile.mimeType,
+          upsert: false,
+        });
+
+      if (error) throw error;
+      return data.path;
+    } else {
+      const base64 = await FileSystem.readAsStringAsync(pickedFile.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const { data, error } = await supabase.storage
+        .from('print-documents')
+        .upload(storagePath, decode(base64), {
+          contentType: pickedFile.mimeType,
+          upsert: false,
+        });
+
+      if (error) throw error;
+      return data.path;
+    }
   };
 
+  function decode(base64: string): Uint8Array {
+    const binaryStr = atob(base64);
+    const bytes = new Uint8Array(binaryStr.length);
+    for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    return bytes;
+  }
+
   const submit = async () => {
-    if (!selectedFile || !shopId) { setError('Please select a file first.'); return; }
+    if (!pickedFile || !shopId) { setError('Please select a file first.'); return; }
     if (deliveryType === 'delivery' && !deliveryAddress.trim()) { setError('Please enter a delivery address.'); return; }
     setSubmitting(true);
+    setUploadProgress(0);
     setError('');
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setError('You must be logged in.'); setSubmitting(false); return; }
 
+    let fileUrl = '';
+    try {
+      setUploadProgress(20);
+      const storagePath = await uploadFile(user.id);
+      setUploadProgress(70);
+      const { data: { publicUrl } } = supabase.storage.from('print-documents').getPublicUrl(storagePath);
+      fileUrl = publicUrl || `storage://${storagePath}`;
+    } catch (uploadErr: any) {
+      setError('File upload failed. Please try again.');
+      setSubmitting(false);
+      return;
+    }
+
+    setUploadProgress(80);
     const pickupCode = Math.random().toString(36).slice(2, 8).toUpperCase();
     const estimated = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
@@ -94,9 +219,9 @@ export default function PrintNewScreen() {
       user_id: user.id,
       shop_id: shopId,
       document_name: docName,
-      file_name: selectedFile.name,
-      file_size_kb: selectedFile.size_kb,
-      file_url: `mock://files/${selectedFile.name}`,
+      file_name: pickedFile.name,
+      file_size_kb: Math.round(pickedFile.size / 1024),
+      file_url: fileUrl,
       page_count: pages,
       copies: parseInt(copies || '1', 10),
       color_mode: colorMode,
@@ -120,9 +245,16 @@ export default function PrintNewScreen() {
       { job_id: job.id, status: 'pending', message: 'Your print job was received by the shop.' },
     ]);
 
+    setUploadProgress(100);
     setSubmitting(false);
     router.replace(`/print-job?id=${job.id}` as any);
   };
+
+  const fileSizeLabel = pickedFile
+    ? (pickedFile.size < 1024 * 1024
+      ? `${(pickedFile.size / 1024).toFixed(1)} KB`
+      : `${(pickedFile.size / (1024 * 1024)).toFixed(1)} MB`)
+    : '';
 
   return (
     <View style={styles.container}>
@@ -156,34 +288,57 @@ export default function PrintNewScreen() {
         {step === 'file' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Select Document</Text>
-            <View style={styles.uploadBox}>
+
+            <TouchableOpacity
+              style={styles.uploadBox}
+              onPress={pickFileWeb}
+              activeOpacity={0.8}
+            >
               <Upload size={28} color={COLORS.accent} strokeWidth={1.5} />
-              <Text style={styles.uploadTitle}>Upload from device</Text>
+              <Text style={styles.uploadTitle}>Tap to upload a file</Text>
               <Text style={styles.uploadSub}>PDF, Word, PowerPoint, Images</Text>
               <Text style={styles.uploadHint}>Up to 50 MB per file</Text>
-            </View>
+            </TouchableOpacity>
 
-            <Text style={styles.orDivider}>— or choose a recent file —</Text>
-
-            {MOCK_FILES.map((file, i) => (
-              <TouchableOpacity
-                key={i}
-                style={[styles.fileRow, selectedFile?.name === file.name && styles.fileRowSelected]}
-                onPress={() => pickFile(file)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.fileIcon, { backgroundColor: file.type === 'pdf' ? COLORS.error + '14' : COLORS.accent + '14' }]}>
-                  <FileText size={18} color={file.type === 'pdf' ? COLORS.error : COLORS.accent} strokeWidth={1.8} />
+            {pickedFile && (
+              <View style={styles.selectedFileCard}>
+                <View style={[styles.fileIcon, {
+                  backgroundColor: getFileExtLabel(pickedFile.mimeType) === 'pdf'
+                    ? COLORS.error + '14' : COLORS.accent + '14'
+                }]}>
+                  <FileText
+                    size={18}
+                    color={getFileExtLabel(pickedFile.mimeType) === 'pdf' ? COLORS.error : COLORS.accent}
+                    strokeWidth={1.8}
+                  />
                 </View>
                 <View style={styles.fileInfo}>
-                  <Text style={styles.fileName}>{file.name}</Text>
-                  <Text style={styles.fileMeta}>{file.pages} pages · {file.size_kb < 1024 ? `${file.size_kb} KB` : `${(file.size_kb / 1024).toFixed(1)} MB`}</Text>
+                  <Text style={styles.fileName} numberOfLines={1}>{pickedFile.name}</Text>
+                  <Text style={styles.fileMeta}>{fileSizeLabel}</Text>
                 </View>
-                {selectedFile?.name === file.name && (
-                  <CheckCircle size={18} color={COLORS.success} fill={COLORS.success} />
-                )}
-              </TouchableOpacity>
-            ))}
+                <CheckCircle size={20} color={COLORS.success} fill={COLORS.success} />
+                <TouchableOpacity
+                  style={styles.removeFileBtn}
+                  onPress={() => { setPickedFile(null); setDocName(''); setPages(1); }}
+                  activeOpacity={0.7}
+                >
+                  <X size={16} color={COLORS.textTertiary} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            <View style={styles.pageCountRow}>
+              <Text style={styles.sectionTitle}>Page Count</Text>
+              <View style={styles.counterRow}>
+                <TouchableOpacity style={styles.counterBtn} onPress={() => setPages(p => Math.max(1, p - 1))}>
+                  <Text style={styles.counterBtnText}>−</Text>
+                </TouchableOpacity>
+                <Text style={styles.counterVal}>{pages}</Text>
+                <TouchableOpacity style={styles.counterBtn} onPress={() => setPages(p => p + 1)}>
+                  <Text style={styles.counterBtnText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
 
             <View style={styles.safePrintBox}>
               <View style={styles.safePrintRow}>
@@ -197,7 +352,7 @@ export default function PrintNewScreen() {
                 />
               </View>
               <Text style={styles.safePrintDesc}>
-                Your file will be permanently deleted from both sides 10 minutes after printing is confirmed. You can choose to keep your own copy before that window closes.
+                Your file will be permanently deleted from both sides 10 minutes after printing is confirmed.
               </Text>
             </View>
           </View>
@@ -338,7 +493,8 @@ export default function PrintNewScreen() {
             </View>
             <View style={styles.reviewCard}>
               <Text style={styles.reviewCardTitle}>Order Summary</Text>
-              <ReviewRow label="Document" value={docName || selectedFile?.name || '—'} />
+              <ReviewRow label="Document" value={docName || pickedFile?.name || '—'} />
+              <ReviewRow label="File" value={pickedFile?.name || '—'} />
               <ReviewRow label="Pages" value={`${pages} pages × ${copies} copies`} />
               <ReviewRow label="Mode" value={colorMode === 'color' ? 'Full Colour' : 'Black & White'} />
               <ReviewRow label="Paper" value={`${paperSize}${doubleSided ? ' · Double-sided' : ''}`} />
@@ -356,10 +512,20 @@ export default function PrintNewScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.safePrintConfirmTitle}>Safe Print Agreement</Text>
                 <Text style={styles.safePrintConfirmText}>
-                  By placing this order, you and the print shop agree that your file will be permanently deleted from both sides within 10 minutes of printing confirmation. You may pause deletion of your own copy before the timer expires.
+                  By placing this order, your file will be permanently deleted from both sides within 10 minutes of printing confirmation.
                 </Text>
               </View>
             </View>
+
+            {submitting && (
+              <View style={styles.uploadProgressBox}>
+                <ActivityIndicator size="small" color={COLORS.primary} />
+                <Text style={styles.uploadProgressText}>
+                  {uploadProgress < 70 ? 'Uploading file...' : uploadProgress < 90 ? 'Creating order...' : 'Finalising...'}
+                  {'  '}{uploadProgress}%
+                </Text>
+              </View>
+            )}
 
             {error ? (
               <View style={styles.errorBox}>
@@ -372,7 +538,7 @@ export default function PrintNewScreen() {
       </ScrollView>
 
       <View style={styles.bottomBar}>
-        {step === 'settings' && selectedFile && (
+        {step === 'settings' && pickedFile && (
           <View style={styles.livePriceBar}>
             <View style={styles.livePriceLeft}>
               <Lock size={13} color={COLORS.success} />
@@ -399,10 +565,10 @@ export default function PrintNewScreen() {
             </TouchableOpacity>
           )}
           <TouchableOpacity
-            style={[styles.nextBtn, (step === 'file' && !selectedFile) && styles.nextBtnDisabled, submitting && styles.nextBtnDisabled]}
+            style={[styles.nextBtn, (step === 'file' && !pickedFile) && styles.nextBtnDisabled, submitting && styles.nextBtnDisabled]}
             onPress={() => {
               if (step === 'file') {
-                if (!selectedFile) { setError('Please select a file.'); return; }
+                if (!pickedFile) { setError('Please select a file.'); return; }
                 setError('');
                 setStep('settings');
               } else if (step === 'settings') {
@@ -411,11 +577,11 @@ export default function PrintNewScreen() {
                 submit();
               }
             }}
-            disabled={(step === 'file' && !selectedFile) || submitting}
+            disabled={(step === 'file' && !pickedFile) || submitting}
             activeOpacity={0.85}
           >
             <Text style={styles.nextBtnText}>
-              {step === 'review' ? (submitting ? 'Placing Order...' : `Pay GH₵${totalPrice.toFixed(2)} · Confirm`) : 'Continue'}
+              {step === 'review' ? (submitting ? 'Uploading...' : `Pay GH₵${totalPrice.toFixed(2)} · Confirm`) : 'Continue'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -465,14 +631,14 @@ const styles = StyleSheet.create({
   uploadSub: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary },
   uploadHint: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
 
-  orDivider: { textAlign: 'center', fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary, marginVertical: SPACING.md },
-
-  fileRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm, borderWidth: 1, borderColor: COLORS.border },
-  fileRowSelected: { borderColor: COLORS.success, backgroundColor: COLORS.success + '06' },
+  selectedFileCard: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, backgroundColor: COLORS.success + '06', borderRadius: RADIUS.md, padding: SPACING.md, marginTop: SPACING.md, borderWidth: 1, borderColor: COLORS.success + '30' },
   fileIcon: { width: 40, height: 40, borderRadius: RADIUS.sm, justifyContent: 'center', alignItems: 'center' },
   fileInfo: { flex: 1 },
   fileName: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary },
   fileMeta: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  removeFileBtn: { padding: 4 },
+
+  pageCountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: SPACING.sm },
 
   safePrintBox: { backgroundColor: COLORS.success + '10', borderRadius: RADIUS.lg, padding: SPACING.md, marginTop: SPACING.md, borderWidth: 1, borderColor: COLORS.success + '30' },
   safePrintRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, marginBottom: SPACING.sm },
@@ -509,6 +675,9 @@ const styles = StyleSheet.create({
   safePrintConfirm: { flexDirection: 'row', gap: SPACING.sm, backgroundColor: COLORS.success + '10', borderRadius: RADIUS.lg, padding: SPACING.md, borderWidth: 1, borderColor: COLORS.success + '30' },
   safePrintConfirmTitle: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary, marginBottom: 4 },
   safePrintConfirmText: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, lineHeight: 19 },
+
+  uploadProgressBox: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, backgroundColor: COLORS.primaryFaded, borderRadius: RADIUS.sm, padding: 12, marginTop: SPACING.sm },
+  uploadProgressText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.primary },
 
   errorBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.errorLight, borderRadius: RADIUS.sm, padding: 10, marginTop: SPACING.sm },
   errorText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.error, flex: 1 },

@@ -22,7 +22,7 @@ export default function NotificationBell({ size = 22, color = COLORS.textPrimary
       .from('notifications')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user.id)
-      .eq('is_read', false);
+      .eq('read', false);
 
     setUnreadCount(count || 0);
   }, []);
