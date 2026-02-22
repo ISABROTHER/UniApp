@@ -12,7 +12,8 @@ import {
 import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { Search, Edit, Menu } from 'lucide-react-native';
+import { Search, Edit, Menu, MessageSquare } from 'lucide-react-native';
+
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 const BUBBLE_COLORS = [
