@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
-import { Platform, View, StyleSheet } from 'react-native';
-import { Home, Search, ShoppingBag, MessageSquare, User, Bookmark } from 'lucide-react-native';
+import { Platform } from 'react-native';
+import { Home, Search, MessageSquare, User } from 'lucide-react-native';
 import { COLORS, FONT } from '@/lib/constants';
 
 export default function TabLayout() {
@@ -44,20 +44,8 @@ export default function TabLayout() {
           tabBarIcon: ({ color, size }) => <Search size={size} color={color} strokeWidth={2} />,
         }}
       />
-      <Tabs.Screen
-        name="bookings"
-        options={{
-          title: 'Bookings',
-          tabBarIcon: ({ color, size }) => <Bookmark size={size} color={color} strokeWidth={2} />,
-        }}
-      />
-      <Tabs.Screen
-        name="laundry"
-        options={{
-          title: 'Laundry',
-          tabBarIcon: ({ color, size }) => <ShoppingBag size={size} color={color} strokeWidth={2} />,
-        }}
-      />
+      <Tabs.Screen name="bookings" options={{ href: null }} />
+      <Tabs.Screen name="laundry" options={{ href: null }} />
       <Tabs.Screen
         name="messages"
         options={{
