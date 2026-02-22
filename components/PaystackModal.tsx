@@ -423,7 +423,7 @@ export default function PaystackModal({ visible, amount, label, email, publicKey
               <Text style={styles.outcomeSubtitle}>
                 GH₵{amount.toFixed(2)} {label.toLowerCase()} confirmed.
               </Text>
-              <View style={styles.securedRow} style={{ marginTop: SPACING.md }}>
+              <View style={[styles.securedRow, { marginTop: SPACING.md }]}>
                 <Shield size={13} color={COLORS.success} />
                 <Text style={[styles.securedText, { color: COLORS.success }]}>Verified by Paystack</Text>
               </View>
