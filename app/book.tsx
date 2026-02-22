@@ -53,7 +53,8 @@ export default function BookScreen() {
     if (!selectedRoom) return 0;
     const nights = calcNights();
     if (nights === 0) return 0;
-    return parseFloat(((selectedRoom.price_per_month / 30) * nights).toFixed(2));
+    const pricePerMonth = selectedRoom.price_per_month ?? 0;
+    return parseFloat(((pricePerMonth / 30) * nights).toFixed(2));
   };
 
   const calcPlatformFee = () => Math.round(calcRoomTotal() * PAYSTACK_FEES.PLATFORM_FEE_PERCENT * 100) / 100;
@@ -61,7 +62,10 @@ export default function BookScreen() {
     Math.round(calcRoomTotal() * PAYSTACK_FEES.MOMO_PERCENT * 100) / 100,
     PAYSTACK_FEES.MOMO_CAP_GHS
   );
-  const calcGrandTotal = () => parseFloat((calcRoomTotal() + calcPlatformFee() + calcMomoFee()).toFixed(2));
+  const calcGrandTotal = () => {
+    const total = calcRoomTotal() + calcPlatformFee() + calcMomoFee();
+    return isNaN(total) ? 0 : parseFloat(total.toFixed(2));
+  };
 
   const exceeds6Months = calcNights() > GHANA_RENT_ACT.MAX_ADVANCE_DAYS;
 
