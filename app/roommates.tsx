@@ -32,7 +32,7 @@ export default function RoommatesScreen() {
     const { data: { user } } = await supabase.auth.getUser();
 
     const [{ data: all }, { data: mine }] = await Promise.all([
-      supabase.from('roommate_profiles').select('*, members(full_name, email, faculty, department, level, gender, avatar_url)').eq('is_active', true).order('created_at', { ascending: false }).limit(30),
+      supabase.from('roommate_profiles').select('*, profiles(full_name, email, avatar_url)').eq('is_active', true).order('created_at', { ascending: false }).limit(30),
       user ? supabase.from('roommate_profiles').select('*').eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
     ]);
 
@@ -109,7 +109,7 @@ export default function RoommatesScreen() {
             </View>
           ) : (
             profiles.map((p) => {
-              const m = (p as any).members;
+              const m = (p as any).profiles;
               return (
                 <View key={p.id} style={styles.card}>
                   <View style={styles.cardTop}>
@@ -118,9 +118,9 @@ export default function RoommatesScreen() {
                     </View>
                     <View style={styles.cardInfo}>
                       <Text style={styles.cardName}>{m?.full_name || 'Student'}</Text>
-                      {m?.faculty && <Text style={styles.cardFaculty}>{m.faculty}</Text>}
+                      {p.preferred_university && <Text style={styles.cardFaculty}>{p.preferred_university}</Text>}
                       <View style={styles.tagRow}>
-                        {m?.level && <View style={styles.tag}><GraduationCap size={10} color={COLORS.accent} /><Text style={styles.tagText}>{m.level}</Text></View>}
+                        {p.academic_level && <View style={styles.tag}><GraduationCap size={10} color={COLORS.accent} /><Text style={styles.tagText}>{p.academic_level}</Text></View>}
                         <View style={styles.tag}><Users size={10} color={COLORS.success} /><Text style={styles.tagText}>{p.gender_preference === 'any' ? 'Any gender' : p.gender_preference}</Text></View>
                       </View>
                     </View>
