@@ -92,7 +92,7 @@ export default function BookScreen() {
       nights: calcNights(),
       total_price: calcGrandTotal(),
       special_requests: specialRequests || null,
-      status: 'payment_pending',
+      status: 'pending',
       qr_code: qrCode,
       payment_status: 'unpaid',
       platform_fee: calcPlatformFee(),
