@@ -9,6 +9,7 @@ import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS, LAUNDRY_TRACKING_STEPS, LAUNDRY_PASS_PLANS, QUICK_TOPUP_AMOUNTS, LAUNDRY_STATUS_COLORS } from '@/lib/constants';
 import { LaundryOrder, LaundryWallet, LaundryProvider, LaundryPass, LaundryPreferences } from '@/lib/types';
 import { ShoppingBag, Wallet, Package, CreditCard, Settings, Plus, Check, Phone, Star, Zap, Leaf, DoorOpen, ChevronRight } from 'lucide-react-native';
+import PaystackModal from '@/components/PaystackModal';
 
 const TABS = [
   { key: 'Book', label: 'Book', icon: ShoppingBag },
@@ -80,6 +81,7 @@ export default function LaundryScreen() {
   const [topupAmount, setTopupAmount] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState('');
   const [topupLoading, setTopupLoading] = useState(false);
+  const [payModalVisible, setPayModalVisible] = useState(false);
 
   const fetchAll = async () => {
     try {
@@ -149,6 +151,13 @@ export default function LaundryScreen() {
   const handleTopup = async () => {
     const amount = topupAmount ?? parseFloat(customAmount);
     if (!amount || amount <= 0) return;
+    setPayModalVisible(true);
+  };
+
+  const handlePaymentSuccess = async (ref: string) => {
+    setPayModalVisible(false);
+    const amount = topupAmount ?? parseFloat(customAmount);
+    if (!amount || amount <= 0) return;
     setTopupLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setTopupLoading(false); return; }
@@ -161,7 +170,14 @@ export default function LaundryScreen() {
     }
     await supabase.from('laundry_transactions').insert({
       user_id: user.id, type: 'topup', amount,
-      description: 'Wallet top-up', balance_after: newBalance,
+      description: 'Wallet top-up', reference: ref, balance_after: newBalance,
+    });
+    await supabase.from('notifications').insert({
+      user_id: user.id,
+      type: 'wallet_topup',
+      title: '👝 Laundry Wallet Funded',
+      message: `GH₵${amount.toFixed(2)} added. New balance: GH₵${newBalance.toFixed(2)}.`,
+      read: false,
     });
     setTopupLoading(false);
     setTopupAmount(null);
@@ -615,6 +631,14 @@ export default function LaundryScreen() {
           </>
         )}
       </ScrollView>
+
+      <PaystackModal
+        visible={payModalVisible}
+        amount={topupAmount ?? parseFloat(customAmount || '0')}
+        label="Laundry Wallet Top-Up"
+        onSuccess={handlePaymentSuccess}
+        onClose={() => setPayModalVisible(false)}
+      />
     </View>
   );
 }
