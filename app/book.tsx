@@ -129,7 +129,7 @@ export default function BookScreen() {
               <Text style={styles.roomAvail}>{room.available_count} available</Text>
             </View>
             <View style={styles.roomPriceCol}>
-              <Text style={styles.roomPrice}>GH₵{room.price_per_month.toLocaleString()}</Text>
+              <Text style={styles.roomPrice}>GH₵{(room.price_per_month ?? 0).toLocaleString()}</Text>
               <Text style={styles.roomPriceSub}>/month</Text>
             </View>
             {selectedRoom?.id === room.id && <Check size={16} color={COLORS.primary} />}
