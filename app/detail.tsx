@@ -7,7 +7,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Hostel, HostelReview } from '@/lib/types';
-import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle } from 'lucide-react-native';
+import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck } from 'lucide-react-native';
+import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -21,6 +22,7 @@ export default function DetailScreen() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details');
   const [activeImg, setActiveImg] = useState(0);
+  const [roommateCount, setRoommateCount] = useState(0);
 
   const hostelId = params.id as string;
 
@@ -48,6 +50,13 @@ export default function DetailScreen() {
       .limit(10);
 
     setReviews((revs as HostelReview[]) || []);
+
+    const { count } = await supabase.from('roommate_profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('hostel_id', hostelId)
+      .eq('is_active', true);
+    setRoommateCount(count ?? 0);
+
     setLoading(false);
   };
 
@@ -209,9 +218,28 @@ export default function DetailScreen() {
 
             {hostel.verified && (
               <View style={styles.verifiedRow}>
-                <ShieldCheck size={18} color={COLORS.success} />
-                <Text style={styles.verifiedRowText}>This hostel has been verified by StudentNest</Text>
+                <View style={styles.verifiedRowInner}>
+                  <ShieldCheck size={18} color={COLORS.success} />
+                  <Text style={styles.verifiedRowText}>Owner identity verified via Ghana Card</Text>
+                </View>
+                <ProtectedBookingBadge compact />
               </View>
+            )}
+
+            {roommateCount > 0 && (
+              <TouchableOpacity
+                style={styles.roommateRow}
+                onPress={() => router.push(`/roommates?hostelId=${hostelId}` as any)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.roommateIconWrap}>
+                  <UserCheck size={18} color={COLORS.accent} />
+                </View>
+                <View style={styles.roommateText}>
+                  <Text style={styles.roommateTitle}>{roommateCount} student{roommateCount !== 1 ? 's' : ''} looking for a roommate here</Text>
+                  <Text style={styles.rommmateSub}>Tap to find a compatible flatmate</Text>
+                </View>
+              </TouchableOpacity>
             )}
           </View>
         ) : (
@@ -405,11 +433,28 @@ const styles = StyleSheet.create({
   amenityText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textPrimary },
 
   verifiedRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: COLORS.successLight, borderRadius: RADIUS.md,
     padding: SPACING.md, marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  verifiedRowInner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6,
   },
   verifiedRowText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.success, flex: 1 },
+
+  roommateRow: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
+    backgroundColor: COLORS.infoLight, borderRadius: RADIUS.md,
+    padding: SPACING.md, marginBottom: SPACING.md,
+    borderWidth: 1, borderColor: '#BAE6FD',
+  },
+  roommateIconWrap: {
+    width: 40, height: 40, borderRadius: RADIUS.full,
+    backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center',
+  },
+  roommateText: { flex: 1 },
+  roommateTitle: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary },
+  rommmateSub: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.info, marginTop: 2 },
 
   noReviews: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textTertiary, fontStyle: 'italic', marginTop: SPACING.lg, textAlign: 'center' },
   reviewCard: { marginBottom: SPACING.lg, paddingBottom: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },

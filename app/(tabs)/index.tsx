@@ -26,6 +26,7 @@ import {
   ChevronRight,
   Home,
 } from 'lucide-react-native';
+import LeaseRenewalCard from '@/components/LeaseRenewalCard';
 
 const { width: SW } = Dimensions.get('window');
 const BANNER_WIDTH = SW - SPACING.md * 2;
@@ -119,6 +120,11 @@ export default function HomeScreen() {
     unreadAlerts: 0,
   });
   const bannerScrollRef = useRef<ScrollView>(null);
+  const [activeBooking, setActiveBooking] = useState<{
+    hostelId: string;
+    hostelName: string;
+    checkOutDate: string;
+  } | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -142,6 +148,31 @@ export default function HomeScreen() {
           supabase.from('user_stats').select('*').eq('user_id', user.id).maybeSingle()
         ) : Promise.resolve({ data: null }),
       ]);
+
+      if (user) {
+        const sixtyDaysOut = new Date();
+        sixtyDaysOut.setDate(sixtyDaysOut.getDate() + 60);
+        const { data: bookingData } = await supabase
+          .from('bookings')
+          .select('check_out_date, hostel_id, hostels(name)')
+          .eq('user_id', user.id)
+          .in('status', ['confirmed', 'checked_in'])
+          .lte('check_out_date', sixtyDaysOut.toISOString().slice(0, 10))
+          .order('check_out_date', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (bookingData) {
+          const h = (bookingData as any).hostels;
+          setActiveBooking({
+            hostelId: bookingData.hostel_id,
+            hostelName: h?.name ?? 'Your Hostel',
+            checkOutDate: bookingData.check_out_date,
+          });
+        } else {
+          setActiveBooking(null);
+        }
+      }
 
       const totalBeds = (bedsResult.data || []).reduce(
         (sum: number, h: { available_rooms: number }) => sum + (h.available_rooms || 0), 0
@@ -268,6 +299,14 @@ export default function HomeScreen() {
       </View>
 
       <OnboardingProgress compact={true} />
+
+      {activeBooking && (
+        <LeaseRenewalCard
+          hostelId={activeBooking.hostelId}
+          hostelName={activeBooking.hostelName}
+          checkOutDate={activeBooking.checkOutDate}
+        />
+      )}
 
       <View style={styles.quickActionsSection}>
         <View style={styles.quickActionsGrid}>

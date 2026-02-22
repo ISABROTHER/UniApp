@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS, ROOM_TYPES, BUDGET_OPTIONS_GHS } from '@/lib/constants';
 import { Hostel } from '@/lib/types';
-import { Search, Heart, Star, MapPin, SlidersHorizontal, X } from 'lucide-react-native';
+import { Search, Heart, Star, MapPin, SlidersHorizontal, X, Flame } from 'lucide-react-native';
 
 const { width: SW } = Dimensions.get('window');
 const CARD_WIDTH = (SW - 16 * 2 - 12) / 2;
@@ -15,11 +15,19 @@ const BG = '#F2F3F8';
 
 function HostelCard({ hostel, onPress, onToggleFav }: { hostel: Hostel; onPress: () => void; onToggleFav: () => void }) {
   const imageUrl = hostel.images?.[0]?.image_url || hostel.images?.[0]?.url || 'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?w=400';
+  const scarce = hostel.total_rooms > 0 && (hostel.available_rooms / hostel.total_rooms) < 0.2;
+  const availCount = hostel.available_rooms ?? 0;
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.93}>
       <View style={styles.cardImageWrap}>
         <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
+        {scarce && (
+          <View style={styles.scarceBadge}>
+            <Flame size={10} color={COLORS.white} />
+            <Text style={styles.scarceBadgeText}>Only {availCount} left</Text>
+          </View>
+        )}
       </View>
       <View style={styles.cardBody}>
         <Text style={styles.cardName} numberOfLines={2}>{hostel.name}</Text>
@@ -210,8 +218,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.07,
     shadowRadius: 10,
   },
-  cardImageWrap: {},
+  cardImageWrap: { position: 'relative' },
   cardImage: { width: CARD_WIDTH, height: CARD_WIDTH, backgroundColor: COLORS.borderLight },
+  scarceBadge: {
+    position: 'absolute', bottom: 8, left: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: COLORS.error, borderRadius: RADIUS.full,
+    paddingHorizontal: 8, paddingVertical: 3,
+  },
+  scarceBadgeText: { fontFamily: FONT.semiBold, fontSize: 10, color: COLORS.white },
   cardBody: { padding: 12, paddingBottom: 14 },
   cardName: { fontFamily: FONT.headingBold, fontSize: 17, color: COLORS.textPrimary, marginBottom: 4 },
   locationText: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textTertiary },

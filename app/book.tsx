@@ -2,9 +2,13 @@ import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
+import { COLORS, FONT, SPACING, RADIUS, GHANA_RENT_ACT, PAYSTACK_FEES } from '@/lib/constants';
 import { Hostel, HostelRoom } from '@/lib/types';
-import { ArrowLeft, Calendar, ChevronDown, Check } from 'lucide-react-native';
+import { ArrowLeft, Check, ShieldCheck } from 'lucide-react-native';
+import PaystackModal from '@/components/PaystackModal';
+import RentActDisclosure from '@/components/RentActDisclosure';
+import SemesterDatePicker from '@/components/SemesterDatePicker';
+import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 
 export default function BookScreen() {
   const router = useRouter();
@@ -21,6 +25,8 @@ export default function BookScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [paymentVisible, setPaymentVisible] = useState(false);
+  const [pendingBookingId, setPendingBookingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (hostelId) fetchHostel();
@@ -39,17 +45,25 @@ export default function BookScreen() {
 
   const calcNights = () => {
     if (!checkIn || !checkOut) return 0;
-    const diff = new Date(checkOut).getTime() - new Date(checkIn).getTime();
+    const diff = new Date(checkOut + 'T00:00:00').getTime() - new Date(checkIn + 'T00:00:00').getTime();
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   };
 
-  const calcTotal = () => {
+  const calcRoomTotal = () => {
     if (!selectedRoom) return 0;
     const nights = calcNights();
     if (nights === 0) return 0;
-    const monthlyRate = selectedRoom.price_per_month;
-    return parseFloat(((monthlyRate / 30) * nights).toFixed(2));
+    return parseFloat(((selectedRoom.price_per_month / 30) * nights).toFixed(2));
   };
+
+  const calcPlatformFee = () => Math.round(calcRoomTotal() * PAYSTACK_FEES.PLATFORM_FEE_PERCENT * 100) / 100;
+  const calcMomoFee = () => Math.min(
+    Math.round(calcRoomTotal() * PAYSTACK_FEES.MOMO_PERCENT * 100) / 100,
+    PAYSTACK_FEES.MOMO_CAP_GHS
+  );
+  const calcGrandTotal = () => parseFloat((calcRoomTotal() + calcPlatformFee() + calcMomoFee()).toFixed(2));
+
+  const exceeds6Months = calcNights() > GHANA_RENT_ACT.MAX_ADVANCE_DAYS;
 
   const handleBook = async () => {
     setError('');
@@ -57,6 +71,7 @@ export default function BookScreen() {
     if (!checkIn) return setError('Select check-in date');
     if (!checkOut) return setError('Select check-out date');
     if (calcNights() < 1) return setError('Check-out must be after check-in');
+    if (exceeds6Months) return setError(`Bookings cannot exceed ${GHANA_RENT_ACT.MAX_ADVANCE_MONTHS} months advance rent (${GHANA_RENT_ACT.ACT_REFERENCE})`);
 
     setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -64,28 +79,59 @@ export default function BookScreen() {
 
     const qrCode = `STNEST-${Date.now()}-${user.id.slice(0, 8)}`;
 
-    const { error: bookError } = await supabase.from('bookings').insert({
+    const { data: bookingData, error: bookError } = await supabase.from('bookings').insert({
       hostel_id: hostelId,
       room_id: selectedRoom.id,
       user_id: user.id,
       check_in_date: checkIn,
       check_out_date: checkOut,
       nights: calcNights(),
-      total_price: calcTotal(),
+      total_price: calcGrandTotal(),
       special_requests: specialRequests || null,
-      status: 'pending',
+      status: 'payment_pending',
       qr_code: qrCode,
-    });
+      payment_status: 'unpaid',
+      platform_fee: calcPlatformFee(),
+      processing_fee: calcMomoFee(),
+    }).select().single();
 
     setSubmitting(false);
     if (bookError) return setError(bookError.message);
 
-    await supabase.from('notifications').insert({
-      user_id: user.id, type: 'booking_confirmed',
-      title: 'Booking Submitted', body: `Your booking at ${hostel?.name} is pending confirmation.`,
-    });
+    setPendingBookingId(bookingData.id);
+    setPaymentVisible(true);
+  };
+
+  const handlePaymentSuccess = async (ref: string) => {
+    setPaymentVisible(false);
+    if (!pendingBookingId) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('bookings').update({
+      status: 'pending',
+      payment_status: 'paid',
+      payment_reference: ref,
+      paid_at: new Date().toISOString(),
+    }).eq('id', pendingBookingId);
+
+    if (user) {
+      await supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'booking_confirmed',
+        title: 'Booking Submitted',
+        message: `Your booking at ${hostel?.name} is pending confirmation.`,
+      });
+    }
 
     setSuccess(true);
+  };
+
+  const handlePaymentClose = async () => {
+    setPaymentVisible(false);
+    if (pendingBookingId) {
+      await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', pendingBookingId);
+      setPendingBookingId(null);
+    }
   };
 
   if (loading) {
@@ -95,9 +141,19 @@ export default function BookScreen() {
   if (success) {
     return (
       <View style={styles.successContainer}>
-        <View style={styles.successIcon}><Check size={40} color={COLORS.white} /></View>
+        <View style={styles.successIcon}>
+          <Check size={40} color={COLORS.white} />
+        </View>
         <Text style={styles.successTitle}>Booking Submitted!</Text>
-        <Text style={styles.successText}>Your booking at {hostel?.name} is pending confirmation. You'll receive a notification once confirmed.</Text>
+        <Text style={styles.successText}>
+          Your booking at {hostel?.name} is pending confirmation. You'll receive a notification once confirmed.
+        </Text>
+        {hostel?.verified && (
+          <View style={styles.successProtectedRow}>
+            <ShieldCheck size={16} color={COLORS.success} />
+            <Text style={styles.successProtectedText}>This booking is protected by StudentNest</Text>
+          </View>
+        )}
         <TouchableOpacity style={styles.successBtn} onPress={() => router.replace('/(tabs)/bookings' as any)}>
           <Text style={styles.successBtnText}>View My Bookings</Text>
         </TouchableOpacity>
@@ -112,6 +168,7 @@ export default function BookScreen() {
           <ArrowLeft size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Book a Room</Text>
+        {hostel?.verified && <ProtectedBookingBadge compact />}
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
@@ -122,7 +179,11 @@ export default function BookScreen() {
 
         <Text style={styles.sectionTitle}>Room Type</Text>
         {rooms.map((room) => (
-          <TouchableOpacity key={room.id} style={[styles.roomCard, selectedRoom?.id === room.id && styles.roomCardActive]} onPress={() => setSelectedRoom(room)}>
+          <TouchableOpacity
+            key={room.id}
+            style={[styles.roomCard, selectedRoom?.id === room.id && styles.roomCardActive]}
+            onPress={() => setSelectedRoom(room)}
+          >
             <View style={styles.roomInfo}>
               <Text style={styles.roomType}>{room.room_type}</Text>
               <Text style={styles.roomDesc}>{room.description}</Text>
@@ -137,46 +198,20 @@ export default function BookScreen() {
         ))}
 
         <Text style={styles.sectionTitle}>Dates</Text>
-        <View style={styles.datesRow}>
-          <View style={styles.dateInput}>
-            <Text style={styles.dateLabel}>Check-in</Text>
-            <View style={styles.dateField}>
-              <Calendar size={16} color={COLORS.textSecondary} />
-              <TextInput
-                style={styles.dateText}
-                value={checkIn}
-                onChangeText={setCheckIn}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={COLORS.textTertiary}
-              />
-            </View>
-          </View>
-          <View style={styles.dateInput}>
-            <Text style={styles.dateLabel}>Check-out</Text>
-            <View style={styles.dateField}>
-              <Calendar size={16} color={COLORS.textSecondary} />
-              <TextInput
-                style={styles.dateText}
-                value={checkOut}
-                onChangeText={setCheckOut}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor={COLORS.textTertiary}
-              />
-            </View>
-          </View>
-        </View>
+        <SemesterDatePicker
+          checkIn={checkIn}
+          checkOut={checkOut}
+          onChange={(ci, co) => { setCheckIn(ci); setCheckOut(co); }}
+        />
 
         {calcNights() > 0 && selectedRoom && (
-          <View style={styles.summary}>
-            <Text style={styles.summaryTitle}>Price Summary</Text>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>{calcNights()} nights × GH₵{(selectedRoom.price_per_month / 30).toFixed(0)}/night</Text>
-              <Text style={styles.summaryValue}>GH₵{calcTotal()}</Text>
-            </View>
-            <View style={[styles.summaryRow, styles.summaryTotal]}>
-              <Text style={styles.summaryTotalLabel}>Total</Text>
-              <Text style={styles.summaryTotalValue}>GH₵{calcTotal()}</Text>
-            </View>
+          <View style={styles.summarySection}>
+            <Text style={styles.sectionTitle}>Price Summary</Text>
+            <RentActDisclosure
+              totalPrice={calcRoomTotal()}
+              nights={calcNights()}
+              exceeds6Months={exceeds6Months}
+            />
           </View>
         )}
 
@@ -193,29 +228,70 @@ export default function BookScreen() {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        <TouchableOpacity style={[styles.bookBtn, submitting && styles.bookBtnDisabled]} onPress={handleBook} disabled={submitting} activeOpacity={0.8}>
-          <Text style={styles.bookBtnText}>{submitting ? 'Booking...' : 'Confirm Booking'}</Text>
+        {hostel?.verified && (
+          <View style={styles.protectedRow}>
+            <ProtectedBookingBadge />
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={[styles.bookBtn, (submitting || exceeds6Months) && styles.bookBtnDisabled]}
+          onPress={handleBook}
+          disabled={submitting || exceeds6Months}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.bookBtnText}>
+            {submitting ? 'Creating Booking...' : calcNights() > 0 ? `Pay GH₵${calcGrandTotal().toFixed(2)}` : 'Confirm Booking'}
+          </Text>
         </TouchableOpacity>
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      <PaystackModal
+        visible={paymentVisible}
+        amount={calcGrandTotal()}
+        label={`Booking — ${hostel?.name ?? ''}`}
+        onSuccess={handlePaymentSuccess}
+        onClose={handlePaymentClose}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: COLORS.white, flexDirection: 'row', alignItems: 'center', paddingTop: Platform.OS === 'web' ? 20 : 56, paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, gap: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  header: {
+    backgroundColor: COLORS.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: Platform.OS === 'web' ? 20 : 56,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    gap: SPACING.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontFamily: FONT.heading, fontSize: 18, color: COLORS.textPrimary },
+  headerTitle: { fontFamily: FONT.heading, fontSize: 18, color: COLORS.textPrimary, flex: 1 },
   loadingText: { textAlign: 'center', marginTop: 100, fontFamily: FONT.regular, fontSize: 15, color: COLORS.textSecondary },
-  content: { padding: SPACING.md },
+  content: { padding: SPACING.md, gap: 0 },
 
   hostelCard: { backgroundColor: COLORS.navy, borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md },
   hostelName: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.white, marginBottom: 4 },
   hostelAddr: { fontFamily: FONT.regular, fontSize: 13, color: 'rgba(255,255,255,0.7)' },
 
   sectionTitle: { fontFamily: FONT.heading, fontSize: 16, color: COLORS.textPrimary, marginBottom: SPACING.sm, marginTop: SPACING.sm },
-  roomCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm, borderWidth: 1.5, borderColor: COLORS.border, gap: SPACING.sm },
+  roomCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    gap: SPACING.sm,
+  },
   roomCardActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryFaded },
   roomInfo: { flex: 1 },
   roomType: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary, marginBottom: 2 },
@@ -225,32 +301,55 @@ const styles = StyleSheet.create({
   roomPrice: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.primary },
   roomPriceSub: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
 
-  datesRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md },
-  dateInput: { flex: 1 },
-  dateLabel: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textPrimary, marginBottom: 6 },
-  dateField: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: SPACING.sm, height: 46, gap: 6 },
-  dateText: { flex: 1, fontFamily: FONT.regular, fontSize: 13, color: COLORS.textPrimary },
+  summarySection: { marginTop: SPACING.xs },
 
-  summary: { backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.border },
-  summaryTitle: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  summaryLabel: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary },
-  summaryValue: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary },
-  summaryTotal: { borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: 8, marginTop: 4 },
-  summaryTotalLabel: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.textPrimary },
-  summaryTotalValue: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.primary },
-
-  requestInput: { backgroundColor: COLORS.white, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, padding: SPACING.md, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textPrimary, minHeight: 80, textAlignVertical: 'top', marginBottom: SPACING.md },
+  requestInput: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    fontFamily: FONT.regular,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    minHeight: 80,
+    textAlignVertical: 'top',
+    marginBottom: SPACING.md,
+  },
 
   errorText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.error, marginBottom: SPACING.sm },
-  bookBtn: { backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: 16, alignItems: 'center', elevation: 3, shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+
+  protectedRow: { marginBottom: SPACING.md },
+
+  bookBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 16,
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
   bookBtnDisabled: { opacity: 0.6 },
   bookBtnText: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.white },
 
   successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl, backgroundColor: COLORS.background },
   successIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.success, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.lg },
   successTitle: { fontFamily: FONT.headingBold, fontSize: 26, color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  successText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.lg },
+  successText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.md },
+  successProtectedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.successLight,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.full,
+    marginBottom: SPACING.lg,
+  },
+  successProtectedText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.success },
   successBtn: { backgroundColor: COLORS.primary, paddingHorizontal: SPACING.xl, paddingVertical: 14, borderRadius: RADIUS.md },
   successBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
 });

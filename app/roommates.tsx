@@ -146,7 +146,7 @@ export default function RoommatesScreen() {
 
                   <TouchableOpacity
                     style={styles.messageBtn}
-                    onPress={() => router.push(`/(tabs)/messages` as any)}
+                    onPress={() => router.push(`/chat?userId=${p.user_id}&name=${encodeURIComponent(m?.full_name || 'Student')}` as any)}
                   >
                     <MessageSquare size={15} color={COLORS.white} />
                     <Text style={styles.messageBtnText}>Send Message</Text>

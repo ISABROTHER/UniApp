@@ -209,6 +209,69 @@ export const AGREEMENT_STATUS_COLORS: Record<string, string> = {
   terminated: COLORS.error,
 };
 
+export const GHANA_RENT_ACT = {
+  MAX_ADVANCE_MONTHS: 6,
+  MAX_ADVANCE_DAYS: 183,
+  ACT_REFERENCE: 'Ghana Rent Act (Act 220)',
+};
+
+export const PAYSTACK_FEES = {
+  MOMO_PERCENT: 0.015,
+  MOMO_CAP_GHS: 60,
+  CARD_PERCENT: 0.0195,
+  PLATFORM_FEE_PERCENT: 0.02,
+};
+
+export const UCC_SEMESTERS = [
+  {
+    id: 'sandwich_2026',
+    label: 'Sandwich 2026',
+    start: '2026-08-01',
+    end: '2026-09-30',
+    badge: null,
+  },
+  {
+    id: 'sem1_2026',
+    label: 'Semester 1 (2026/27)',
+    start: '2026-11-08',
+    end: '2027-03-15',
+    badge: 'Freshers',
+  },
+  {
+    id: 'sem2_2027',
+    label: 'Semester 2 (2026/27)',
+    start: '2027-04-25',
+    end: '2027-07-30',
+    badge: null,
+  },
+];
+
+export const PEAK_BOOKING_WINDOWS = [
+  { monthStart: 9, monthEnd: 10, label: 'Peak Season: Continuing Students' },
+  { monthStart: 12, monthEnd: 1, label: 'Peak Season: Freshers Booking' },
+];
+
+export const BOOKING_PROTECTION_GUARANTEE = {
+  title: 'Protected Booking',
+  pillars: [
+    {
+      icon: 'shield-check',
+      title: 'Identity Verified',
+      description: 'Owner identity verified via Ghana Card.',
+    },
+    {
+      icon: 'lock',
+      title: 'Payment Protected',
+      description: 'Your payment is held safely until 48h after check-in.',
+    },
+    {
+      icon: 'badge-check',
+      title: 'Satisfaction Guarantee',
+      description: 'Not as described? We will refund you within 24h of check-in.',
+    },
+  ],
+};
+
 export const NLP_AMENITY_SYNONYMS: Record<string, string> = {
   'wifi': 'WiFi',
   'internet': 'WiFi',

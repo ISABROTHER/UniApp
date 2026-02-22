@@ -6,7 +6,7 @@ import { COLORS, FONT, SPACING, RADIUS, BOOKING_STATUS_COLORS } from '@/lib/cons
 import { Hostel, Booking, MaintenanceRequest } from '@/lib/types';
 import {
   ArrowLeft, Building2, BarChart3, CalendarCheck, Wrench, TrendingUp,
-  Users, Star, CheckCircle, Clock, AlertTriangle, ChevronRight,
+  Users, Star, CheckCircle, Clock, AlertTriangle, ChevronRight, ShieldCheck,
 } from 'lucide-react-native';
 
 type TabType = 'analytics' | 'hostels' | 'bookings' | 'maintenance';
@@ -32,6 +32,7 @@ export default function OwnerScreen() {
     totalRevenue: 0, avgRating: 0, occupancyRate: 0, openIssues: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
     fetchData();
@@ -74,6 +75,15 @@ export default function OwnerScreen() {
       occupancyRate: parseFloat(occupancy.toFixed(0)),
       openIssues: issueList.filter(m => m.status === 'open').length,
     });
+    const { data: verif } = await supabase
+      .from('owner_verifications')
+      .select('status')
+      .eq('owner_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setVerificationStatus(verif?.status ?? null);
+
     setLoading(false);
   };
 
@@ -117,6 +127,40 @@ export default function OwnerScreen() {
           <Text style={styles.loadingText}>Loading...</Text>
         ) : tab === 'analytics' ? (
           <>
+            {verificationStatus === null && (
+              <TouchableOpacity
+                style={styles.verifBanner}
+                onPress={() => router.push('/owner-verification' as any)}
+                activeOpacity={0.8}
+              >
+                <ShieldCheck size={20} color={COLORS.warning} />
+                <View style={styles.verifBannerText}>
+                  <Text style={styles.verifBannerTitle}>Get Ghana Card Verified</Text>
+                  <Text style={styles.verifBannerSub}>Enable Protected Bookings and build student trust</Text>
+                </View>
+                <ChevronRight size={18} color={COLORS.warning} />
+              </TouchableOpacity>
+            )}
+            {verificationStatus === 'pending' && (
+              <View style={[styles.verifBanner, { backgroundColor: COLORS.warningLight, borderColor: '#FDE68A' }]}>
+                <Clock size={20} color={COLORS.warning} />
+                <View style={styles.verifBannerText}>
+                  <Text style={[styles.verifBannerTitle, { color: '#92400E' }]}>Verification Under Review</Text>
+                  <Text style={[styles.verifBannerSub, { color: '#92400E' }]}>We will notify you within 1-2 business days</Text>
+                </View>
+              </View>
+            )}
+            {verificationStatus === 'approved' && (
+              <View style={[styles.verifBanner, { backgroundColor: COLORS.successLight, borderColor: '#BBF7D0' }]}>
+                <ShieldCheck size={20} color={COLORS.success} />
+                <View style={styles.verifBannerText}>
+                  <Text style={[styles.verifBannerTitle, { color: COLORS.success }]}>Ghana Card Verified</Text>
+                  <Text style={[styles.verifBannerSub, { color: COLORS.success }]}>Your hostels display the Protected Booking badge</Text>
+                </View>
+                <CheckCircle size={16} color={COLORS.success} />
+              </View>
+            )}
+
             <View style={styles.statsGrid}>
               <View style={[styles.statCard, { borderLeftColor: COLORS.primary }]}>
                 <Building2 size={20} color={COLORS.primary} />
@@ -300,6 +344,21 @@ export default function OwnerScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
+
+  verifBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.warningLight,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    marginBottom: SPACING.md,
+  },
+  verifBannerText: { flex: 1 },
+  verifBannerTitle: { fontFamily: FONT.semiBold, fontSize: 14, color: '#92400E' },
+  verifBannerSub: { fontFamily: FONT.regular, fontSize: 12, color: '#92400E', marginTop: 2 },
   header: { backgroundColor: COLORS.white, flexDirection: 'row', alignItems: 'center', paddingTop: Platform.OS === 'web' ? 20 : 56, paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, gap: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontFamily: FONT.heading, fontSize: 18, color: COLORS.textPrimary },

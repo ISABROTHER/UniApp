@@ -11,7 +11,7 @@ import QRCode from '@/components/QRCode';
 import {
   CalendarCheck, MapPin, QrCode, ChevronRight, Clock,
   X, Share2, ScanLine, CheckCircle, AlertCircle,
-  Building2, Calendar, ArrowRight,
+  Building2, Calendar, ArrowRight, RotateCcw,
 } from 'lucide-react-native';
 
 function StatusBadge({ status }: { status: string }) {
@@ -219,6 +219,17 @@ export default function BookingsScreen() {
                   <Text style={[styles.checkInTipText, { color: COLORS.info }]}>You are currently checked in</Text>
                 </View>
               )}
+              {booking.status === 'completed' && (
+                <TouchableOpacity
+                  style={styles.rebookBtn}
+                  onPress={() => router.push(`/detail?id=${booking.hostel_id}` as any)}
+                  activeOpacity={0.8}
+                >
+                  <RotateCcw size={13} color={COLORS.primary} />
+                  <Text style={styles.rebookBtnText}>Rebook for Next Semester</Text>
+                  <ArrowRight size={13} color={COLORS.primary} />
+                </TouchableOpacity>
+              )}
             </View>
           );
         })}
@@ -400,6 +411,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 7, marginTop: SPACING.sm,
   },
   checkInTipText: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.success, flex: 1 },
+
+  rebookBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: COLORS.primaryFaded, borderRadius: RADIUS.sm,
+    paddingHorizontal: 12, paddingVertical: 8, marginTop: SPACING.sm,
+    borderWidth: 1, borderColor: `${COLORS.primary}20`,
+  },
+  rebookBtnText: { fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.primary, flex: 1 },
 
   emptyStateCard: {
     alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.96)',

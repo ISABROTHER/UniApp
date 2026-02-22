@@ -15,6 +15,9 @@ export interface Member {
   avatar_url: string | null;
   membership_status: string;
   role: UserRole;
+  ghana_card_number: string | null;
+  id_verified: boolean;
+  id_verified_at: string | null;
   joined_at: string;
   created_at: string;
   updated_at: string;
@@ -85,8 +88,14 @@ export interface Booking {
   nights: number;
   total_price: number;
   special_requests: string | null;
-  status: 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled';
+  status: 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'payment_pending';
   qr_code: string | null;
+  payment_reference: string | null;
+  payment_status: 'unpaid' | 'paid' | 'refunded' | 'held';
+  paid_at: string | null;
+  payout_released_at: string | null;
+  platform_fee: number;
+  processing_fee: number;
   created_at: string;
   updated_at: string;
   hostel?: Hostel;
@@ -258,10 +267,27 @@ export interface RoommateProfile {
   gender_preference: 'male' | 'female' | 'any';
   academic_level: string | null;
   lifestyle_notes: string | null;
+  hostel_id: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
   member?: Member;
+  hostel?: Hostel | null;
+}
+
+export interface OwnerVerification {
+  id: string;
+  owner_id: string;
+  ghana_card_number: string | null;
+  front_image_url: string | null;
+  back_image_url: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'requires_resubmission';
+  reviewer_notes: string | null;
+  submitted_at: string;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Conversation {
