@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import {
@@ -13,8 +13,10 @@ import {
   Poppins_700Bold,
 } from '@expo-google-fonts/poppins';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Linking from 'expo-linking';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -35,6 +37,35 @@ export default function RootLayout() {
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  useEffect(() => {
+    const handleUrl = (url: string) => {
+      if (!url) return;
+      const fragment = url.split('#')[1] ?? '';
+      const params = Object.fromEntries(new URLSearchParams(fragment));
+
+      if (params.type === 'recovery' && params.access_token) {
+        supabase.auth.setSession({
+          access_token: params.access_token,
+          refresh_token: params.refresh_token ?? '',
+        });
+        router.replace(`/auth/forgot-password?mode=reset&access_token=${params.access_token}` as any);
+        return;
+      }
+
+      if (params.type === 'signup' && params.access_token) {
+        supabase.auth.setSession({
+          access_token: params.access_token,
+          refresh_token: params.refresh_token ?? '',
+        });
+        router.replace('/(tabs)' as any);
+      }
+    };
+
+    Linking.getInitialURL().then((url) => { if (url) handleUrl(url); });
+    const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    return () => sub.remove();
+  }, []);
 
   if (!fontsLoaded && !fontError) {
     return null;
@@ -59,6 +90,7 @@ export default function RootLayout() {
         <Stack.Screen name="print-new" />
         <Stack.Screen name="print-job" />
         <Stack.Screen name="print-chat" />
+        <Stack.Screen name="qr-scan" options={{ animation: 'fade' }} />
         <Stack.Screen name="auth/sign-in" />
         <Stack.Screen name="auth/sign-up" />
         <Stack.Screen name="auth/forgot-password" />
@@ -68,4 +100,3 @@ export default function RootLayout() {
     </AuthProvider>
   );
 }
- 
