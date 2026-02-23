@@ -82,7 +82,7 @@ function HostelCard({
   const isAvailable = availableRooms > 0;
   const isSoldOut = !isAvailable;
 
-  const cardColors = ['#FFFFFF', '#FFF5F7', '#FFF9F9'];
+  const cardColors = ['#FFFFFF', '#FEF2F2', '#FFF7ED', '#F0FDF4'];
   const cardBgColor = cardColors[index % cardColors.length];
 
   return (
@@ -97,12 +97,6 @@ function HostelCard({
       >
         <View style={styles.cardImageWrap}>
           <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
-          {hostel.verified && (
-            <View style={styles.verifiedBadge}>
-              <ShieldCheck size={12} color={COLORS.white} fill={COLORS.white} />
-              <Text style={styles.verifiedText}>Verified</Text>
-            </View>
-          )}
           <TouchableOpacity 
             style={styles.heartBtn} 
             onPress={(e) => {
@@ -137,10 +131,18 @@ function HostelCard({
           </View>
 
           <View style={styles.cardRow2}>
-            <MapPin size={12} color={COLORS.textTertiary} />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {hostel.campus_proximity || hostel.address || 'Location'}
-            </Text>
+            <View style={styles.locationRow}>
+              <MapPin size={12} color={COLORS.textTertiary} />
+              <Text style={styles.locationText} numberOfLines={1}>
+                {hostel.campus_proximity || hostel.address || 'Location'}
+              </Text>
+            </View>
+            {hostel.verified && (
+              <View style={styles.verifiedBadgeSmall}>
+                <ShieldCheck size={10} color={COLORS.success} fill={COLORS.success} />
+                <Text style={styles.verifiedTextSmall}>Verified</Text>
+              </View>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -717,23 +719,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: COLORS.borderLight,
   },
-  verifiedBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: COLORS.success,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  verifiedText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 10,
-    color: COLORS.white,
-  },
   heartBtn: {
     position: 'absolute',
     top: 8,
@@ -786,13 +771,34 @@ const styles = StyleSheet.create({
   cardRow2: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
+    flex: 1,
   },
   locationText: {
     flex: 1,
     fontFamily: FONT.regular,
     fontSize: 12,
     color: COLORS.textTertiary,
+  },
+  verifiedBadgeSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: COLORS.successLight,
+  },
+  verifiedTextSmall: {
+    fontFamily: FONT.semiBold,
+    fontSize: 9,
+    color: COLORS.success,
   },
   empty: {
     alignItems: 'center',
@@ -985,4 +991,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.white,
   },
-}); 
+});
