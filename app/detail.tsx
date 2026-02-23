@@ -12,16 +12,6 @@ import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 
 const { width: SW } = Dimensions.get('window');
 
-const PhotoThumbnail = memo(({ uri, isActive, onPress }: { uri: string; isActive: boolean; onPress: () => void }) => (
-  <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
-    <Image
-      source={{ uri }}
-      style={[styles.thumb, isActive && styles.thumbActive]}
-      resizeMode="cover"
-    />
-  </TouchableOpacity>
-));
-
 export default function DetailScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
@@ -115,7 +105,7 @@ export default function DetailScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 90 }}>
         <View style={styles.heroWrap}>
           <Image source={{ uri: images[activeImg] }} style={styles.heroImage} resizeMode="cover" />
           <View style={styles.heroOverlay} />
@@ -129,17 +119,20 @@ export default function DetailScreen() {
 
           <View style={styles.heroTitleWrap}>
             <Text style={styles.heroTitle}>{hostel.name}</Text>
-          </View>
-
-          <View style={styles.thumbsRow}>
-            <View style={styles.thumbsContainer}>
+            <View style={styles.photoGrid}>
               {images.map((img, i) => (
-                <PhotoThumbnail
-                  key={i}
-                  uri={img}
-                  isActive={i === activeImg}
-                  onPress={() => setActiveImg(i)}
-                />
+                <TouchableOpacity 
+                  key={i} 
+                  onPress={() => setActiveImg(i)} 
+                  activeOpacity={0.85}
+                  style={[styles.photoBox, i === activeImg && styles.photoBoxActive]}
+                >
+                  <Image
+                    source={{ uri: img }}
+                    style={styles.photoBoxImage}
+                    resizeMode="cover"
+                  />
+                </TouchableOpacity>
               ))}
             </View>
           </View>
@@ -338,20 +331,20 @@ export default function DetailScreen() {
 
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={styles.msgBtn}
-          onPress={() => router.push(`/chat?hostel_id=${hostelId}` as any)}
-          activeOpacity={0.85}
-        >
-          <MessageCircle size={18} color={COLORS.accent} />
-          <Text style={styles.msgBtnText}>Message</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
           style={styles.bookBtn}
           onPress={() => router.push(`/book?hostel_id=${hostelId}` as any)}
           activeOpacity={0.85}
         >
           <Calendar size={18} color={COLORS.white} />
           <Text style={styles.bookBtnText}>APPLY FOR HOUSING</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.msgBtn}
+          onPress={() => router.push(`/chat?hostel_id=${hostelId}` as any)}
+          activeOpacity={0.85}
+        >
+          <MessageCircle size={18} color={COLORS.accent} />
+          <Text style={styles.msgBtnText}>Message</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -388,7 +381,7 @@ const styles = StyleSheet.create({
   heartBtnActive: { backgroundColor: COLORS.primary },
   heroTitleWrap: {
     position: 'absolute',
-    bottom: 72,
+    bottom: 16,
     left: SPACING.md,
     right: SPACING.md,
   },
@@ -399,28 +392,27 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.6)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
+    marginBottom: 12,
   },
-  thumbsRow: {
-    position: 'absolute',
-    bottom: 12,
-    left: 0,
-    right: 0,
-  },
-  thumbsContainer: {
+  photoGrid: {
     flexDirection: 'row',
-    paddingHorizontal: SPACING.md,
     gap: 8,
   },
-  thumb: {
-    width: 56, 
+  photoBox: {
+    width: 56,
     height: 56,
-    borderRadius: RADIUS.sm,
-    borderWidth: 2, 
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.4)',
   },
-  thumbActive: {
+  photoBoxActive: {
     borderColor: COLORS.white,
     borderWidth: 3,
+  },
+  photoBoxImage: {
+    width: '100%',
+    height: '100%',
   },
 
   statsBar: {
