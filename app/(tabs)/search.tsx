@@ -139,7 +139,7 @@ function HostelCard({
             </View>
             {hostel.verified && (
               <View style={styles.verifiedBadgeSmall}>
-                <ShieldCheck size={10} color={COLORS.gold} fill={COLORS.gold} />
+                <ShieldCheck size={10} color="#FFFFFF" fill="#FFFFFF" />
                 <Text style={styles.verifiedTextSmall}>Verified</Text>
               </View>
             )}
@@ -793,14 +793,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
-    backgroundColor: '#000000',
+    backgroundColor: '#10B981',
     borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderColor: '#059669',
   },
   verifiedTextSmall: {
     fontFamily: FONT.semiBold,
     fontSize: 9,
-    color: COLORS.gold,
+    color: '#FFFFFF',
   },
   empty: {
     alignItems: 'center',
