@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo, memo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, Dimensions, Platform,
@@ -7,10 +7,20 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Hostel, HostelReview } from '@/lib/types';
-import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck } from 'lucide-react-native';
+import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck, Wifi, Shield, Droplet } from 'lucide-react-native';
 import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 
 const { width: SW } = Dimensions.get('window');
+
+const PhotoThumbnail = memo(({ uri, isActive, onPress }: { uri: string; isActive: boolean; onPress: () => void }) => (
+  <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
+    <Image
+      source={{ uri }}
+      style={[styles.thumb, isActive && styles.thumbActive]}
+      resizeMode="cover"
+    />
+  </TouchableOpacity>
+));
 
 export default function DetailScreen() {
   const params = useLocalSearchParams();
@@ -20,44 +30,53 @@ export default function DetailScreen() {
   const [reviews, setReviews] = useState<HostelReview[]>([]);
   const [isFavourite, setIsFavourite] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'details' | 'reviews'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'reviews' | 'facilities' | 'others'>('details');
   const [activeImg, setActiveImg] = useState(0);
   const [roommateCount, setRoommateCount] = useState(0);
 
   const hostelId = params.id as string;
 
-  useEffect(() => { if (hostelId) fetchHostel(); }, [hostelId]);
+  useEffect(() => { 
+    if (hostelId) fetchHostel(); 
+  }, [hostelId]);
 
   const fetchHostel = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data } = await supabase.from('hostels')
-      .select('*, hostel_images(*), hostel_amenities(*), hostel_rooms(*), owner_id')
-      .eq('id', hostelId)
-      .maybeSingle();
+    try {
+      const [hostelRes, userRes] = await Promise.all([
+        supabase.from('hostels')
+          .select('*, hostel_images(*), hostel_amenities(*), hostel_rooms(*), owner_id')
+          .eq('id', hostelId)
+          .maybeSingle(),
+        supabase.auth.getUser()
+      ]);
 
-    if (data) {
-      setHostel(data as Hostel);
-      if (user) {
-        const { data: fav } = await supabase.from('wishlists').select('id').eq('user_id', user.id).eq('hostel_id', hostelId).maybeSingle();
-        setIsFavourite(!!fav);
+      if (hostelRes.data) {
+        setHostel(hostelRes.data as Hostel);
+        
+        if (userRes.data?.user) {
+          const [favRes, reviewsRes, roommatesRes] = await Promise.all([
+            supabase.from('wishlists').select('id').eq('user_id', userRes.data.user.id).eq('hostel_id', hostelId).maybeSingle(),
+            supabase.from('reviews')
+              .select('*, members(full_name, avatar_url)')
+              .eq('hostel_id', hostelId)
+              .order('created_at', { ascending: false })
+              .limit(10),
+            supabase.from('roommate_profiles')
+              .select('id', { count: 'exact', head: true })
+              .eq('hostel_id', hostelId)
+              .eq('is_active', true)
+          ]);
+
+          setIsFavourite(!!favRes.data);
+          setReviews((reviewsRes.data as HostelReview[]) || []);
+          setRoommateCount(roommatesRes.count ?? 0);
+        }
       }
+    } catch (error) {
+      console.error('Error fetching hostel:', error);
+    } finally {
+      setLoading(false);
     }
-
-    const { data: revs } = await supabase.from('reviews')
-      .select('*, members(full_name, avatar_url)')
-      .eq('hostel_id', hostelId)
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    setReviews((revs as HostelReview[]) || []);
-
-    const { count } = await supabase.from('roommate_profiles')
-      .select('id', { count: 'exact', head: true })
-      .eq('hostel_id', hostelId)
-      .eq('is_active', true);
-    setRoommateCount(count ?? 0);
-
-    setLoading(false);
   };
 
   const toggleFavourite = async () => {
@@ -72,6 +91,20 @@ export default function DetailScreen() {
     }
   };
 
+  const images = useMemo(() => {
+    if (hostel?.images && hostel.images.length > 0) {
+      return hostel.images
+        .slice()
+        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+        .map(i => i.image_url || i.url || '')
+        .slice(0, 5);
+    }
+    return ['https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg'];
+  }, [hostel?.images]);
+
+  const amenities = useMemo(() => hostel?.amenities || [], [hostel?.amenities]);
+  const rooms = useMemo(() => hostel?.rooms || [], [hostel?.rooms]);
+
   if (loading || !hostel) {
     return (
       <View style={styles.loadingScreen}>
@@ -80,29 +113,13 @@ export default function DetailScreen() {
     );
   }
 
-  const images = hostel.images && hostel.images.length > 0
-    ? hostel.images
-        .slice()
-        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-        .map(i => i.image_url || i.url || '')
-    : ['https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg'];
-
-  const amenities = hostel.amenities || [];
-  const rooms = hostel.rooms || [];
-  const lowestPrice = rooms.length > 0
-    ? Math.min(...rooms.map((r: any) => r.price_per_night ?? r.price_per_month ?? 0))
-    : hostel.price_range_min;
-
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
-
-        {/* Hero image */}
         <View style={styles.heroWrap}>
           <Image source={{ uri: images[activeImg] }} style={styles.heroImage} resizeMode="cover" />
           <View style={styles.heroOverlay} />
 
-          {/* Back & Heart */}
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.85}>
             <ArrowLeft size={20} color={COLORS.white} />
           </TouchableOpacity>
@@ -110,77 +127,56 @@ export default function DetailScreen() {
             <Heart size={18} color={COLORS.white} fill={COLORS.white} />
           </TouchableOpacity>
 
-          {/* Hostel name overlaid */}
           <View style={styles.heroTitleWrap}>
             <Text style={styles.heroTitle}>{hostel.name}</Text>
           </View>
 
-          {/* Thumbnail strip */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.thumbsContainer}
-            style={styles.thumbsRow}
-          >
-            {images.map((img, i) => (
-              <TouchableOpacity key={i} onPress={() => setActiveImg(i)} activeOpacity={0.85}>
-                <Image
-                  source={{ uri: img }}
-                  style={[styles.thumb, i === activeImg && styles.thumbActive]}
-                  resizeMode="cover"
+          <View style={styles.thumbsRow}>
+            <View style={styles.thumbsContainer}>
+              {images.map((img, i) => (
+                <PhotoThumbnail
+                  key={i}
+                  uri={img}
+                  isActive={i === activeImg}
+                  onPress={() => setActiveImg(i)}
                 />
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+              ))}
+            </View>
+          </View>
         </View>
 
-        {/* Stats bar */}
         <View style={styles.statsBar}>
           <View style={styles.statItem}>
             <MapPin size={14} color={COLORS.textSecondary} />
-            <Text style={styles.statMain}>{hostel.address?.split(',')[0] || 'Cape Coast'}</Text>
-            <Text style={styles.statSub}>{hostel.campus_proximity}</Text>
+            <Text style={styles.statMain} numberOfLines={1}>{hostel.campus_proximity || hostel.address?.split(',')[0] || 'Cape Coast'}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Users size={14} color={COLORS.textSecondary} />
-            <Text style={styles.statLabel}>Available</Text>
-            <Text style={styles.statMain}>{hostel.available_rooms}</Text>
-          </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Star size={14} color={COLORS.warning} fill={COLORS.warning} />
-            <Text style={styles.statLabel}>Rating</Text>
-            <Text style={styles.statMain}>{hostel.rating.toFixed(1)} <Text style={styles.statSub}>/ 5</Text></Text>
+            <Text style={styles.statMain}>{hostel.available_rooms} beds available</Text>
           </View>
         </View>
 
-        {/* Tabs */}
         <View style={styles.tabsRow}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'details' && styles.tabActive]}
-            onPress={() => setActiveTab('details')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabText, activeTab === 'details' && styles.tabTextActive]}>Details</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'reviews' && styles.tabActive]}
-            onPress={() => setActiveTab('reviews')}
-            activeOpacity={0.8}
-          >
-            <Text style={[styles.tabText, activeTab === 'reviews' && styles.tabTextActive]}>
-              Reviews
-            </Text>
-            {reviews.length > 0 && (
-              <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{reviews.length}</Text></View>
-            )}
-          </TouchableOpacity>
+          {(['details', 'reviews', 'facilities', 'others'] as const).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                {tab === 'details' ? 'Details' : tab === 'reviews' ? 'Reviews' : tab === 'facilities' ? 'Facilities' : 'Others'}
+              </Text>
+              {tab === 'reviews' && reviews.length > 0 && (
+                <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{reviews.length}</Text></View>
+              )}
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {activeTab === 'details' ? (
+        {activeTab === 'details' && (
           <View style={styles.tabContent}>
-
             <Text style={styles.description}>{hostel.description || 'No description available.'}</Text>
 
             {rooms.length > 0 && (
@@ -190,29 +186,17 @@ export default function DetailScreen() {
                   <View key={room.id} style={styles.roomRow}>
                     <View style={styles.roomLeft}>
                       <Text style={styles.roomType}>{room.room_type}</Text>
-                      {room.description && <Text style={styles.roomDesc}>{room.description}</Text>}
-                      <Text style={styles.roomAvail}>{room.available_units ?? room.available_count ?? 0} available</Text>
+                      <Text style={styles.roomDesc}>{room.description || 'Standard room'}</Text>
+                      {room.available_count > 0 && (
+                        <Text style={styles.roomAvail}>{room.available_count} available</Text>
+                      )}
                     </View>
-                    <Text style={styles.roomPrice}>
-                      GH₵{(room.price_per_night ?? room.price_per_month ?? 0).toLocaleString()}
-                      <Text style={styles.roomPriceSub}>/mo</Text>
-                    </Text>
+                    <View>
+                      <Text style={styles.roomPrice}>GH₵{room.price_per_month || room.price_per_night || 0}</Text>
+                      <Text style={styles.roomPriceSub}>/month</Text>
+                    </View>
                   </View>
                 ))}
-              </View>
-            )}
-
-            {amenities.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Amenities</Text>
-                <View style={styles.amenitiesGrid}>
-                  {amenities.map((a: any, i: number) => (
-                    <View key={i} style={styles.amenityPill}>
-                      <View style={styles.amenityDot} />
-                      <Text style={styles.amenityText}>{a.amenity || a.name}</Text>
-                    </View>
-                  ))}
-                </View>
               </View>
             )}
 
@@ -220,53 +204,69 @@ export default function DetailScreen() {
               <View style={styles.verifiedRow}>
                 <View style={styles.verifiedRowInner}>
                   <ShieldCheck size={18} color={COLORS.success} />
-                  <Text style={styles.verifiedRowText}>Owner identity verified via Ghana Card</Text>
+                  <Text style={styles.verifiedRowText}>Verified Hostel</Text>
                 </View>
-                <ProtectedBookingBadge compact />
+                <Text style={{ fontFamily: FONT.regular, fontSize: 12, color: COLORS.success }}>
+                  This hostel has been verified by our team
+                </Text>
               </View>
             )}
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Why your booking is secured</Text>
+              <ProtectedBookingBadge />
+            </View>
 
             {roommateCount > 0 && (
               <TouchableOpacity
                 style={styles.roommateRow}
-                onPress={() => router.push(`/roommates?hostelId=${hostelId}` as any)}
-                activeOpacity={0.8}
+                onPress={() => router.push(`/roommates?hostel_id=${hostelId}` as any)}
+                activeOpacity={0.85}
               >
                 <View style={styles.roommateIconWrap}>
-                  <UserCheck size={18} color={COLORS.accent} />
+                  <UserCheck size={20} color={COLORS.info} />
                 </View>
                 <View style={styles.roommateText}>
-                  <Text style={styles.roommateTitle}>{roommateCount} student{roommateCount !== 1 ? 's' : ''} looking for a roommate here</Text>
-                  <Text style={styles.rommmateSub}>Tap to find a compatible flatmate</Text>
+                  <Text style={styles.roommateTitle}>Find Roommates</Text>
+                  <Text style={styles.rommmateSub}>{roommateCount} student{roommateCount !== 1 ? 's' : ''} looking for roommates here</Text>
                 </View>
               </TouchableOpacity>
             )}
           </View>
-        ) : (
+        )}
+
+        {activeTab === 'reviews' && (
           <View style={styles.tabContent}>
             {reviews.length === 0 ? (
-              <Text style={styles.noReviews}>No reviews yet. Be the first to review!</Text>
+              <Text style={styles.noReviews}>No reviews yet</Text>
             ) : (
-              reviews.map((rev) => (
-                <View key={rev.id} style={styles.reviewCard}>
+              reviews.map((review: HostelReview) => (
+                <View key={review.id} style={styles.reviewCard}>
                   <View style={styles.reviewHeader}>
                     <View style={styles.reviewerAvatar}>
-                      <Text style={styles.reviewerInitial}>{(rev.member?.full_name || 'S').charAt(0).toUpperCase()}</Text>
+                      <Text style={styles.reviewerInitial}>
+                        {review.member?.full_name?.[0]?.toUpperCase() || 'U'}
+                      </Text>
                     </View>
                     <View style={styles.reviewerInfo}>
-                      <Text style={styles.reviewerName}>{rev.member?.full_name || 'Student'}</Text>
-                      <Text style={styles.reviewDate}>{rev.created_at?.slice(0, 10)}</Text>
+                      <Text style={styles.reviewerName}>{review.member?.full_name || 'Anonymous'}</Text>
+                      <Text style={styles.reviewDate}>{new Date(review.created_at).toLocaleDateString()}</Text>
                     </View>
                     <View style={styles.reviewStars}>
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} size={12} color={i < rev.rating ? COLORS.gold : COLORS.border} fill={i < rev.rating ? COLORS.gold : COLORS.border} />
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          size={12}
+                          color={i < review.rating ? COLORS.warning : COLORS.border}
+                          fill={i < review.rating ? COLORS.warning : 'transparent'}
+                        />
                       ))}
                     </View>
                   </View>
-                  {rev.comment && <Text style={styles.reviewComment}>"{rev.comment}"</Text>}
-                  {rev.is_verified_guest && (
+                  {review.comment && <Text style={styles.reviewComment}>"{review.comment}"</Text>}
+                  {review.verified_guest && (
                     <View style={styles.verifiedGuestTag}>
-                      <CheckCircle size={10} color={COLORS.success} />
+                      <CheckCircle size={12} color={COLORS.success} />
                       <Text style={styles.verifiedGuestText}>Verified Guest</Text>
                     </View>
                   )}
@@ -275,29 +275,83 @@ export default function DetailScreen() {
             )}
           </View>
         )}
+
+        {activeTab === 'facilities' && (
+          <View style={styles.tabContent}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Amenities</Text>
+              {amenities.length > 0 ? (
+                <View style={styles.amenitiesGrid}>
+                  {amenities.map((amenity: any, idx: number) => (
+                    <View key={idx} style={styles.amenityPill}>
+                      <View style={styles.amenityDot} />
+                      <Text style={styles.amenityText}>{amenity.name || amenity}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.noReviews}>No amenities listed</Text>
+              )}
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Basic Facilities</Text>
+              <View style={styles.facilitiesGrid}>
+                {hostel.has_wifi && (
+                  <View style={styles.facilityItem}>
+                    <Wifi size={20} color={COLORS.primary} />
+                    <Text style={styles.facilityText}>WiFi</Text>
+                  </View>
+                )}
+                {hostel.has_security && (
+                  <View style={styles.facilityItem}>
+                    <Shield size={20} color={COLORS.primary} />
+                    <Text style={styles.facilityText}>Security</Text>
+                  </View>
+                )}
+                {hostel.has_laundry && (
+                  <View style={styles.facilityItem}>
+                    <Droplet size={20} color={COLORS.primary} />
+                    <Text style={styles.facilityText}>Laundry</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {activeTab === 'others' && (
+          <View style={styles.tabContent}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Location</Text>
+              <Text style={styles.description}>{hostel.address || 'No address available'}</Text>
+              <Text style={styles.description}>{hostel.campus_proximity || ''}</Text>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Contact Information</Text>
+              <Text style={styles.description}>View contact details after booking</Text>
+            </View>
+          </View>
+        )}
       </ScrollView>
 
-      {/* Bottom CTA */}
       <View style={styles.bottomBar}>
-        <View style={styles.bottomPriceCol}>
-          <Text style={styles.bottomPrice}>GH₵{lowestPrice.toLocaleString()}</Text>
-          <Text style={styles.bottomPriceSub}>from / month</Text>
-        </View>
         <TouchableOpacity
           style={styles.msgBtn}
-          onPress={() => router.push(`/chat?ownerId=${hostel?.owner_id}&name=${encodeURIComponent('Hostel Owner')}` as any)}
+          onPress={() => router.push(`/chat?hostel_id=${hostelId}` as any)}
           activeOpacity={0.85}
         >
-          <MessageCircle size={17} color={COLORS.accent} />
+          <MessageCircle size={18} color={COLORS.accent} />
           <Text style={styles.msgBtnText}>Message</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.bookBtn}
-          onPress={() => router.push(`/book?id=${hostelId}` as any)}
+          onPress={() => router.push(`/book?hostel_id=${hostelId}` as any)}
           activeOpacity={0.85}
         >
-          <Calendar size={17} color={COLORS.white} />
-          <Text style={styles.bookBtnText}>Book a Room</Text>
+          <Calendar size={18} color={COLORS.white} />
+          <Text style={styles.bookBtnText}>APPLY FOR HOUSING</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -353,17 +407,20 @@ const styles = StyleSheet.create({
     right: 0,
   },
   thumbsContainer: {
+    flexDirection: 'row',
     paddingHorizontal: SPACING.md,
     gap: 8,
   },
   thumb: {
-    width: 64, height: 48,
+    width: 56, 
+    height: 56,
     borderRadius: RADIUS.sm,
-    borderWidth: 2, borderColor: 'rgba(255,255,255,0.4)',
+    borderWidth: 2, 
+    borderColor: 'rgba(255,255,255,0.4)',
   },
   thumbActive: {
     borderColor: COLORS.white,
-    borderWidth: 2.5,
+    borderWidth: 3,
   },
 
   statsBar: {
@@ -372,34 +429,44 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
-    borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.borderLight,
     gap: SPACING.sm,
   },
-  statItem: { flex: 1, alignItems: 'center', gap: 2 },
+  statItem: { 
+    flex: 1, 
+    flexDirection: 'row',
+    alignItems: 'center', 
+    gap: 6,
+  },
   statDivider: { width: 1, height: 36, backgroundColor: COLORS.borderLight },
-  statLabel: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
-  statMain: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary },
-  statSub: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textSecondary },
+  statMain: { 
+    fontFamily: FONT.semiBold, 
+    fontSize: 13, 
+    color: COLORS.textPrimary,
+    flex: 1,
+  },
 
   tabsRow: {
     flexDirection: 'row',
     paddingHorizontal: SPACING.md,
     paddingTop: SPACING.md,
-    borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.borderLight,
     backgroundColor: COLORS.white,
-    gap: SPACING.xl,
+    gap: SPACING.lg,
   },
   tab: { paddingBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  tabActive: { borderBottomWidth: 2, borderBottomColor: COLORS.textPrimary },
-  tabText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textTertiary },
-  tabTextActive: { color: COLORS.textPrimary },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: COLORS.primary },
+  tabText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textTertiary },
+  tabTextActive: { color: COLORS.primary },
   tabBadge: {
-    backgroundColor: COLORS.textPrimary,
+    backgroundColor: COLORS.primary,
     borderRadius: RADIUS.full,
-    width: 20, height: 20,
+    width: 18, height: 18,
     justifyContent: 'center', alignItems: 'center',
   },
-  tabBadgeText: { fontFamily: FONT.bold, fontSize: 11, color: COLORS.white },
+  tabBadgeText: { fontFamily: FONT.bold, fontSize: 10, color: COLORS.white },
 
   tabContent: { paddingHorizontal: SPACING.md, paddingTop: SPACING.lg },
   description: {
@@ -431,6 +498,23 @@ const styles = StyleSheet.create({
   },
   amenityDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.primary },
   amenityText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textPrimary },
+
+  facilitiesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
+  facilityItem: {
+    alignItems: 'center',
+    padding: SPACING.md,
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minWidth: 80,
+  },
+  facilityText: {
+    fontFamily: FONT.medium,
+    fontSize: 12,
+    color: COLORS.textPrimary,
+    marginTop: 6,
+  },
 
   verifiedRow: {
     backgroundColor: COLORS.successLight, borderRadius: RADIUS.md,
@@ -471,7 +555,7 @@ const styles = StyleSheet.create({
 
   bottomBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
     paddingBottom: Platform.OS === 'web' ? SPACING.md : 32,
@@ -479,9 +563,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1, borderTopColor: COLORS.borderLight,
     shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 8,
   },
-  bottomPriceCol: { flex: 1 },
-  bottomPrice: { fontFamily: FONT.bold, fontSize: 20, color: COLORS.primary },
-  bottomPriceSub: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary },
   msgBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 6, backgroundColor: COLORS.white,
@@ -495,5 +576,5 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md, paddingVertical: 14,
     shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
-  bookBtnText: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.white },
+  bookBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
 });
