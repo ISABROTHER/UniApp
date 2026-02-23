@@ -204,8 +204,6 @@ function FilterSheet({
     setLocalFilters(DEFAULT_FILTERS);
   };
 
-  if (!visible) return null;
-
   const sortOptions: { key: SortOption; label: string }[] = [
     { key: 'best_match', label: 'Best match' },
     { key: 'verified_first', label: 'Verified first' },
