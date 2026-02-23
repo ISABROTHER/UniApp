@@ -88,6 +88,8 @@ export default function DetailScreen() {
       'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg',
       'https://images.pexels.com/photos/2029667/pexels-photo-2029667.jpeg',
       'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg',
+      'https://images.pexels.com/photos/2631746/pexels-photo-2631746.jpeg',
+      'https://images.pexels.com/photos/439391/pexels-photo-439391.jpeg',
     ];
 
     if (hostel?.images && hostel.images.length > 0) {
@@ -97,12 +99,12 @@ export default function DetailScreen() {
         .map(i => i.image_url || i.url || '')
         .filter(url => url);
       
-      if (hostelImages.length >= 5) {
-        return hostelImages.slice(0, 5);
+      if (hostelImages.length >= 7) {
+        return hostelImages.slice(0, 7);
       }
       
       const combined = [...hostelImages];
-      for (let i = hostelImages.length; i < 5; i++) {
+      for (let i = hostelImages.length; i < 7; i++) {
         combined.push(fallbackImages[i]);
       }
       return combined;
@@ -415,19 +417,19 @@ const styles = StyleSheet.create({
   },
   photoGrid: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   photoBox: {
-    width: 56,
-    height: 56,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 6,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.4)',
   },
   photoBoxActive: {
     borderColor: COLORS.white,
-    borderWidth: 3,
+    borderWidth: 2.5,
   },
   photoBoxImage: {
     width: '100%',
