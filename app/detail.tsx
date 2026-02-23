@@ -28,6 +28,38 @@ export default function DetailScreen() {
 
   const hostelId = params.id as string;
 
+  const images = useMemo(() => {
+    const fallbackImages = [
+      'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg',
+      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg',
+      'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg',
+      'https://images.pexels.com/photos/2029667/pexels-photo-2029667.jpeg',
+      'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg',
+      'https://images.pexels.com/photos/2631746/pexels-photo-2631746.jpeg',
+      'https://images.pexels.com/photos/439391/pexels-photo-439391.jpeg',
+    ];
+
+    if (hostel?.images && hostel.images.length > 0) {
+      const hostelImages = hostel.images
+        .slice()
+        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+        .map(i => i.image_url || i.url || '')
+        .filter(url => url);
+      
+      if (hostelImages.length >= 7) {
+        return hostelImages.slice(0, 7);
+      }
+      
+      const combined = [...hostelImages];
+      for (let i = hostelImages.length; i < 7; i++) {
+        combined.push(fallbackImages[i]);
+      }
+      return combined;
+    }
+    
+    return fallbackImages;
+  }, [hostel?.images]);
+
   useEffect(() => { 
     if (hostelId) fetchHostel(); 
   }, [hostelId]);
@@ -96,38 +128,6 @@ export default function DetailScreen() {
       setIsFavourite(true);
     }
   };
-
-  const images = useMemo(() => {
-    const fallbackImages = [
-      'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg',
-      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg',
-      'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg',
-      'https://images.pexels.com/photos/2029667/pexels-photo-2029667.jpeg',
-      'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg',
-      'https://images.pexels.com/photos/2631746/pexels-photo-2631746.jpeg',
-      'https://images.pexels.com/photos/439391/pexels-photo-439391.jpeg',
-    ];
-
-    if (hostel?.images && hostel.images.length > 0) {
-      const hostelImages = hostel.images
-        .slice()
-        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-        .map(i => i.image_url || i.url || '')
-        .filter(url => url);
-      
-      if (hostelImages.length >= 7) {
-        return hostelImages.slice(0, 7);
-      }
-      
-      const combined = [...hostelImages];
-      for (let i = hostelImages.length; i < 7; i++) {
-        combined.push(fallbackImages[i]);
-      }
-      return combined;
-    }
-    
-    return fallbackImages;
-  }, [hostel?.images]);
 
   const amenities = useMemo(() => hostel?.amenities || [], [hostel?.amenities]);
   const rooms = useMemo(() => hostel?.rooms || [], [hostel?.rooms]);
