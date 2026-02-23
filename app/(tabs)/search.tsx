@@ -6,42 +6,43 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
+import { COLORS, FONT, SPACING, RADIUS, ROOM_TYPES, AMENITIES_LIST } from '@/lib/constants';
 import { Hostel } from '@/lib/types';
 import { 
-  Search, Heart, Star, MapPin, SlidersHorizontal, X, 
-  ArrowUpDown, Wifi, Lock, Coffee, UtensilsCrossed, Wind,
-  Users, CheckCircle2, XCircle, ChevronDown, RotateCcw
+  Search, Heart, MapPin, SlidersHorizontal, X, 
+  ArrowUpDown, Wifi, Shield, Droplet, Zap, Wind,
+  CheckCircle2, XCircle, ChevronDown, RotateCcw, ShieldCheck
 } from 'lucide-react-native';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
-type SortOption = 'best_match' | 'lowest_price' | 'highest_rating' | 'closest' | 'most_beds';
-type QuickFilter = 'free_cancellation' | 'breakfast' | 'near_center' | 'private' | 'high_rating' | 'lockers' | 'female_dorms';
+type SortOption = 'best_match' | 'lowest_price' | 'most_beds' | 'closest' | 'verified_first';
+type QuickFilter = 'verified' | 'wifi' | 'security' | 'near_campus' | 'water_247' | 'power_backup';
 
 interface Filters {
   priceMin: number;
   priceMax: number;
   roomTypes: string[];
-  minRating: number;
   amenities: string[];
+  verifiedOnly: boolean;
   showSoldOut: boolean;
 }
 
 const AMENITY_ICONS: Record<string, any> = {
-  wifi: Wifi,
-  lockers: Lock,
-  breakfast: Coffee,
-  kitchen: UtensilsCrossed,
-  ac: Wind,
+  'WiFi': Wifi,
+  'Security': Shield,
+  'Water (24hr)': Droplet,
+  'Electricity (24hr)': Zap,
+  'Air Conditioning': Wind,
+  'Generator Backup': Zap,
 };
 
 const DEFAULT_FILTERS: Filters = {
   priceMin: 0,
-  priceMax: 1000,
+  priceMax: 2000,
   roomTypes: [],
-  minRating: 0,
   amenities: [],
+  verifiedOnly: false,
   showSoldOut: false,
 };
 
@@ -54,105 +55,117 @@ function HostelCard({
   onPress: () => void; 
   onToggleFav: () => void;
 }) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.97,
+      useNativeDriver: true,
+      speed: 50,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 50,
+    }).start();
+  };
+
   const imageUrl = hostel.images?.[0]?.image_url || hostel.images?.[0]?.url || 'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?w=400';
   const availableRooms = hostel.available_rooms ?? 0;
-  const totalRooms = hostel.total_rooms ?? 0;
   const isAvailable = availableRooms > 0;
   const isSoldOut = !isAvailable;
   
-  const amenities = [
-    hostel.has_wifi && 'wifi',
-    hostel.has_parking && 'lockers',
-    hostel.has_laundry && 'breakfast',
+  const topAmenities = [
+    hostel.has_wifi && 'WiFi',
+    hostel.has_security && 'Security',
+    'Water (24hr)',
   ].filter(Boolean).slice(0, 3);
   
   const extraCount = Math.max(0, (hostel.amenities?.length || 0) - 3);
 
   return (
-    <TouchableOpacity 
-      style={[styles.card, isSoldOut && styles.cardDisabled]} 
-      onPress={onPress} 
-      activeOpacity={0.93}
-      disabled={isSoldOut}
-    >
-      <View style={styles.cardImageWrap}>
-        <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
-        <TouchableOpacity 
-          style={styles.heartBtn} 
-          onPress={(e) => {
-            e.stopPropagation();
-            onToggleFav();
-          }}
-        >
-          <Heart 
-            size={18} 
-            color={hostel.is_favourite ? COLORS.error : COLORS.white} 
-            fill={hostel.is_favourite ? COLORS.error : 'transparent'}
-          />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.cardBody}>
-        <View style={styles.cardRow1}>
-          <Text style={styles.cardName} numberOfLines={2}>{hostel.name}</Text>
-          {hostel.rating && hostel.rating > 0 && (
-            <View style={styles.ratingPill}>
-              <Star size={10} color={COLORS.warning} fill={COLORS.warning} />
-              <Text style={styles.ratingText}>{hostel.rating.toFixed(1)}</Text>
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity 
+        style={[styles.card, isSoldOut && styles.cardDisabled]} 
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        activeOpacity={1}
+        disabled={isSoldOut}
+      >
+        <View style={styles.cardImageWrap}>
+          <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
+          {hostel.verified && (
+            <View style={styles.verifiedBadge}>
+              <ShieldCheck size={12} color={COLORS.white} fill={COLORS.white} />
+              <Text style={styles.verifiedText}>Verified</Text>
             </View>
           )}
-        </View>
-
-        <View style={styles.cardRow2}>
-          <MapPin size={12} color={COLORS.textTertiary} />
-          <Text style={styles.locationText} numberOfLines={1}>
-            {hostel.campus_proximity || hostel.address || 'Location'}
-          </Text>
-        </View>
-
-        <View style={styles.cardRow3}>
-          {amenities.map((amenity, idx) => {
-            const Icon = AMENITY_ICONS[amenity as string];
-            return Icon ? <Icon key={idx} size={14} color={COLORS.textSecondary} /> : null;
-          })}
-          {extraCount > 0 && (
-            <Text style={styles.extraAmenities}>+{extraCount}</Text>
-          )}
-        </View>
-
-        <View style={styles.cardRow4}>
-          {isSoldOut ? (
-            <View style={styles.soldOutBadge}>
-              <XCircle size={12} color={COLORS.error} />
-              <Text style={styles.soldOutText}>Sold out</Text>
-            </View>
-          ) : (
-            <View style={styles.availableBadge}>
-              <CheckCircle2 size={12} color={COLORS.success} />
-              <Text style={styles.availableText}>
-                {availableRooms > 0 ? `Beds left: ${availableRooms}` : 'Available'}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.cardRow5}>
-          <View style={styles.priceBlock}>
-            <Text style={styles.priceFrom}>From</Text>
-            <Text style={styles.priceAmount}>GH₵{hostel.price_range_min || 0}</Text>
-            <Text style={styles.priceNight}>/ night</Text>
-          </View>
           <TouchableOpacity 
-            style={[styles.viewBtn, isSoldOut && styles.viewBtnDisabled]}
-            disabled={isSoldOut}
+            style={styles.heartBtn} 
+            onPress={(e) => {
+              e.stopPropagation();
+              onToggleFav();
+            }}
           >
-            <Text style={[styles.viewBtnText, isSoldOut && styles.viewBtnTextDisabled]}>
-              {isSoldOut ? 'Unavailable' : 'View'}
-            </Text>
+            <Heart 
+              size={18} 
+              color={hostel.is_favourite ? COLORS.primary : COLORS.white} 
+              fill={hostel.is_favourite ? COLORS.primary : 'transparent'}
+            />
           </TouchableOpacity>
         </View>
-      </View>
-    </TouchableOpacity>
+
+        <View style={styles.cardBody}>
+          <View style={styles.cardRow1}>
+            <Text style={styles.cardName} numberOfLines={2}>{hostel.name}</Text>
+          </View>
+
+          <View style={styles.cardRow2}>
+            <MapPin size={12} color={COLORS.textTertiary} />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {hostel.campus_proximity || hostel.address || 'Location'}
+            </Text>
+          </View>
+
+          <View style={styles.cardRow3}>
+            {topAmenities.map((amenity, idx) => {
+              const Icon = AMENITY_ICONS[amenity as string];
+              return Icon ? <Icon key={idx} size={14} color={COLORS.textSecondary} /> : null;
+            })}
+            {extraCount > 0 && (
+              <Text style={styles.extraAmenities}>+{extraCount}</Text>
+            )}
+          </View>
+
+          <View style={styles.cardRow4}>
+            {isSoldOut ? (
+              <View style={styles.soldOutBadge}>
+                <XCircle size={12} color={COLORS.error} />
+                <Text style={styles.soldOutText}>Fully booked</Text>
+              </View>
+            ) : (
+              <View style={styles.availableBadge}>
+                <CheckCircle2 size={12} color={COLORS.success} />
+                <Text style={styles.availableText}>
+                  {availableRooms > 0 ? `${availableRooms} rooms left` : 'Available'}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          <View style={styles.cardRow5}>
+            <View style={styles.priceBlock}>
+              <Text style={styles.priceAmount}>GH₵{hostel.price_range_min || 0}</Text>
+              <Text style={styles.priceMonth}>/month</Text>
+            </View>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
@@ -212,7 +225,7 @@ function FilterSheet({
 
           <ScrollView style={styles.sheetBody} showsVerticalScrollIndicator={false}>
             <View style={styles.filterSection}>
-              <Text style={styles.filterSectionTitle}>Price Range (GH₵/night)</Text>
+              <Text style={styles.filterSectionTitle}>Price Range (GH₵/month)</Text>
               <View style={styles.priceRangeRow}>
                 <View style={styles.priceInput}>
                   <Text style={styles.priceInputLabel}>Min</Text>
@@ -229,7 +242,7 @@ function FilterSheet({
             <View style={styles.filterSection}>
               <Text style={styles.filterSectionTitle}>Room Type</Text>
               <View style={styles.chipGrid}>
-                {['Dorm', 'Private', 'Studio'].map((type) => {
+                {ROOM_TYPES.filter(t => t !== 'All').map((type) => {
                   const isSelected = localFilters.roomTypes.includes(type);
                   return (
                     <TouchableOpacity
@@ -254,29 +267,9 @@ function FilterSheet({
             </View>
 
             <View style={styles.filterSection}>
-              <Text style={styles.filterSectionTitle}>Minimum Rating</Text>
+              <Text style={styles.filterSectionTitle}>Essential Amenities</Text>
               <View style={styles.chipGrid}>
-                {[0, 7, 8, 9].map((rating) => {
-                  const isSelected = localFilters.minRating === rating;
-                  return (
-                    <TouchableOpacity
-                      key={rating}
-                      style={[styles.filterChip, isSelected && styles.filterChipActive]}
-                      onPress={() => setLocalFilters(prev => ({ ...prev, minRating: rating }))}
-                    >
-                      <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
-                        {rating === 0 ? 'Any' : `${rating}+`}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.filterSection}>
-              <Text style={styles.filterSectionTitle}>Amenities</Text>
-              <View style={styles.chipGrid}>
-                {['Wi-Fi', 'Lockers', 'Breakfast', 'Kitchen', 'AC'].map((amenity) => {
+                {['WiFi', 'Security', 'Water (24hr)', 'Electricity (24hr)', 'Generator Backup', 'Air Conditioning'].map((amenity) => {
                   const isSelected = localFilters.amenities.includes(amenity);
                   return (
                     <TouchableOpacity
@@ -302,7 +295,19 @@ function FilterSheet({
 
             <View style={styles.filterSection}>
               <View style={styles.toggleRow}>
-                <Text style={styles.filterSectionTitle}>Show sold out</Text>
+                <Text style={styles.filterSectionTitle}>Verified only</Text>
+                <TouchableOpacity
+                  style={[styles.toggle, localFilters.verifiedOnly && styles.toggleActive]}
+                  onPress={() => setLocalFilters(prev => ({ ...prev, verifiedOnly: !prev.verifiedOnly }))}
+                >
+                  <View style={[styles.toggleDot, localFilters.verifiedOnly && styles.toggleDotActive]} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.filterSection}>
+              <View style={styles.toggleRow}>
+                <Text style={styles.filterSectionTitle}>Show fully booked</Text>
                 <TouchableOpacity
                   style={[styles.toggle, localFilters.showSoldOut && styles.toggleActive]}
                   onPress={() => setLocalFilters(prev => ({ ...prev, showSoldOut: !prev.showSoldOut }))}
@@ -361,10 +366,10 @@ function SortSheet({
 
   const sortOptions: { key: SortOption; label: string }[] = [
     { key: 'best_match', label: 'Best match' },
+    { key: 'verified_first', label: 'Verified first' },
     { key: 'lowest_price', label: 'Lowest price' },
-    { key: 'highest_rating', label: 'Highest rating' },
-    { key: 'closest', label: 'Closest distance' },
-    { key: 'most_beds', label: 'Most beds available' },
+    { key: 'most_beds', label: 'Most rooms available' },
+    { key: 'closest', label: 'Closest to campus' },
   ];
 
   const handleSelect = (sort: SortOption) => {
@@ -422,6 +427,24 @@ export default function SearchScreen() {
   const [sort, setSort] = useState<SortOption>('best_match');
   const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([]);
 
+  const searchBarAnim = useRef(new Animated.Value(0)).current;
+  const filterBtnAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(searchBarAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        delay: 100,
+      }),
+      Animated.spring(filterBtnAnim, {
+        toValue: 1,
+        useNativeDriver: true,
+        delay: 200,
+      }),
+    ]).start();
+  }, []);
+
   const fetchHostels = async () => {
     setLoading(true);
     try {
@@ -430,7 +453,8 @@ export default function SearchScreen() {
         .from('hostels')
         .select('*, hostel_images(*), hostel_rooms(*), wishlists!left(id,user_id)')
         .eq('status', 'active')
-        .order('rating', { ascending: false });
+        .order('verified', { ascending: false })
+        .order('available_rooms', { ascending: false });
 
       const processed = (data || []).map((h: any) => ({
         ...h,
@@ -475,7 +499,7 @@ export default function SearchScreen() {
       
       const matchPrice = h.price_range_min >= filters.priceMin && h.price_range_min <= filters.priceMax;
       
-      const matchRating = filters.minRating === 0 || (h.rating && h.rating >= filters.minRating);
+      const matchVerified = !filters.verifiedOnly || h.verified;
       
       const matchRoom = filters.roomTypes.length === 0 || 
         (h.rooms || []).some((r) => filters.roomTypes.includes(r.room_type));
@@ -484,24 +508,27 @@ export default function SearchScreen() {
       const matchAvailability = filters.showSoldOut || isAvailable;
 
       const matchQuick = quickFilters.every(qf => {
-        if (qf === 'high_rating') return h.rating && h.rating >= 8;
-        if (qf === 'private') return (h.rooms || []).some(r => r.room_type === 'Private');
+        if (qf === 'verified') return h.verified;
+        if (qf === 'wifi') return h.has_wifi;
+        if (qf === 'security') return h.has_security;
         return true;
       });
 
-      return matchQuery && matchPrice && matchRating && matchRoom && matchAvailability && matchQuick;
+      return matchQuery && matchPrice && matchVerified && matchRoom && matchAvailability && matchQuick;
     });
 
     result.sort((a, b) => {
       switch (sort) {
+        case 'verified_first':
+          if (a.verified !== b.verified) return a.verified ? -1 : 1;
+          return (b.available_rooms || 0) - (a.available_rooms || 0);
         case 'lowest_price':
           return (a.price_range_min || 0) - (b.price_range_min || 0);
-        case 'highest_rating':
-          return (b.rating || 0) - (a.rating || 0);
         case 'most_beds':
           return (b.available_rooms || 0) - (a.available_rooms || 0);
         default:
-          return (b.rating || 0) - (a.rating || 0);
+          if (a.verified !== b.verified) return a.verified ? -1 : 1;
+          return (b.available_rooms || 0) - (a.available_rooms || 0);
       }
     });
 
@@ -512,18 +539,18 @@ export default function SearchScreen() {
     let count = 0;
     if (filters.priceMin !== DEFAULT_FILTERS.priceMin || filters.priceMax !== DEFAULT_FILTERS.priceMax) count++;
     if (filters.roomTypes.length > 0) count++;
-    if (filters.minRating > 0) count++;
     if (filters.amenities.length > 0) count++;
+    if (filters.verifiedOnly) count++;
     if (filters.showSoldOut) count++;
     return count;
   }, [filters]);
 
   const sortLabel = useMemo(() => {
     switch (sort) {
+      case 'verified_first': return 'Verified first';
       case 'lowest_price': return 'Lowest price';
-      case 'highest_rating': return 'Highest rating';
+      case 'most_beds': return 'Most available';
       case 'closest': return 'Closest';
-      case 'most_beds': return 'Most beds';
       default: return 'Best match';
     }
   }, [sort]);
@@ -536,12 +563,27 @@ export default function SearchScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.pageTitle}>Search</Text>
-        <View style={styles.searchRow}>
+        <Animated.View 
+          style={[
+            styles.searchRow,
+            {
+              opacity: searchBarAnim,
+              transform: [
+                {
+                  translateY: searchBarAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <View style={styles.searchBar}>
             <Search size={18} color={COLORS.primary} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search hostels..."
+              placeholder="Search hostels by name or location..."
               placeholderTextColor={COLORS.textTertiary}
               value={query}
               onChangeText={setQuery}
@@ -552,15 +594,30 @@ export default function SearchScreen() {
               </TouchableOpacity>
             )}
           </View>
-        </View>
+        </Animated.View>
 
-        <View style={styles.actionsRow}>
+        <Animated.View 
+          style={[
+            styles.actionsRow,
+            {
+              opacity: filterBtnAnim,
+              transform: [
+                {
+                  translateY: filterBtnAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-20, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
           <TouchableOpacity 
-            style={styles.actionBtn} 
+            style={[styles.actionBtn, activeFilterCount > 0 && styles.actionBtnActive]} 
             onPress={() => setFilterSheetOpen(true)}
           >
-            <SlidersHorizontal size={18} color={COLORS.textPrimary} />
-            <Text style={styles.actionBtnText}>
+            <SlidersHorizontal size={18} color={activeFilterCount > 0 ? COLORS.white : COLORS.textPrimary} />
+            <Text style={[styles.actionBtnText, activeFilterCount > 0 && styles.actionBtnTextActive]}>
               Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
             </Text>
           </TouchableOpacity>
@@ -573,7 +630,7 @@ export default function SearchScreen() {
             <Text style={styles.actionBtnText}>{sortLabel}</Text>
             <ChevronDown size={14} color={COLORS.textSecondary} />
           </TouchableOpacity>
-        </View>
+        </Animated.View>
 
         <ScrollView 
           horizontal 
@@ -581,11 +638,12 @@ export default function SearchScreen() {
           contentContainerStyle={styles.quickFiltersRow}
         >
           {([
-            { key: 'high_rating', label: '8+ rating' },
-            { key: 'private', label: 'Private rooms' },
-            { key: 'near_center', label: 'Near center' },
-            { key: 'breakfast', label: 'Breakfast' },
-            { key: 'lockers', label: 'Lockers' },
+            { key: 'verified', label: 'Verified' },
+            { key: 'wifi', label: 'WiFi' },
+            { key: 'security', label: 'Security' },
+            { key: 'near_campus', label: 'Near campus' },
+            { key: 'water_247', label: '24/7 Water' },
+            { key: 'power_backup', label: 'Power backup' },
           ] as { key: QuickFilter; label: string }[]).map((qf) => (
             <TouchableOpacity
               key={qf.key}
@@ -630,7 +688,7 @@ export default function SearchScreen() {
         }
         ListHeaderComponent={
           <Text style={styles.resultCount}>
-            {filteredAndSorted.length} result{filteredAndSorted.length !== 1 ? 's' : ''} found
+            {filteredAndSorted.length} hostel{filteredAndSorted.length !== 1 ? 's' : ''} found
           </Text>
         }
         ListEmptyComponent={
@@ -704,8 +762,8 @@ const styles = StyleSheet.create({
     height: 48,
     backgroundColor: COLORS.white,
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderWidth: 1.5,
+    borderColor: COLORS.primary,
     paddingHorizontal: SPACING.md,
     gap: SPACING.sm,
   },
@@ -733,10 +791,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     gap: 6,
   },
+  actionBtnActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
   actionBtnText: {
     fontFamily: FONT.medium,
     fontSize: 13,
     color: COLORS.textPrimary,
+  },
+  actionBtnTextActive: {
+    color: COLORS.white,
   },
   quickFiltersRow: {
     gap: 8,
@@ -794,6 +859,23 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: COLORS.borderLight,
   },
+  verifiedBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.success,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  verifiedText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 10,
+    color: COLORS.white,
+  },
   heartBtn: {
     position: 'absolute',
     top: 8,
@@ -822,20 +904,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.textPrimary,
     lineHeight: 20,
-  },
-  ratingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: COLORS.warningFaded,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  ratingText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 11,
-    color: COLORS.warning,
   },
   cardRow2: {
     flexDirection: 'row',
@@ -892,36 +960,14 @@ const styles = StyleSheet.create({
     alignItems: 'baseline',
     gap: 4,
   },
-  priceFrom: {
-    fontFamily: FONT.regular,
-    fontSize: 11,
-    color: COLORS.textTertiary,
-  },
   priceAmount: {
     fontFamily: FONT.headingBold,
     fontSize: 18,
     color: COLORS.textPrimary,
   },
-  priceNight: {
+  priceMonth: {
     fontFamily: FONT.regular,
     fontSize: 11,
-    color: COLORS.textTertiary,
-  },
-  viewBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: COLORS.primary,
-  },
-  viewBtnDisabled: {
-    backgroundColor: COLORS.border,
-  },
-  viewBtnText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 13,
-    color: COLORS.white,
-  },
-  viewBtnTextDisabled: {
     color: COLORS.textTertiary,
   },
   empty: {
