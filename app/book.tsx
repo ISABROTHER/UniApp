@@ -13,7 +13,7 @@ import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 export default function BookScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const hostelId = params.id as string;
+  const hostelId = (params.hostel_id || params.id) as string;
 
   const [hostel, setHostel] = useState<Hostel | null>(null);
   const [rooms, setRooms] = useState<HostelRoom[]>([]);
