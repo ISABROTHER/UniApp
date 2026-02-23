@@ -26,6 +26,7 @@ interface Filters {
   amenities: string[];
   verifiedOnly: boolean;
   showSoldOut: boolean;
+  sortBy: SortOption;
 }
 
 const AMENITY_ICONS: Record<string, any> = {
@@ -44,6 +45,7 @@ const DEFAULT_FILTERS: Filters = {
   amenities: [],
   verifiedOnly: false,
   showSoldOut: false,
+  sortBy: 'best_match',
 };
 
 function HostelCard({ 
@@ -122,6 +124,19 @@ function HostelCard({
         <View style={styles.cardBody}>
           <View style={styles.cardRow1}>
             <Text style={styles.cardName} numberOfLines={2}>{hostel.name}</Text>
+            {isSoldOut ? (
+              <View style={styles.soldOutBadge}>
+                <XCircle size={12} color={COLORS.error} />
+                <Text style={styles.soldOutText}>Fully booked</Text>
+              </View>
+            ) : (
+              <View style={styles.availableBadge}>
+                <CheckCircle2 size={12} color={COLORS.success} />
+                <Text style={styles.availableText}>
+                  {availableRooms > 0 ? `${availableRooms} left` : 'Available'}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.cardRow2}>
@@ -139,29 +154,6 @@ function HostelCard({
             {extraCount > 0 && (
               <Text style={styles.extraAmenities}>+{extraCount}</Text>
             )}
-          </View>
-
-          <View style={styles.cardRow4}>
-            {isSoldOut ? (
-              <View style={styles.soldOutBadge}>
-                <XCircle size={12} color={COLORS.error} />
-                <Text style={styles.soldOutText}>Fully booked</Text>
-              </View>
-            ) : (
-              <View style={styles.availableBadge}>
-                <CheckCircle2 size={12} color={COLORS.success} />
-                <Text style={styles.availableText}>
-                  {availableRooms > 0 ? `${availableRooms} rooms left` : 'Available'}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.cardRow5}>
-            <View style={styles.priceBlock}>
-              <Text style={styles.priceAmount}>GH₵{hostel.price_range_min || 0}</Text>
-              <Text style={styles.priceMonth}>/month</Text>
-            </View>
           </View>
         </View>
       </TouchableOpacity>
@@ -211,19 +203,47 @@ function FilterSheet({
 
   if (!visible) return null;
 
+  const sortOptions: { key: SortOption; label: string }[] = [
+    { key: 'best_match', label: 'Best match' },
+    { key: 'verified_first', label: 'Verified first' },
+    { key: 'lowest_price', label: 'Lowest price' },
+    { key: 'most_beds', label: 'Most rooms available' },
+    { key: 'closest', label: 'Closest to campus' },
+  ];
+
   return (
     <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
         <Animated.View style={[styles.sheetContainer, { transform: [{ translateY: slideAnim }] }]}>
           <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Filters</Text>
+            <Text style={styles.sheetTitle}>Filters & Sort</Text>
             <TouchableOpacity onPress={onClose}>
               <X size={24} color={COLORS.textPrimary} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.sheetBody} showsVerticalScrollIndicator={false}>
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Sort By</Text>
+              <View style={styles.chipGrid}>
+                {sortOptions.map((option) => {
+                  const isSelected = localFilters.sortBy === option.key;
+                  return (
+                    <TouchableOpacity
+                      key={option.key}
+                      style={[styles.filterChip, isSelected && styles.filterChipActive]}
+                      onPress={() => setLocalFilters(prev => ({ ...prev, sortBy: option.key }))}
+                    >
+                      <Text style={[styles.filterChipText, isSelected && styles.filterChipTextActive]}>
+                        {option.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
             <View style={styles.filterSection}>
               <Text style={styles.filterSectionTitle}>Price Range (GH₵/month)</Text>
               <View style={styles.priceRangeRow}>
@@ -335,86 +355,6 @@ function FilterSheet({
   );
 }
 
-function SortSheet({
-  visible,
-  onClose,
-  currentSort,
-  onSelectSort,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  currentSort: SortOption;
-  onSelectSort: (sort: SortOption) => void;
-}) {
-  const slideAnim = useRef(new Animated.Value(400)).current;
-
-  useEffect(() => {
-    if (visible) {
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        damping: 20,
-      }).start();
-    } else {
-      Animated.timing(slideAnim, {
-        toValue: 400,
-        duration: 250,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [visible]);
-
-  const sortOptions: { key: SortOption; label: string }[] = [
-    { key: 'best_match', label: 'Best match' },
-    { key: 'verified_first', label: 'Verified first' },
-    { key: 'lowest_price', label: 'Lowest price' },
-    { key: 'most_beds', label: 'Most rooms available' },
-    { key: 'closest', label: 'Closest to campus' },
-  ];
-
-  const handleSelect = (sort: SortOption) => {
-    onSelectSort(sort);
-    onClose();
-  };
-
-  if (!visible) return null;
-
-  return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={onClose}>
-      <View style={styles.modalOverlay}>
-        <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onClose} />
-        <Animated.View style={[styles.sortContainer, { transform: [{ translateY: slideAnim }] }]}>
-          <View style={styles.sheetHeader}>
-            <Text style={styles.sheetTitle}>Sort by</Text>
-            <TouchableOpacity onPress={onClose}>
-              <X size={24} color={COLORS.textPrimary} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.sortBody}>
-            {sortOptions.map((option) => (
-              <TouchableOpacity
-                key={option.key}
-                style={styles.sortOption}
-                onPress={() => handleSelect(option.key)}
-              >
-                <Text style={[
-                  styles.sortOptionText,
-                  currentSort === option.key && styles.sortOptionTextActive
-                ]}>
-                  {option.label}
-                </Text>
-                {currentSort === option.key && (
-                  <CheckCircle2 size={20} color={COLORS.primary} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Animated.View>
-      </View>
-    </Modal>
-  );
-}
-
 export default function SearchScreen() {
   const router = useRouter();
   const [query, setQuery] = useState('');
@@ -422,27 +362,17 @@ export default function SearchScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
-  const [sortSheetOpen, setSortSheetOpen] = useState(false);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
-  const [sort, setSort] = useState<SortOption>('best_match');
   const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([]);
 
   const searchBarAnim = useRef(new Animated.Value(0)).current;
-  const filterBtnAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.spring(searchBarAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        delay: 100,
-      }),
-      Animated.spring(filterBtnAnim, {
-        toValue: 1,
-        useNativeDriver: true,
-        delay: 200,
-      }),
-    ]).start();
+    Animated.spring(searchBarAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      delay: 100,
+    }).start();
   }, []);
 
   const fetchHostels = async () => {
@@ -518,7 +448,7 @@ export default function SearchScreen() {
     });
 
     result.sort((a, b) => {
-      switch (sort) {
+      switch (filters.sortBy) {
         case 'verified_first':
           if (a.verified !== b.verified) return a.verified ? -1 : 1;
           return (b.available_rooms || 0) - (a.available_rooms || 0);
@@ -533,7 +463,7 @@ export default function SearchScreen() {
     });
 
     return result;
-  }, [hostels, query, filters, sort, quickFilters]);
+  }, [hostels, query, filters, quickFilters]);
 
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -542,18 +472,9 @@ export default function SearchScreen() {
     if (filters.amenities.length > 0) count++;
     if (filters.verifiedOnly) count++;
     if (filters.showSoldOut) count++;
+    if (filters.sortBy !== DEFAULT_FILTERS.sortBy) count++;
     return count;
   }, [filters]);
-
-  const sortLabel = useMemo(() => {
-    switch (sort) {
-      case 'verified_first': return 'Verified first';
-      case 'lowest_price': return 'Lowest price';
-      case 'most_beds': return 'Most available';
-      case 'closest': return 'Closest';
-      default: return 'Best match';
-    }
-  }, [sort]);
 
   const handleApplyFilters = (newFilters: Filters) => {
     setFilters(newFilters);
@@ -594,41 +515,11 @@ export default function SearchScreen() {
               </TouchableOpacity>
             )}
           </View>
-        </Animated.View>
-
-        <Animated.View 
-          style={[
-            styles.actionsRow,
-            {
-              opacity: filterBtnAnim,
-              transform: [
-                {
-                  translateY: filterBtnAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-20, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
           <TouchableOpacity 
-            style={[styles.actionBtn, activeFilterCount > 0 && styles.actionBtnActive]} 
+            style={[styles.filterBtn, activeFilterCount > 0 && styles.filterBtnActive]} 
             onPress={() => setFilterSheetOpen(true)}
           >
-            <SlidersHorizontal size={18} color={activeFilterCount > 0 ? COLORS.white : COLORS.textPrimary} />
-            <Text style={[styles.actionBtnText, activeFilterCount > 0 && styles.actionBtnTextActive]}>
-              Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.actionBtn}
-            onPress={() => setSortSheetOpen(true)}
-          >
-            <ArrowUpDown size={18} color={COLORS.textPrimary} />
-            <Text style={styles.actionBtnText}>{sortLabel}</Text>
-            <ChevronDown size={14} color={COLORS.textSecondary} />
+            <SlidersHorizontal size={20} color={activeFilterCount > 0 ? COLORS.white : COLORS.textPrimary} />
           </TouchableOpacity>
         </Animated.View>
 
@@ -723,13 +614,6 @@ export default function SearchScreen() {
         filters={filters}
         onApply={handleApplyFilters}
       />
-
-      <SortSheet
-        visible={sortSheetOpen}
-        onClose={() => setSortSheetOpen(false)}
-        currentSort={sort}
-        onSelectSort={setSort}
-      />
     </View>
   );
 }
@@ -754,9 +638,12 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   searchRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
     marginBottom: SPACING.sm,
   },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     height: 48,
@@ -773,35 +660,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textPrimary,
   },
-  actionsRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-    marginBottom: SPACING.sm,
-  },
-  actionBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 40,
+  filterBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: COLORS.white,
-    borderRadius: 20,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: COLORS.border,
-    paddingHorizontal: SPACING.md,
-    gap: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  actionBtnActive: {
+  filterBtnActive: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primary,
-  },
-  actionBtnText: {
-    fontFamily: FONT.medium,
-    fontSize: 13,
-    color: COLORS.textPrimary,
-  },
-  actionBtnTextActive: {
-    color: COLORS.white,
   },
   quickFiltersRow: {
     gap: 8,
@@ -902,32 +773,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontFamily: FONT.headingBold,
     fontSize: 16,
-    color: COLORS.textPrimary,
+    color: COLORS.primary,
     lineHeight: 20,
-  },
-  cardRow2: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  locationText: {
-    flex: 1,
-    fontFamily: FONT.regular,
-    fontSize: 12,
-    color: COLORS.textTertiary,
-  },
-  cardRow3: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  extraAmenities: {
-    fontFamily: FONT.medium,
-    fontSize: 11,
-    color: COLORS.textSecondary,
-  },
-  cardRow4: {
-    marginTop: 4,
   },
   availableBadge: {
     flexDirection: 'row',
@@ -949,26 +796,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.error,
   },
-  cardRow5: {
+  cardRow2: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  priceBlock: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
     gap: 4,
   },
-  priceAmount: {
-    fontFamily: FONT.headingBold,
-    fontSize: 18,
-    color: COLORS.textPrimary,
-  },
-  priceMonth: {
+  locationText: {
+    flex: 1,
     fontFamily: FONT.regular,
-    fontSize: 11,
+    fontSize: 12,
     color: COLORS.textTertiary,
+  },
+  cardRow3: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  extraAmenities: {
+    fontFamily: FONT.medium,
+    fontSize: 11,
+    color: COLORS.textSecondary,
   },
   empty: {
     alignItems: 'center',
@@ -1160,32 +1007,5 @@ const styles = StyleSheet.create({
     fontFamily: FONT.semiBold,
     fontSize: 14,
     color: COLORS.white,
-  },
-  sortContainer: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: 400,
-  },
-  sortBody: {
-    paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.lg,
-  },
-  sortOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
-  },
-  sortOptionText: {
-    fontFamily: FONT.medium,
-    fontSize: 15,
-    color: COLORS.textPrimary,
-  },
-  sortOptionTextActive: {
-    fontFamily: FONT.semiBold,
-    color: COLORS.primary,
   },
 });
