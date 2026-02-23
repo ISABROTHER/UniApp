@@ -1,203 +1,580 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, Modal, StyleSheet, ScrollView, Pressable } from 'react-native';
-import { ShieldCheck, Lock, BadgeCheck, X, ChevronRight } from 'lucide-react-native';
+import { useState, useEffect, useRef, useMemo, memo } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  Image, Dimensions, Platform,
+} from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { BOOKING_PROTECTION_GUARANTEE } from '@/lib/constants';
+import { Hostel, HostelReview } from '@/lib/types';
+import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck, Wifi, Shield, Droplet } from 'lucide-react-native';
+import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 
-const PILLAR_ICONS = {
-  'shield-check': ShieldCheck,
-  'lock': Lock,
-  'badge-check': BadgeCheck,
-};
+const { width: SW } = Dimensions.get('window');
 
-interface Props {
-  compact?: boolean;
-}
+const PhotoThumbnail = memo(({ uri, isActive, onPress }: { uri: string; isActive: boolean; onPress: () => void }) => (
+  <TouchableOpacity onPress={onPress} activeOpacity={0.85}>
+    <Image
+      source={{ uri }}
+      style={[styles.thumb, isActive && styles.thumbActive]}
+      resizeMode="cover"
+    />
+  </TouchableOpacity>
+));
 
-export default function ProtectedBookingBadge({ compact = false }: Props) {
-  const [modalVisible, setModalVisible] = useState(false);
+export default function DetailScreen() {
+  const params = useLocalSearchParams();
+  const router = useRouter();
+
+  const [hostel, setHostel] = useState<Hostel | null>(null);
+  const [reviews, setReviews] = useState<HostelReview[]>([]);
+  const [isFavourite, setIsFavourite] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'details' | 'reviews' | 'facilities' | 'others'>('details');
+  const [activeImg, setActiveImg] = useState(0);
+  const [roommateCount, setRoommateCount] = useState(0);
+
+  const hostelId = params.id as string;
+
+  useEffect(() => { 
+    if (hostelId) fetchHostel(); 
+  }, [hostelId]);
+
+  const fetchHostel = async () => {
+    try {
+      const [hostelRes, userRes] = await Promise.all([
+        supabase.from('hostels')
+          .select('*, hostel_images(*), hostel_amenities(*), hostel_rooms(*), owner_id')
+          .eq('id', hostelId)
+          .maybeSingle(),
+        supabase.auth.getUser()
+      ]);
+
+      if (hostelRes.data) {
+        setHostel(hostelRes.data as Hostel);
+        
+        if (userRes.data?.user) {
+          const [favRes, reviewsRes, roommatesRes] = await Promise.all([
+            supabase.from('wishlists').select('id').eq('user_id', userRes.data.user.id).eq('hostel_id', hostelId).maybeSingle(),
+            supabase.from('reviews')
+              .select('*, members(full_name, avatar_url)')
+              .eq('hostel_id', hostelId)
+              .order('created_at', { ascending: false })
+              .limit(10),
+            supabase.from('roommate_profiles')
+              .select('id', { count: 'exact', head: true })
+              .eq('hostel_id', hostelId)
+              .eq('is_active', true)
+          ]);
+
+          setIsFavourite(!!favRes.data);
+          setReviews((reviewsRes.data as HostelReview[]) || []);
+          setRoommateCount(roommatesRes.count ?? 0);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching hostel:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleFavourite = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    if (isFavourite) {
+      await supabase.from('wishlists').delete().eq('user_id', user.id).eq('hostel_id', hostelId);
+      setIsFavourite(false);
+    } else {
+      await supabase.from('wishlists').insert({ user_id: user.id, hostel_id: hostelId });
+      setIsFavourite(true);
+    }
+  };
+
+  const images = useMemo(() => {
+    if (hostel?.images && hostel.images.length > 0) {
+      return hostel.images
+        .slice()
+        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+        .map(i => i.image_url || i.url || '')
+        .slice(0, 5);
+    }
+    return ['https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg'];
+  }, [hostel?.images]);
+
+  const amenities = useMemo(() => hostel?.amenities || [], [hostel?.amenities]);
+  const rooms = useMemo(() => hostel?.rooms || [], [hostel?.rooms]);
+
+  if (loading || !hostel) {
+    return (
+      <View style={styles.loadingScreen}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
-    <>
-      <TouchableOpacity
-        style={[styles.badge, compact && styles.badgeCompact]}
-        onPress={() => setModalVisible(true)}
-        activeOpacity={0.8}
-      >
-        <ShieldCheck size={compact ? 14 : 16} color={COLORS.success} />
-        <Text style={[styles.badgeText, compact && styles.badgeTextCompact]}>
-          Protected Booking
-        </Text>
-        <ChevronRight size={12} color={COLORS.success} />
-      </TouchableOpacity>
+    <View style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
+        <View style={styles.heroWrap}>
+          <Image source={{ uri: images[activeImg] }} style={styles.heroImage} resizeMode="cover" />
+          <View style={styles.heroOverlay} />
 
-      <Modal
-        visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <Pressable style={styles.overlay} onPress={() => setModalVisible(false)}>
-          <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
-            <View style={styles.sheetHeader}>
-              <View style={styles.sheetIconWrap}>
-                <ShieldCheck size={28} color={COLORS.success} />
-              </View>
-              <TouchableOpacity style={styles.closeBtn} onPress={() => setModalVisible(false)}>
-                <X size={20} color={COLORS.textSecondary} />
-              </TouchableOpacity>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.85}>
+            <ArrowLeft size={20} color={COLORS.white} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.heartBtn, isFavourite && styles.heartBtnActive]} onPress={toggleFavourite} activeOpacity={0.85}>
+            <Heart size={18} color={COLORS.white} fill={COLORS.white} />
+          </TouchableOpacity>
+
+          <View style={styles.heroTitleWrap}>
+            <Text style={styles.heroTitle}>{hostel.name}</Text>
+          </View>
+
+          <View style={styles.thumbsRow}>
+            <View style={styles.thumbsContainer}>
+              {images.map((img, i) => (
+                <PhotoThumbnail
+                  key={i}
+                  uri={img}
+                  isActive={i === activeImg}
+                  onPress={() => setActiveImg(i)}
+                />
+              ))}
             </View>
+          </View>
+        </View>
 
-            <Text style={styles.sheetTitle}>{BOOKING_PROTECTION_GUARANTEE.title}</Text>
-            <Text style={styles.sheetSubtitle}>
-              StudentNest guarantees every booking on verified hostels.
-            </Text>
+        <View style={styles.statsBar}>
+          <View style={styles.statItem}>
+            <MapPin size={14} color={COLORS.textSecondary} />
+            <Text style={styles.statMain} numberOfLines={1}>{hostel.campus_proximity || hostel.address?.split(',')[0] || 'Cape Coast'}</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Users size={14} color={COLORS.textSecondary} />
+            <Text style={styles.statMain}>{hostel.available_rooms} beds available</Text>
+          </View>
+        </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} style={styles.pillarList}>
-              {BOOKING_PROTECTION_GUARANTEE.pillars.map((pillar, idx) => {
-                const Icon = PILLAR_ICONS[pillar.icon as keyof typeof PILLAR_ICONS] ?? ShieldCheck;
-                return (
-                  <View key={idx} style={styles.pillarRow}>
-                    <View style={styles.pillarIconWrap}>
-                      <Icon size={20} color={COLORS.success} />
+        <View style={styles.tabsRow}>
+          {(['details', 'reviews', 'facilities', 'others'] as const).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tab, activeTab === tab && styles.tabActive]}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                {tab === 'details' ? 'Details' : tab === 'reviews' ? 'Reviews' : tab === 'facilities' ? 'Facilities' : 'Others'}
+              </Text>
+              {tab === 'reviews' && reviews.length > 0 && (
+                <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{reviews.length}</Text></View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {activeTab === 'details' && (
+          <View style={styles.tabContent}>
+            <Text style={styles.description}>{hostel.description || 'No description available.'}</Text>
+
+            {rooms.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Room Types</Text>
+                {rooms.map((room: any) => (
+                  <View key={room.id} style={styles.roomRow}>
+                    <View style={styles.roomLeft}>
+                      <Text style={styles.roomType}>{room.room_type}</Text>
+                      <Text style={styles.roomDesc}>{room.description || 'Standard room'}</Text>
+                      {room.available_count > 0 && (
+                        <Text style={styles.roomAvail}>{room.available_count} available</Text>
+                      )}
                     </View>
-                    <View style={styles.pillarText}>
-                      <Text style={styles.pillarTitle}>{pillar.title}</Text>
-                      <Text style={styles.pillarDesc}>{pillar.description}</Text>
+                    <View>
+                      <Text style={styles.roomPrice}>GH₵{room.price_per_month || room.price_per_night || 0}</Text>
+                      <Text style={styles.roomPriceSub}>/month</Text>
                     </View>
                   </View>
-                );
-              })}
-            </ScrollView>
+                ))}
+              </View>
+            )}
 
-            <View style={styles.footerNote}>
-              <Text style={styles.footerNoteText}>
-                Protected bookings are only available on hostels with verified owners.
-              </Text>
+            {hostel.verified && (
+              <View style={styles.verifiedRow}>
+                <View style={styles.verifiedRowInner}>
+                  <ShieldCheck size={18} color={COLORS.success} />
+                  <Text style={styles.verifiedRowText}>Verified Hostel</Text>
+                </View>
+                <Text style={{ fontFamily: FONT.regular, fontSize: 12, color: COLORS.success }}>
+                  This hostel has been verified by our team
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Why your booking is secured</Text>
+              <ProtectedBookingBadge />
             </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </>
+
+            {roommateCount > 0 && (
+              <TouchableOpacity
+                style={styles.roommateRow}
+                onPress={() => router.push(`/roommates?hostel_id=${hostelId}` as any)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.roommateIconWrap}>
+                  <UserCheck size={20} color={COLORS.info} />
+                </View>
+                <View style={styles.roommateText}>
+                  <Text style={styles.roommateTitle}>Find Roommates</Text>
+                  <Text style={styles.rommmateSub}>{roommateCount} student{roommateCount !== 1 ? 's' : ''} looking for roommates here</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {activeTab === 'reviews' && (
+          <View style={styles.tabContent}>
+            {reviews.length === 0 ? (
+              <Text style={styles.noReviews}>No reviews yet</Text>
+            ) : (
+              reviews.map((review: HostelReview) => (
+                <View key={review.id} style={styles.reviewCard}>
+                  <View style={styles.reviewHeader}>
+                    <View style={styles.reviewerAvatar}>
+                      <Text style={styles.reviewerInitial}>
+                        {review.member?.full_name?.[0]?.toUpperCase() || 'U'}
+                      </Text>
+                    </View>
+                    <View style={styles.reviewerInfo}>
+                      <Text style={styles.reviewerName}>{review.member?.full_name || 'Anonymous'}</Text>
+                      <Text style={styles.reviewDate}>{new Date(review.created_at).toLocaleDateString()}</Text>
+                    </View>
+                    <View style={styles.reviewStars}>
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          size={12}
+                          color={i < review.rating ? COLORS.warning : COLORS.border}
+                          fill={i < review.rating ? COLORS.warning : 'transparent'}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  {review.comment && <Text style={styles.reviewComment}>"{review.comment}"</Text>}
+                  {review.verified_guest && (
+                    <View style={styles.verifiedGuestTag}>
+                      <CheckCircle size={12} color={COLORS.success} />
+                      <Text style={styles.verifiedGuestText}>Verified Guest</Text>
+                    </View>
+                  )}
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+        {activeTab === 'facilities' && (
+          <View style={styles.tabContent}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Amenities</Text>
+              {amenities.length > 0 ? (
+                <View style={styles.amenitiesGrid}>
+                  {amenities.map((amenity: any, idx: number) => (
+                    <View key={idx} style={styles.amenityPill}>
+                      <View style={styles.amenityDot} />
+                      <Text style={styles.amenityText}>{amenity.name || amenity}</Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <Text style={styles.noReviews}>No amenities listed</Text>
+              )}
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Basic Facilities</Text>
+              <View style={styles.facilitiesGrid}>
+                {hostel.has_wifi && (
+                  <View style={styles.facilityItem}>
+                    <Wifi size={20} color={COLORS.primary} />
+                    <Text style={styles.facilityText}>WiFi</Text>
+                  </View>
+                )}
+                {hostel.has_security && (
+                  <View style={styles.facilityItem}>
+                    <Shield size={20} color={COLORS.primary} />
+                    <Text style={styles.facilityText}>Security</Text>
+                  </View>
+                )}
+                {hostel.has_laundry && (
+                  <View style={styles.facilityItem}>
+                    <Droplet size={20} color={COLORS.primary} />
+                    <Text style={styles.facilityText}>Laundry</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {activeTab === 'others' && (
+          <View style={styles.tabContent}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Location</Text>
+              <Text style={styles.description}>{hostel.address || 'No address available'}</Text>
+              <Text style={styles.description}>{hostel.campus_proximity || ''}</Text>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Contact Information</Text>
+              <Text style={styles.description}>View contact details after booking</Text>
+            </View>
+          </View>
+        )}
+      </ScrollView>
+
+      <View style={styles.bottomBar}>
+        <TouchableOpacity
+          style={styles.msgBtn}
+          onPress={() => router.push(`/chat?hostel_id=${hostelId}` as any)}
+          activeOpacity={0.85}
+        >
+          <MessageCircle size={18} color={COLORS.accent} />
+          <Text style={styles.msgBtnText}>Message</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.bookBtn}
+          onPress={() => router.push(`/book?hostel_id=${hostelId}` as any)}
+          activeOpacity={0.85}
+        >
+          <Calendar size={18} color={COLORS.white} />
+          <Text style={styles.bookBtnText}>APPLY FOR HOUSING</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.xs,
-    backgroundColor: COLORS.successLight,
-    paddingHorizontal: SPACING.sm + 2,
-    paddingVertical: 6,
-    borderRadius: RADIUS.full,
-    alignSelf: 'flex-start',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
+  container: { flex: 1, backgroundColor: COLORS.white },
+  loadingScreen: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.white },
+  loadingText: { fontFamily: FONT.regular, fontSize: 16, color: COLORS.textSecondary },
+
+  heroWrap: { position: 'relative' },
+  heroImage: { width: SW, height: 340 },
+  heroOverlay: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 200,
+    backgroundColor: 'transparent',
   },
-  badgeCompact: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
+  backBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'web' ? 16 : 52,
+    left: SPACING.md,
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center', alignItems: 'center',
   },
-  badgeText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 12,
-    color: COLORS.success,
+  heartBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'web' ? 16 : 52,
+    right: SPACING.md,
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: 'rgba(180,180,190,0.55)',
+    justifyContent: 'center', alignItems: 'center',
   },
-  badgeTextCompact: {
-    fontSize: 11,
+  heartBtnActive: { backgroundColor: COLORS.primary },
+  heroTitleWrap: {
+    position: 'absolute',
+    bottom: 72,
+    left: SPACING.md,
+    right: SPACING.md,
   },
-  overlay: {
-    flex: 1,
-    backgroundColor: COLORS.overlay,
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.xl,
-    borderTopRightRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    paddingBottom: SPACING.xxl,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: SPACING.md,
-  },
-  sheetIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.successLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.borderLight,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sheetTitle: {
+  heroTitle: {
     fontFamily: FONT.headingBold,
-    fontSize: 22,
-    color: COLORS.textPrimary,
-    marginBottom: 6,
+    fontSize: 30,
+    color: COLORS.white,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 8,
   },
-  sheetSubtitle: {
-    fontFamily: FONT.regular,
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.lg,
+  thumbsRow: {
+    position: 'absolute',
+    bottom: 12,
+    left: 0,
+    right: 0,
   },
-  pillarList: {
-    marginBottom: SPACING.md,
-  },
-  pillarRow: {
+  thumbsContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: SPACING.md,
-    paddingVertical: SPACING.md,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
+    paddingHorizontal: SPACING.md,
+    gap: 8,
   },
-  pillarIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.successLight,
+  thumb: {
+    width: 56, 
+    height: 56,
+    borderRadius: RADIUS.sm,
+    borderWidth: 2, 
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  thumbActive: {
+    borderColor: COLORS.white,
+    borderWidth: 3,
+  },
+
+  statsBar: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
+    backgroundColor: COLORS.white,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.borderLight,
+    gap: SPACING.sm,
   },
-  pillarText: {
+  statItem: { 
+    flex: 1, 
+    flexDirection: 'row',
+    alignItems: 'center', 
+    gap: 6,
+  },
+  statDivider: { width: 1, height: 36, backgroundColor: COLORS.borderLight },
+  statMain: { 
+    fontFamily: FONT.semiBold, 
+    fontSize: 13, 
+    color: COLORS.textPrimary,
     flex: 1,
   },
-  pillarTitle: {
-    fontFamily: FONT.semiBold,
-    fontSize: 15,
-    color: COLORS.textPrimary,
-    marginBottom: 3,
+
+  tabsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
+    borderBottomWidth: 1, 
+    borderBottomColor: COLORS.borderLight,
+    backgroundColor: COLORS.white,
+    gap: SPACING.lg,
   },
-  pillarDesc: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    lineHeight: 19,
+  tab: { paddingBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: COLORS.primary },
+  tabText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textTertiary },
+  tabTextActive: { color: COLORS.primary },
+  tabBadge: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.full,
+    width: 18, height: 18,
+    justifyContent: 'center', alignItems: 'center',
   },
-  footerNote: {
-    backgroundColor: COLORS.infoLight,
-    borderRadius: RADIUS.md,
+  tabBadgeText: { fontFamily: FONT.bold, fontSize: 10, color: COLORS.white },
+
+  tabContent: { paddingHorizontal: SPACING.md, paddingTop: SPACING.lg },
+  description: {
+    fontFamily: FONT.regular, fontSize: 14,
+    color: COLORS.textSecondary, lineHeight: 22,
+    marginBottom: SPACING.md,
+  },
+
+  section: { marginBottom: SPACING.lg },
+  sectionTitle: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.textPrimary, marginBottom: SPACING.md },
+
+  roomRow: {
+    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
+    paddingVertical: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+  },
+  roomLeft: { flex: 1, marginRight: SPACING.sm },
+  roomType: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary, marginBottom: 2 },
+  roomDesc: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 },
+  roomAvail: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.success },
+  roomPrice: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.primary },
+  roomPriceSub: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
+
+  amenitiesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
+  amenityPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: COLORS.background, borderRadius: RADIUS.full,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  amenityDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.primary },
+  amenityText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textPrimary },
+
+  facilitiesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
+  facilityItem: {
+    alignItems: 'center',
     padding: SPACING.md,
-    marginTop: SPACING.sm,
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    minWidth: 80,
   },
-  footerNoteText: {
-    fontFamily: FONT.regular,
+  facilityText: {
+    fontFamily: FONT.medium,
     fontSize: 12,
-    color: COLORS.info,
-    textAlign: 'center',
+    color: COLORS.textPrimary,
+    marginTop: 6,
   },
+
+  verifiedRow: {
+    backgroundColor: COLORS.successLight, borderRadius: RADIUS.md,
+    padding: SPACING.md, marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  verifiedRowInner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6,
+  },
+  verifiedRowText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.success, flex: 1 },
+
+  roommateRow: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
+    backgroundColor: COLORS.infoLight, borderRadius: RADIUS.md,
+    padding: SPACING.md, marginBottom: SPACING.md,
+    borderWidth: 1, borderColor: '#BAE6FD',
+  },
+  roommateIconWrap: {
+    width: 40, height: 40, borderRadius: RADIUS.full,
+    backgroundColor: COLORS.white, alignItems: 'center', justifyContent: 'center',
+  },
+  roommateText: { flex: 1 },
+  roommateTitle: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary },
+  rommmateSub: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.info, marginTop: 2 },
+
+  noReviews: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textTertiary, fontStyle: 'italic', marginTop: SPACING.lg, textAlign: 'center' },
+  reviewCard: { marginBottom: SPACING.lg, paddingBottom: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
+  reviewHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: SPACING.sm },
+  reviewerAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center', marginRight: SPACING.sm },
+  reviewerInitial: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.white },
+  reviewerInfo: { flex: 1 },
+  reviewerName: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary, marginBottom: 2 },
+  reviewDate: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary },
+  reviewStars: { flexDirection: 'row', gap: 2 },
+  reviewComment: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, fontStyle: 'italic', lineHeight: 20 },
+  verifiedGuestTag: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  verifiedGuestText: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.success },
+
+  bottomBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+    paddingBottom: Platform.OS === 'web' ? SPACING.md : 32,
+    backgroundColor: COLORS.white,
+    borderTopWidth: 1, borderTopColor: COLORS.borderLight,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.07, shadowRadius: 8, elevation: 8,
+  },
+  msgBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md, paddingVertical: 14,
+    borderWidth: 1.5, borderColor: COLORS.accent,
+  },
+  msgBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.accent },
+  bookBtn: {
+    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: SPACING.sm, backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md, paddingVertical: 14,
+    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+  },
+  bookBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
 });
