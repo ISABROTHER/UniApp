@@ -82,7 +82,7 @@ function HostelCard({
   const isAvailable = availableRooms > 0;
   const isSoldOut = !isAvailable;
 
-  const cardColors = ['#FFFFFF', '#FEF2F2', '#FFF7ED', '#F0FDF4'];
+  const cardColors = ['#FFFFFF', '#FAFAFA', '#F9FAFB', '#F5F5F5'];
   const cardBgColor = cardColors[index % cardColors.length];
 
   return (
@@ -139,7 +139,7 @@ function HostelCard({
             </View>
             {hostel.verified && (
               <View style={styles.verifiedBadgeSmall}>
-                <ShieldCheck size={10} color={COLORS.success} fill={COLORS.success} />
+                <ShieldCheck size={10} color={COLORS.gold} fill={COLORS.gold} />
                 <Text style={styles.verifiedTextSmall}>Verified</Text>
               </View>
             )}
@@ -793,12 +793,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 8,
-    backgroundColor: COLORS.successLight,
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: COLORS.primary,
   },
   verifiedTextSmall: {
     fontFamily: FONT.semiBold,
     fontSize: 9,
-    color: COLORS.success,
+    color: COLORS.gold,
   },
   empty: {
     alignItems: 'center',
