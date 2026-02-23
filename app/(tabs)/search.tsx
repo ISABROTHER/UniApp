@@ -102,7 +102,7 @@ function HostelCard({
   const isAvailable = availableRooms > 0;
   const isSoldOut = !isAvailable;
 
-  const cardColors = ['#FFFFFF', '#FFF9F0', '#F0F9FF', '#FFF0F5', '#F0FFF4', '#FFF5F0', '#F5F0FF'];
+  const cardColors = ['#FFFFFF', '#FFE4CC', '#CCE7FF', '#FFCCE0', '#CCFFDD', '#FFDACC', '#E6CCFF'];
   const cardBgColor = cardColors[index % cardColors.length];
 
   return (
