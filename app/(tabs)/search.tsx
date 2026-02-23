@@ -114,7 +114,12 @@ function HostelCard({
 
         <View style={styles.cardBody}>
           <View style={styles.cardRow1}>
-            <Text style={styles.cardName} numberOfLines={2}>{hostel.name}</Text>
+            <View style={styles.nameRow}>
+              <Text style={styles.cardName} numberOfLines={2}>{hostel.name}</Text>
+              {hostel.verified && (
+                <ShieldCheck size={14} color="#10B981" fill="#10B981" style={{ marginLeft: 4 }} />
+              )}
+            </View>
             {isSoldOut ? (
               <View style={styles.soldOutBadge}>
                 <XCircle size={12} color={COLORS.error} />
@@ -131,18 +136,10 @@ function HostelCard({
           </View>
 
           <View style={styles.cardRow2}>
-            <View style={styles.locationRow}>
-              <MapPin size={12} color={COLORS.textTertiary} />
-              <Text style={styles.locationText} numberOfLines={1}>
-                {hostel.campus_proximity || hostel.address || 'Location'}
-              </Text>
-            </View>
-            {hostel.verified && (
-              <View style={styles.verifiedBadgeSmall}>
-                <ShieldCheck size={10} color="#FFFFFF" fill="#FFFFFF" />
-                <Text style={styles.verifiedTextSmall}>Verified</Text>
-              </View>
-            )}
+            <MapPin size={12} color={COLORS.textTertiary} />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {hostel.campus_proximity || hostel.address || 'Location'}
+            </Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -740,13 +737,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  cardName: {
+  nameRow: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     flexShrink: 1,
+  },
+  cardName: {
     fontFamily: FONT.headingBold,
     fontSize: 16,
     color: COLORS.primary,
     lineHeight: 20,
+    flexShrink: 1,
   },
   availableBadge: {
     flexDirection: 'row',
@@ -771,36 +773,13 @@ const styles = StyleSheet.create({
   cardRow2: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 4,
-    flex: 1,
   },
   locationText: {
     flex: 1,
     fontFamily: FONT.regular,
     fontSize: 12,
     color: COLORS.textTertiary,
-  },
-  verifiedBadgeSmall: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    backgroundColor: '#10B981',
-    borderWidth: 1,
-    borderColor: '#059669',
-  },
-  verifiedTextSmall: {
-    fontFamily: FONT.semiBold,
-    fontSize: 9,
-    color: '#FFFFFF',
   },
   empty: {
     alignItems: 'center',
