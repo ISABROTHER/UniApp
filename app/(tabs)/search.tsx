@@ -51,11 +51,13 @@ const DEFAULT_FILTERS: Filters = {
 function HostelCard({ 
   hostel, 
   onPress, 
-  onToggleFav 
+  onToggleFav,
+  index 
 }: { 
   hostel: Hostel; 
   onPress: () => void; 
   onToggleFav: () => void;
+  index: number;
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -79,19 +81,14 @@ function HostelCard({
   const availableRooms = hostel.available_rooms ?? 0;
   const isAvailable = availableRooms > 0;
   const isSoldOut = !isAvailable;
-  
-  const topAmenities = [
-    hostel.has_wifi && 'WiFi',
-    hostel.has_security && 'Security',
-    'Water (24hr)',
-  ].filter(Boolean).slice(0, 3);
-  
-  const extraCount = Math.max(0, (hostel.amenities?.length || 0) - 3);
+
+  const cardColors = ['#FFFFFF', '#FFF5F7', '#FFF9F9'];
+  const cardBgColor = cardColors[index % cardColors.length];
 
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity 
-        style={[styles.card, isSoldOut && styles.cardDisabled]} 
+        style={[styles.card, { backgroundColor: cardBgColor }, isSoldOut && styles.cardDisabled]} 
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -133,7 +130,7 @@ function HostelCard({
               <View style={styles.availableBadge}>
                 <CheckCircle2 size={12} color={COLORS.success} />
                 <Text style={styles.availableText}>
-                  {availableRooms > 0 ? `${availableRooms} left` : 'Available'}
+                  {availableRooms > 0 ? `${availableRooms} beds available` : 'Available'}
                 </Text>
               </View>
             )}
@@ -144,16 +141,6 @@ function HostelCard({
             <Text style={styles.locationText} numberOfLines={1}>
               {hostel.campus_proximity || hostel.address || 'Location'}
             </Text>
-          </View>
-
-          <View style={styles.cardRow3}>
-            {topAmenities.map((amenity, idx) => {
-              const Icon = AMENITY_ICONS[amenity as string];
-              return Icon ? <Icon key={idx} size={14} color={COLORS.textSecondary} /> : null;
-            })}
-            {extraCount > 0 && (
-              <Text style={styles.extraAmenities}>+{extraCount}</Text>
-            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -558,11 +545,12 @@ export default function SearchScreen() {
       <FlatList
         data={filteredAndSorted}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
+        renderItem={({ item, index }) => (
           <HostelCard
             hostel={item}
             onPress={() => router.push(`/detail?id=${item.id}` as any)}
             onToggleFav={() => toggleFavourite(item.id, !!item.is_favourite)}
+            index={index}
           />
         )}
         contentContainerStyle={styles.listContent}
@@ -709,7 +697,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   card: {
-    backgroundColor: COLORS.white,
     borderRadius: 12,
     overflow: 'hidden',
     elevation: 2,
@@ -806,16 +793,6 @@ const styles = StyleSheet.create({
     fontFamily: FONT.regular,
     fontSize: 12,
     color: COLORS.textTertiary,
-  },
-  cardRow3: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  extraAmenities: {
-    fontFamily: FONT.medium,
-    fontSize: 11,
-    color: COLORS.textSecondary,
   },
   empty: {
     alignItems: 'center',
