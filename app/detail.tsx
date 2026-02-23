@@ -82,14 +82,33 @@ export default function DetailScreen() {
   };
 
   const images = useMemo(() => {
+    const fallbackImages = [
+      'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg',
+      'https://images.pexels.com/photos/271624/pexels-photo-271624.jpeg',
+      'https://images.pexels.com/photos/1643383/pexels-photo-1643383.jpeg',
+      'https://images.pexels.com/photos/2029667/pexels-photo-2029667.jpeg',
+      'https://images.pexels.com/photos/1457842/pexels-photo-1457842.jpeg',
+    ];
+
     if (hostel?.images && hostel.images.length > 0) {
-      return hostel.images
+      const hostelImages = hostel.images
         .slice()
         .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
         .map(i => i.image_url || i.url || '')
-        .slice(0, 5);
+        .filter(url => url);
+      
+      if (hostelImages.length >= 5) {
+        return hostelImages.slice(0, 5);
+      }
+      
+      const combined = [...hostelImages];
+      for (let i = hostelImages.length; i < 5; i++) {
+        combined.push(fallbackImages[i]);
+      }
+      return combined;
     }
-    return ['https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg'];
+    
+    return fallbackImages;
   }, [hostel?.images]);
 
   const amenities = useMemo(() => hostel?.amenities || [], [hostel?.amenities]);
@@ -569,4 +588,4 @@ const styles = StyleSheet.create({
     shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
   bookBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
-}); 
+});
