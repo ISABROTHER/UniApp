@@ -181,9 +181,10 @@ export default function HomeScreen() {
       if (user) {
         const [msgResult, alertResult] = await Promise.all([
           supabase
-            .from('conversations')
-            .select('unread_count_a, unread_count_b, participant_a, participant_b')
-            .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`),
+            .from('messages')
+            .select('id', { count: 'exact', head: true })
+            .eq('receiver_id', user.id)
+            .eq('read', false),
           supabase
             .from('notifications')
             .select('id', { count: 'exact', head: true })
@@ -191,15 +192,7 @@ export default function HomeScreen() {
             .eq('read', false),
         ]);
 
-        const unreadMessages = (msgResult.data || []).reduce((sum: number, c: {
-          participant_a: string;
-          participant_b: string;
-          unread_count_a: number;
-          unread_count_b: number;
-        }) => {
-          const isA = c.participant_a === user.id;
-          return sum + (isA ? (c.unread_count_a || 0) : (c.unread_count_b || 0));
-        }, 0);
+        const unreadMessages = msgResult.count || 0;
 
         setLiveStats({
           availableBeds: totalBeds,
