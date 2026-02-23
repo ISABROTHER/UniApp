@@ -60,6 +60,26 @@ function HostelCard({
   index: number;
 }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, []);
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
@@ -114,12 +134,7 @@ function HostelCard({
 
         <View style={styles.cardBody}>
           <View style={styles.cardRow1}>
-            <View style={styles.nameRow}>
-              <Text style={styles.cardName} numberOfLines={2}>{hostel.name}</Text>
-              {hostel.verified && (
-                <ShieldCheck size={14} color="#10B981" fill="#10B981" style={{ marginLeft: 4 }} />
-              )}
-            </View>
+            <Text style={styles.cardName} numberOfLines={2}>{hostel.name}</Text>
             {isSoldOut ? (
               <View style={styles.soldOutBadge}>
                 <XCircle size={12} color={COLORS.error} />
@@ -127,7 +142,9 @@ function HostelCard({
               </View>
             ) : (
               <View style={styles.availableBadge}>
-                <CheckCircle2 size={12} color={COLORS.success} />
+                <Animated.View style={[styles.liveIndicator, { transform: [{ scale: pulseAnim }] }]}>
+                  <View style={styles.liveDot} />
+                </Animated.View>
                 <Text style={styles.availableText}>
                   {availableRooms > 0 ? `${availableRooms} beds available` : 'Available'}
                 </Text>
@@ -737,23 +754,32 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
-  nameRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1,
-  },
   cardName: {
+    flex: 1,
+    flexShrink: 1,
     fontFamily: FONT.headingBold,
     fontSize: 16,
     color: COLORS.primary,
     lineHeight: 20,
-    flexShrink: 1,
   },
   availableBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+  },
+  liveIndicator: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22C55E',
   },
   availableText: {
     fontFamily: FONT.semiBold,
