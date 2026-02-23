@@ -23,12 +23,28 @@ export default function DetailScreen() {
   const [activeTab, setActiveTab] = useState<'details' | 'reviews' | 'facilities' | 'others'>('details');
   const [activeImg, setActiveImg] = useState(0);
   const [roommateCount, setRoommateCount] = useState(0);
+  const [autoSlide, setAutoSlide] = useState(true);
+  const autoSlideInterval = useRef<NodeJS.Timeout | null>(null);
 
   const hostelId = params.id as string;
 
   useEffect(() => { 
     if (hostelId) fetchHostel(); 
   }, [hostelId]);
+
+  useEffect(() => {
+    if (autoSlide && images.length > 1) {
+      autoSlideInterval.current = setInterval(() => {
+        setActiveImg((prev) => (prev + 1) % images.length);
+      }, 2000);
+    }
+
+    return () => {
+      if (autoSlideInterval.current) {
+        clearInterval(autoSlideInterval.current);
+      }
+    };
+  }, [autoSlide, images.length]);
 
   const fetchHostel = async () => {
     try {
@@ -144,7 +160,10 @@ export default function DetailScreen() {
               {images.map((img, i) => (
                 <TouchableOpacity 
                   key={i} 
-                  onPress={() => setActiveImg(i)} 
+                  onPress={() => {
+                    setActiveImg(i);
+                    setAutoSlide(false);
+                  }} 
                   activeOpacity={0.85}
                   style={[styles.photoBox, i === activeImg && styles.photoBoxActive]}
                 >
