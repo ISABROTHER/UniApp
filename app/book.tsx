@@ -356,4 +356,4 @@ const styles = StyleSheet.create({
   successProtectedText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.success },
   successBtn: { backgroundColor: COLORS.primary, paddingHorizontal: SPACING.xl, paddingVertical: 14, borderRadius: RADIUS.md },
   successBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
-});
+}); 
