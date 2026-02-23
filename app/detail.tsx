@@ -569,4 +569,4 @@ const styles = StyleSheet.create({
     shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
   bookBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
-});
+}); 
