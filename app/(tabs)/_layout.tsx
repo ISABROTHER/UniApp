@@ -10,6 +10,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textTertiary,
+        tabBarShowLabel: true,
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopWidth: 0.5,
@@ -25,8 +26,8 @@ export default function TabLayout() {
         },
         tabBarLabelStyle: {
           fontFamily: FONT.medium,
-          fontSize: 10,
-          marginTop: 2,
+          fontSize: 11,
+          marginTop: 4,
         },
       }}
     >
