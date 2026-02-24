@@ -250,9 +250,17 @@ export default function MyHallScreen() {
   if (!hallInfo) {
     return (
       <View style={styles.emptyContainer}>
-        <Users size={48} color={COLORS.border} />
+        <Users size={64} color={COLORS.border} />
         <Text style={styles.emptyTitle}>No Hall Assigned</Text>
-        <Text style={styles.emptyText}>You are not currently assigned to a hall</Text>
+        <Text style={styles.emptyText}>Register to your hall to access official announcements and events</Text>
+        <TouchableOpacity 
+          style={styles.registerBtn}
+          onPress={() => router.push('/hall-designation' as any)}
+          activeOpacity={0.8}
+        >
+          <Shield size={18} color={COLORS.white} />
+          <Text style={styles.registerBtnText}>Register to Hall</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -403,6 +411,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSecondary,
     textAlign: 'center',
+    marginBottom: SPACING.lg,
+  },
+  registerBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 24,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  registerBtnText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 15,
+    color: COLORS.white,
   },
   header: {
     backgroundColor: COLORS.white,
