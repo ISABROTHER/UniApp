@@ -13,12 +13,57 @@ import {
 interface Hall {
   id: string;
   name: string;
+  short_name: string | null;
   hall_type: 'male' | 'female' | 'mixed';
+  hall_category: 'traditional' | 'src' | 'graduate';
   capacity: number;
+  is_graduate: boolean;
   total_members: number;
 }
 
 const STUDENT_LEVELS = ['100', '200', '300', '400', 'Postgraduate'];
+
+function HallCard({ hall, selected, onPress }: { hall: Hall; selected: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      style={[styles.hallCard, selected && styles.hallCardActive]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.hallHeader}>
+        <Home size={20} color={selected ? COLORS.primary : COLORS.textSecondary} />
+        {selected && <CheckCircle size={18} color={COLORS.primary} />}
+      </View>
+      <Text style={[styles.hallName, selected && styles.hallNameActive]} numberOfLines={2}>
+        {hall.name}
+      </Text>
+      {hall.short_name && (
+        <Text style={styles.hallShortName}>{hall.short_name}</Text>
+      )}
+      <View style={styles.hallMeta}>
+        <Users size={12} color={COLORS.textTertiary} />
+        <Text style={styles.hallMetaText}>{hall.total_members} members</Text>
+      </View>
+      <View style={styles.hallBadgeRow}>
+        <View style={[
+          styles.hallTypeBadge,
+          hall.hall_type === 'male' && styles.hallTypeMale,
+          hall.hall_type === 'female' && styles.hallTypeFemale,
+          hall.hall_type === 'mixed' && styles.hallTypeMixed,
+        ]}>
+          <Text style={styles.hallTypeText}>
+            {hall.hall_type === 'male' ? 'Male' : hall.hall_type === 'female' ? 'Female' : 'Mixed'}
+          </Text>
+        </View>
+        {hall.is_graduate && (
+          <View style={styles.hallGradBadge}>
+            <Text style={styles.hallGradText}>Grad</Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function HallDesignationScreen() {
   const router = useRouter();
@@ -122,6 +167,11 @@ export default function HallDesignationScreen() {
         await supabase.from('hall_members').insert(hallMemberData);
       }
 
+      await supabase
+        .from('members')
+        .update({ hall_id: selectedHall, student_level: selectedLevel, is_resident: isResident })
+        .eq('id', user.id);
+
       Alert.alert(
         'Success!',
         currentDesignation 
@@ -176,44 +226,18 @@ export default function HallDesignationScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>Select Your Hall</Text>
+
+        <Text style={styles.categoryLabel}>Traditional Halls</Text>
         <View style={styles.hallsGrid}>
-          {halls.map((hall) => (
-            <TouchableOpacity
-              key={hall.id}
-              style={[
-                styles.hallCard,
-                selectedHall === hall.id && styles.hallCardActive,
-              ]}
-              onPress={() => setSelectedHall(hall.id)}
-              activeOpacity={0.7}
-            >
-              <View style={styles.hallHeader}>
-                <Home size={20} color={selectedHall === hall.id ? COLORS.primary : COLORS.textSecondary} />
-                {selectedHall === hall.id && (
-                  <CheckCircle size={18} color={COLORS.primary} />
-                )}
-              </View>
-              <Text style={[
-                styles.hallName,
-                selectedHall === hall.id && styles.hallNameActive,
-              ]}>
-                {hall.name}
-              </Text>
-              <View style={styles.hallMeta}>
-                <Users size={12} color={COLORS.textTertiary} />
-                <Text style={styles.hallMetaText}>{hall.total_members} members</Text>
-              </View>
-              <View style={[
-                styles.hallTypeBadge,
-                hall.hall_type === 'male' && styles.hallTypeMale,
-                hall.hall_type === 'female' && styles.hallTypeFemale,
-                hall.hall_type === 'mixed' && styles.hallTypeMixed,
-              ]}>
-                <Text style={styles.hallTypeText}>
-                  {hall.hall_type === 'male' ? 'Male' : hall.hall_type === 'female' ? 'Female' : 'Mixed'}
-                </Text>
-              </View>
-            </TouchableOpacity>
+          {halls.filter(h => h.hall_category === 'traditional').map((hall) => (
+            <HallCard key={hall.id} hall={hall} selected={selectedHall === hall.id} onPress={() => setSelectedHall(hall.id)} />
+          ))}
+        </View>
+
+        <Text style={styles.categoryLabel}>SRC / Graduate Halls</Text>
+        <View style={styles.hallsGrid}>
+          {halls.filter(h => h.hall_category !== 'traditional').map((hall) => (
+            <HallCard key={hall.id} hall={hall} selected={selectedHall === hall.id} onPress={() => setSelectedHall(hall.id)} />
           ))}
         </View>
 
@@ -457,11 +481,30 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.textTertiary,
   },
+  categoryLabel: {
+    fontFamily: FONT.semiBold,
+    fontSize: 13,
+    color: COLORS.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  hallShortName: {
+    fontFamily: FONT.regular,
+    fontSize: 11,
+    color: COLORS.textTertiary,
+    marginBottom: SPACING.xs,
+  },
+  hallBadgeRow: {
+    flexDirection: 'row',
+    gap: 4,
+    flexWrap: 'wrap',
+  },
   hallTypeBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 12,
-    alignSelf: 'flex-start',
   },
   hallTypeMale: {
     backgroundColor: '#DBEAFE',
@@ -470,12 +513,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#FCE7F3',
   },
   hallTypeMixed: {
-    backgroundColor: '#E0E7FF',
+    backgroundColor: '#DCFCE7',
   },
   hallTypeText: {
     fontFamily: FONT.semiBold,
     fontSize: 10,
     color: COLORS.textPrimary,
+  },
+  hallGradBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: '#FEF9C3',
+  },
+  hallGradText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 10,
+    color: '#92400E',
   },
   levelGrid: {
     flexDirection: 'row',
