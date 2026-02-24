@@ -91,6 +91,8 @@ export default function RootLayout() {
         <Stack.Screen name="print-job" />
         <Stack.Screen name="print-chat" />
         <Stack.Screen name="qr-scan" options={{ animation: 'fade' }} />
+        <Stack.Screen name="hall" />
+        <Stack.Screen name="hall-designation" />
         <Stack.Screen name="auth/sign-in" />
         <Stack.Screen name="auth/sign-up" />
         <Stack.Screen name="auth/forgot-password" />
