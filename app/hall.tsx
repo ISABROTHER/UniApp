@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import {
   Bell, Calendar, CheckCircle, AlertTriangle, FileText,
-  Users, Shield, Clock, ChevronRight, Archive, Vote,
+  Users, Shield, Clock, ChevronRight, Archive, Vote, ArrowLeft,
 } from 'lucide-react-native';
 
 interface HallPost {
@@ -250,10 +250,13 @@ export default function MyHallScreen() {
   if (!hallInfo) {
     return (
       <View style={styles.emptyContainer}>
+        <TouchableOpacity style={styles.emptyBackBtn} onPress={() => router.back()}>
+          <ArrowLeft size={22} color={COLORS.textPrimary} />
+        </TouchableOpacity>
         <Users size={64} color={COLORS.border} />
         <Text style={styles.emptyTitle}>No Hall Assigned</Text>
         <Text style={styles.emptyText}>Register to your hall to access official announcements and events</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.registerBtn}
           onPress={() => router.push('/hall-designation' as any)}
           activeOpacity={0.8}
@@ -269,7 +272,10 @@ export default function MyHallScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <ArrowLeft size={22} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
             <Text style={styles.headerGreeting}>My Hall</Text>
             <Text style={styles.headerHallName}>{hallInfo.name}</Text>
           </View>
@@ -399,6 +405,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#F2F3F8',
     padding: SPACING.xl,
   },
+  emptyBackBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'web' ? 20 : 56,
+    left: SPACING.md,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
   emptyTitle: {
     fontFamily: FONT.heading,
     fontSize: 20,
@@ -442,9 +464,20 @@ const styles = StyleSheet.create({
   },
   headerTop: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: SPACING.md,
+    gap: SPACING.sm,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerCenter: {
+    flex: 1,
   },
   headerGreeting: {
     fontFamily: FONT.regular,
