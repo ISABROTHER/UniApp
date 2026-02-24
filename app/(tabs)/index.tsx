@@ -25,6 +25,7 @@ import {
   Printer,
   ChevronRight,
   Home,
+  Shield,
 } from 'lucide-react-native';
 import LeaseRenewalCard from '@/components/LeaseRenewalCard';
 
@@ -181,10 +182,9 @@ export default function HomeScreen() {
       if (user) {
         const [msgResult, alertResult] = await Promise.all([
           supabase
-            .from('messages')
-            .select('id', { count: 'exact', head: true })
-            .eq('receiver_id', user.id)
-            .eq('read', false),
+            .from('conversations')
+            .select('unread_count_a, unread_count_b, participant_a, participant_b')
+            .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`),
           supabase
             .from('notifications')
             .select('id', { count: 'exact', head: true })
@@ -192,7 +192,15 @@ export default function HomeScreen() {
             .eq('read', false),
         ]);
 
-        const unreadMessages = msgResult.count || 0;
+        const unreadMessages = (msgResult.data || []).reduce((sum: number, c: {
+          participant_a: string;
+          participant_b: string;
+          unread_count_a: number;
+          unread_count_b: number;
+        }) => {
+          const isA = c.participant_a === user.id;
+          return sum + (isA ? (c.unread_count_a || 0) : (c.unread_count_b || 0));
+        }, 0);
 
         setLiveStats({
           availableBeds: totalBeds,
@@ -339,7 +347,12 @@ export default function HomeScreen() {
             <Text style={styles.qaLabel}>Roommates</Text>
           </TouchableOpacity>
 
-          <View style={styles.qa} />
+          <TouchableOpacity style={styles.qa} onPress={() => router.push('/hall' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#DBEAFE' }]}>
+              <Shield size={28} color={COLORS.info} />
+            </View>
+            <Text style={styles.qaLabel}>My Hall</Text>
+          </TouchableOpacity>
 
         </View>
       </View>
