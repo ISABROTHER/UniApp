@@ -48,9 +48,102 @@ export default function MyHallScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const pulseAnim = useState(new Animated.Value(1))[0];
+
+  useEffect(() => {
+    // Pulse animation for live indicator
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.3,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
 
   useEffect(() => {
     fetchHallData();
+
+    // Set up realtime subscriptions for live updates
+    const setupRealtimeSubscriptions = async () => {
+      const userId = session?.user?.id || member?.id;
+      if (!userId) return;
+
+      const { data: memberData } = await supabase
+        .from('hall_members')
+        .select('hall_id')
+        .eq('user_id', userId)
+        .eq('academic_year', '2026/27')
+        .maybeSingle();
+
+      if (!memberData?.hall_id) return;
+
+      // Subscribe to hall_posts changes
+      const postsChannel = supabase
+        .channel('hall_posts_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'hall_posts',
+            filter: `hall_id=eq.${memberData.hall_id}`,
+          },
+          () => {
+            fetchHallData();
+          }
+        )
+        .subscribe();
+
+      // Subscribe to hall_events changes
+      const eventsChannel = supabase
+        .channel('hall_events_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'hall_events',
+            filter: `hall_id=eq.${memberData.hall_id}`,
+          },
+          () => {
+            fetchHallData();
+          }
+        )
+        .subscribe();
+
+      // Subscribe to hall_members changes
+      const membersChannel = supabase
+        .channel('hall_members_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'hall_members',
+            filter: `hall_id=eq.${memberData.hall_id}`,
+          },
+          () => {
+            fetchHallData();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(postsChannel);
+        supabase.removeChannel(eventsChannel);
+        supabase.removeChannel(membersChannel);
+      };
+    };
+
+    setupRealtimeSubscriptions();
   }, []);
 
   const fetchHallData = async () => {
@@ -202,7 +295,7 @@ export default function MyHallScreen() {
         {/* Live Stats Banner */}
         <View style={styles.liveStatsBanner}>
           <View style={styles.liveIndicator}>
-            <View style={styles.liveDot} />
+            <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
             <Text style={styles.liveText}>Live Updates</Text>
           </View>
           <View style={styles.statsRow}>
