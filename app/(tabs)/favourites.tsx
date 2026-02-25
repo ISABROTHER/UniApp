@@ -21,7 +21,7 @@ export default function FavouritesScreen() {
       if (!user) { setLoading(false); return; }
 
       const { data } = await supabase
-        .from('wishlists')
+        .from('favourites')
         .select('hostel_id, hostels(*, hostel_images(*), hostel_rooms(*))')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -45,7 +45,7 @@ export default function FavouritesScreen() {
   const removeFavourite = async (hostelId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from('wishlists').delete().eq('user_id', user.id).eq('hostel_id', hostelId);
+    await supabase.from('favourites').delete().eq('user_id', user.id).eq('hostel_id', hostelId);
     setFavourites((prev) => prev.filter((h) => h.id !== hostelId));
   };
 

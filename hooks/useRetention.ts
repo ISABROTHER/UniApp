@@ -12,7 +12,7 @@ export function useActivityLogger() {
   }) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    await supabase.from('user_activity_log').insert({
+    await supabase.from('user_activity_logs').insert({
       user_id: user.id,
       ...params,
     });

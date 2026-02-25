@@ -93,8 +93,8 @@ export default function DetailScreen() {
         
         if (userRes.data?.user) {
           const [favRes, reviewsRes, roommatesRes] = await Promise.all([
-            supabase.from('wishlists').select('id').eq('user_id', userRes.data.user.id).eq('hostel_id', hostelId).maybeSingle(),
-            supabase.from('reviews')
+            supabase.from('favourites').select('id').eq('user_id', userRes.data.user.id).eq('hostel_id', hostelId).maybeSingle(),
+            supabase.from('hostel_reviews')
               .select('*, members(full_name, avatar_url)')
               .eq('hostel_id', hostelId)
               .order('created_at', { ascending: false })
@@ -121,10 +121,10 @@ export default function DetailScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     if (isFavourite) {
-      await supabase.from('wishlists').delete().eq('user_id', user.id).eq('hostel_id', hostelId);
+      await supabase.from('favourites').delete().eq('user_id', user.id).eq('hostel_id', hostelId);
       setIsFavourite(false);
     } else {
-      await supabase.from('wishlists').insert({ user_id: user.id, hostel_id: hostelId });
+      await supabase.from('favourites').insert({ user_id: user.id, hostel_id: hostelId });
       setIsFavourite(true);
     }
   };

@@ -382,15 +382,15 @@ export default function SearchScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       const { data } = await supabase
         .from('hostels')
-        .select('*, hostel_images(*), hostel_rooms(*), wishlists!left(id,user_id)')
+        .select('*, hostel_images(*), hostel_rooms(*), favourites!left(id,user_id)')
         .eq('status', 'active')
         .order('verified', { ascending: false })
         .order('available_rooms', { ascending: false });
 
       const processed = (data || []).map((h: any) => ({
         ...h,
-        is_favourite: user ? h.wishlists?.some((w: any) => w.user_id === user.id) : false,
-        wishlists: undefined,
+        is_favourite: user ? h.favourites?.some((w: any) => w.user_id === user.id) : false,
+        favourites: undefined,
       })) as Hostel[];
 
       setHostels(processed);
@@ -410,9 +410,9 @@ export default function SearchScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     if (isFav) {
-      await supabase.from('wishlists').delete().eq('user_id', user.id).eq('hostel_id', hostelId);
+      await supabase.from('favourites').delete().eq('user_id', user.id).eq('hostel_id', hostelId);
     } else {
-      await supabase.from('wishlists').insert({ user_id: user.id, hostel_id: hostelId });
+      await supabase.from('favourites').insert({ user_id: user.id, hostel_id: hostelId });
     }
     setHostels((prev) => prev.map((h) => h.id === hostelId ? { ...h, is_favourite: !isFav } : h));
   };

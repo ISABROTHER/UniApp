@@ -62,7 +62,7 @@ export default function RecentActivity() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
       const { data } = await supabase
-        .from('user_activity_log')
+        .from('user_activity_logs')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
@@ -78,7 +78,7 @@ export default function RecentActivity() {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const { data } = await supabase
-        .from('user_activity_log')
+        .from('user_activity_logs')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })

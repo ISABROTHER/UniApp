@@ -91,7 +91,7 @@ export default function LaundryScreen() {
       const [provRes, ordRes, walRes, passRes, prefRes] = await Promise.all([
         supabase.from('laundry_providers').select('*').eq('is_active', true).order('rating', { ascending: false }),
         supabase.from('laundry_orders').select('*, laundry_providers(name, phone, rating)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20),
-        supabase.from('laundry_wallet').select('*').eq('user_id', user.id).maybeSingle(),
+        supabase.from('laundry_wallets').select('*').eq('user_id', user.id).maybeSingle(),
         supabase.from('laundry_passes').select('*').eq('user_id', user.id).eq('is_active', true).maybeSingle(),
         supabase.from('laundry_preferences').select('*').eq('user_id', user.id).maybeSingle(),
       ]);
@@ -164,9 +164,9 @@ export default function LaundryScreen() {
 
     const newBalance = (wallet?.balance || 0) + amount;
     if (!wallet) {
-      await supabase.from('laundry_wallet').insert({ user_id: user.id, balance: amount });
+      await supabase.from('laundry_wallets').insert({ user_id: user.id, balance: amount });
     } else {
-      await supabase.from('laundry_wallet').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('user_id', user.id);
+      await supabase.from('laundry_wallets').update({ balance: newBalance, updated_at: new Date().toISOString() }).eq('user_id', user.id);
     }
     await supabase.from('laundry_transactions').insert({
       user_id: user.id, type: 'topup', amount,

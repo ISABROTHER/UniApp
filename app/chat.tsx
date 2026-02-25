@@ -51,11 +51,10 @@ function formatDateLabel(dateStr: string) {
 
 type Msg = {
   id: string;
-  thread_id: string;
+  conversation_id: string;
   sender_id: string;
-  receiver_id: string;
   content: string;
-  read: boolean;
+  is_read: boolean;
   created_at: string;
 };
 
@@ -119,7 +118,7 @@ export default function ChatScreen() {
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `thread_id=eq.${resolvedThreadId}`,
+          filter: `conversation_id=eq.${resolvedThreadId}`,
         },
         (payload) => {
           const newMsg = payload.new as Msg;
@@ -136,8 +135,8 @@ export default function ChatScreen() {
           });
           setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
 
-          if (currentUserId && newMsg.receiver_id === currentUserId && !newMsg.read) {
-            supabase.from('messages').update({ read: true }).eq('id', newMsg.id).then(() => {});
+          if (currentUserId && newMsg.sender_id !== currentUserId && !newMsg.is_read) {
+            supabase.from('messages').update({ is_read: true, read_at: new Date().toISOString() }).eq('id', newMsg.id).then(() => {});
           }
         }
       )
@@ -147,7 +146,7 @@ export default function ChatScreen() {
           event: 'UPDATE',
           schema: 'public',
           table: 'messages',
-          filter: `thread_id=eq.${resolvedThreadId}`,
+          filter: `conversation_id=eq.${resolvedThreadId}`,
         },
         (payload) => {
           const updatedMsg = payload.new as Msg;
@@ -167,13 +166,13 @@ export default function ChatScreen() {
   const loadThread = async (userId: string, tId: string) => {
     try {
       const { data: thread } = await supabase
-        .from('message_threads')
-        .select('participant_1, participant_2')
+        .from('conversations')
+        .select('participant_a, participant_b')
         .eq('id', tId)
         .maybeSingle();
 
       if (thread) {
-        const otherId = thread.participant_1 === userId ? thread.participant_2 : thread.participant_1;
+        const otherId = thread.participant_a === userId ? thread.participant_b : thread.participant_a;
         setTargetUserId(otherId);
         await fetchOtherMember(otherId);
       }
@@ -198,9 +197,9 @@ export default function ChatScreen() {
       if (member) setOtherMember(member as OtherMember);
 
       const { data: existing } = await supabase
-        .from('message_threads')
+        .from('conversations')
         .select('id')
-        .or(`and(participant_1.eq.${userId},participant_2.eq.${safeTargetId}),and(participant_1.eq.${safeTargetId},participant_2.eq.${userId})`)
+        .or(`and(participant_a.eq.${userId},participant_b.eq.${safeTargetId}),and(participant_a.eq.${safeTargetId},participant_b.eq.${userId})`)
         .maybeSingle();
 
       if (existing) {
@@ -208,8 +207,8 @@ export default function ChatScreen() {
         await fetchMessages(userId, existing.id);
       } else {
         const { data: newThread, error } = await supabase
-          .from('message_threads')
-          .insert({ participant_1: userId, participant_2: safeTargetId })
+          .from('conversations')
+          .insert({ participant_a: userId, participant_b: safeTargetId })
           .select('id')
           .maybeSingle();
 
@@ -239,7 +238,7 @@ export default function ChatScreen() {
       const { data: msgs } = await supabase
         .from('messages')
         .select('*')
-        .eq('thread_id', tId)
+        .eq('conversation_id', tId)
         .order('created_at', { ascending: true });
 
       setMessages((msgs as Msg[]) || []);
@@ -250,10 +249,10 @@ export default function ChatScreen() {
     }
 
     await supabase.from('messages')
-      .update({ read: true })
-      .eq('thread_id', tId)
-      .eq('receiver_id', userId)
-      .eq('read', false);
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq('conversation_id', tId)
+      .neq('sender_id', userId)
+      .eq('is_read', false);
   };
 
   const sendMessage = async () => {
@@ -279,11 +278,10 @@ export default function ChatScreen() {
     const tempId = `temp-${Date.now()}`;
     const optimisticMsg: Msg = {
       id: tempId,
-      thread_id: resolvedThreadId,
+      conversation_id: resolvedThreadId,
       sender_id: currentUserId,
-      receiver_id: targetUserId,
       content,
-      read: false,
+      is_read: false,
       created_at: new Date().toISOString(),
     };
 
@@ -292,9 +290,8 @@ export default function ChatScreen() {
     setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 50);
 
     const { error } = await supabase.from('messages').insert({
-      thread_id: resolvedThreadId,
+      conversation_id: resolvedThreadId,
       sender_id: currentUserId,
-      receiver_id: targetUserId,
       content,
     });
 
@@ -337,10 +334,10 @@ export default function ChatScreen() {
               
               {isMe && (
                 <View style={styles.readStatus}>
-                  {item.read ? (
-                    <CheckCheck size={14} color="#4ADE80" /> // Green double check for Read
+                  {item.is_read ? (
+                    <CheckCheck size={14} color="#4ADE80" />
                   ) : (
-                    <Check size={14} color="rgba(255,255,255,0.7)" /> // Faded single check for Unread/Sent
+                    <Check size={14} color="rgba(255,255,255,0.7)" />
                   )}
                 </View>
               )}
