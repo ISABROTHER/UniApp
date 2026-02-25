@@ -3,14 +3,15 @@ import { supabase } from '@/lib/supabase';
 import { Member } from '@/lib/types';
 import { Session } from '@supabase/supabase-js';
 
-const DEV_BYPASS = true;
+const DEV_PHONE = '0576040160';
+const DEV_PASSWORD = '1234567890';
 
 const DEV_MEMBER: Member = {
   id: 'dev-user-001',
   student_id: 'STU-2025-001',
   full_name: 'Dev User',
   email: 'dev@test.com',
-  phone: '0200000000',
+  phone: DEV_PHONE,
   date_of_birth: null,
   gender: null,
   faculty: null,
@@ -117,9 +118,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (phone: string, password: string) => {
-    if (DEV_BYPASS) {
+    if (phone.trim() === DEV_PHONE && password === DEV_PASSWORD) {
       setSession(DEV_SESSION);
-      setMember({ ...DEV_MEMBER, phone: phone.trim() || DEV_MEMBER.phone });
+      setMember(DEV_MEMBER);
       return { error: null };
     }
 
@@ -137,12 +138,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signUp = async (email: string, password: string, fullName: string, phone: string, role: 'student' | 'owner' = 'student') => {
-    if (DEV_BYPASS) {
-      setSession(DEV_SESSION);
-      setMember({ ...DEV_MEMBER, email, full_name: fullName, phone: phone.trim(), role });
-      return { error: null };
-    }
-
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { error: error.message };
 
@@ -167,9 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    if (!DEV_BYPASS) {
-      await supabase.auth.signOut();
-    }
+    await supabase.auth.signOut();
     setMember(null);
     setSession(null);
   };
