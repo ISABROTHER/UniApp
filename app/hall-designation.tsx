@@ -168,13 +168,8 @@ export default function HallDesignationScreen() {
         .update({ hall_id: selectedHall })
         .eq('id', userId);
 
-      Alert.alert(
-        'Success!',
-        currentDesignation 
-          ? 'Your hall designation has been updated'
-          : 'You have been successfully registered to your hall',
-        [{ text: 'OK', onPress: () => router.back() }]
-      );
+      // Navigate to hall page after successful registration
+      router.replace('/hall');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to update hall designation');
     } finally {
