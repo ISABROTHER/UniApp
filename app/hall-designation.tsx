@@ -227,19 +227,31 @@ export default function HallDesignationScreen() {
 
         <Text style={styles.sectionTitle}>Select Your Hall</Text>
 
-        <Text style={styles.categoryLabel}>Traditional Halls</Text>
-        <View style={styles.hallsGrid}>
-          {halls.filter(h => h.hall_category === 'traditional').map((hall) => (
-            <HallCard key={hall.id} hall={hall} selected={selectedHall === hall.id} onPress={() => setSelectedHall(hall.id)} />
-          ))}
-        </View>
+        {halls.length === 0 ? (
+          <View style={styles.emptyHallsCard}>
+            <Home size={48} color={COLORS.border} />
+            <Text style={styles.emptyHallsTitle}>No Halls Available</Text>
+            <Text style={styles.emptyHallsText}>
+              The halls database needs to be set up. Please contact your administrator or run the hall migration script in Supabase.
+            </Text>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.categoryLabel}>Traditional Halls</Text>
+            <View style={styles.hallsGrid}>
+              {halls.filter(h => h.hall_category === 'traditional').map((hall) => (
+                <HallCard key={hall.id} hall={hall} selected={selectedHall === hall.id} onPress={() => setSelectedHall(hall.id)} />
+              ))}
+            </View>
 
-        <Text style={styles.categoryLabel}>SRC / Graduate Halls</Text>
-        <View style={styles.hallsGrid}>
-          {halls.filter(h => h.hall_category !== 'traditional').map((hall) => (
-            <HallCard key={hall.id} hall={hall} selected={selectedHall === hall.id} onPress={() => setSelectedHall(hall.id)} />
-          ))}
-        </View>
+            <Text style={styles.categoryLabel}>SRC / Graduate Halls</Text>
+            <View style={styles.hallsGrid}>
+              {halls.filter(h => h.hall_category !== 'traditional').map((hall) => (
+                <HallCard key={hall.id} hall={hall} selected={selectedHall === hall.id} onPress={() => setSelectedHall(hall.id)} />
+              ))}
+            </View>
+          </>
+        )}
 
         <Text style={styles.sectionTitle}>Your Level</Text>
         <View style={styles.levelGrid}>
@@ -489,6 +501,30 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginBottom: SPACING.sm,
     marginTop: SPACING.xs,
+  },
+  emptyHallsCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+  },
+  emptyHallsTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 16,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xs,
+  },
+  emptyHallsText: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 19,
   },
   hallShortName: {
     fontFamily: FONT.regular,
