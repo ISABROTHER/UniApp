@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import {
   ArrowLeft, Shield, Home, Users, CheckCircle, AlertCircle,
@@ -67,6 +68,7 @@ function HallCard({ hall, selected, onPress }: { hall: Hall; selected: boolean; 
 
 export default function HallDesignationScreen() {
   const router = useRouter();
+  const { session, member } = useAuth();
   const [halls, setHalls] = useState<Hall[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -82,22 +84,13 @@ export default function HallDesignationScreen() {
 
   const fetchData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const userId = session?.user?.id || member?.id;
 
-      const [hallsRes, designationRes] = await Promise.all([
-        supabase
-          .from('halls')
-          .select('*')
-          .eq('is_active', true)
-          .order('name'),
-        supabase
-          .from('hall_members')
-          .select('*, halls(name)')
-          .eq('user_id', user.id)
-          .eq('academic_year', '2026/27')
-          .maybeSingle(),
-      ]);
+      const hallsRes = await supabase
+        .from('halls')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
 
       if (hallsRes.data) {
         const hallsWithCount = await Promise.all(
@@ -107,7 +100,7 @@ export default function HallDesignationScreen() {
               .select('id', { count: 'exact', head: true })
               .eq('hall_id', hall.id)
               .eq('academic_year', '2026/27');
-            
+
             return {
               ...hall,
               total_members: count || 0,
@@ -117,11 +110,20 @@ export default function HallDesignationScreen() {
         setHalls(hallsWithCount);
       }
 
-      if (designationRes.data) {
-        setCurrentDesignation(designationRes.data);
-        setSelectedHall(designationRes.data.hall_id);
-        setSelectedLevel(designationRes.data.student_level);
-        setIsResident(designationRes.data.is_resident);
+      if (userId) {
+        const { data: designationData } = await supabase
+          .from('hall_members')
+          .select('*, halls(name)')
+          .eq('user_id', userId)
+          .eq('academic_year', '2026/27')
+          .maybeSingle();
+
+        if (designationData) {
+          setCurrentDesignation(designationData);
+          setSelectedHall(designationData.hall_id);
+          setSelectedLevel(designationData.student_level);
+          setIsResident(designationData.is_resident);
+        }
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -138,19 +140,13 @@ export default function HallDesignationScreen() {
 
     setSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: memberData } = await supabase
-        .from('members')
-        .select('student_id, full_name')
-        .eq('id', user.id)
-        .single();
+      const userId = session?.user?.id || member?.id;
+      if (!userId) return;
 
       const hallMemberData = {
         hall_id: selectedHall,
-        user_id: user.id,
-        student_id: memberData?.student_id || user.id.slice(0, 8),
+        user_id: userId,
+        student_id: member?.student_id || userId.slice(0, 8),
         student_level: selectedLevel,
         is_resident: isResident,
         affiliation_type: isResident ? 'resident' : 'diaspora',
@@ -169,8 +165,8 @@ export default function HallDesignationScreen() {
 
       await supabase
         .from('members')
-        .update({ hall_id: selectedHall, student_level: selectedLevel, is_resident: isResident })
-        .eq('id', user.id);
+        .update({ hall_id: selectedHall })
+        .eq('id', userId);
 
       Alert.alert(
         'Success!',

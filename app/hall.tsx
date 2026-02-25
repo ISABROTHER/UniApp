@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import {
   Bell, Calendar, MessageCircle, AlertTriangle, Users,
@@ -33,6 +34,7 @@ interface QuickStat {
 
 export default function MyHallScreen() {
   const router = useRouter();
+  const { session, member } = useAuth();
   const [hallInfo, setHallInfo] = useState<any>(null);
   const [stats, setStats] = useState<HallStats>({
     totalMembers: 0,
@@ -53,14 +55,16 @@ export default function MyHallScreen() {
 
   const fetchHallData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const userId = session?.user?.id || member?.id;
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
 
-      // Fetch user's hall membership
       const { data: memberData } = await supabase
         .from('hall_members')
         .select('hall_id, is_resident, halls(id, name)')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('academic_year', '2026/27')
         .maybeSingle();
 
@@ -69,9 +73,10 @@ export default function MyHallScreen() {
         return;
       }
 
+      const hallData = memberData.halls as any;
       setHallInfo({
-        id: memberData.halls.id,
-        name: memberData.halls.name,
+        id: hallData.id,
+        name: hallData.name,
         isResident: memberData.is_resident,
       });
 
