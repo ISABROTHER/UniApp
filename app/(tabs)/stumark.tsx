@@ -10,11 +10,15 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { Plus, Search, X, Tag, MapPin, Phone, Boxes, BadgeCheck } from 'lucide-react-native';
+import { Plus, Search, X, Tag, MapPin, Phone, ShoppingBag, Heart, Star } from 'lucide-react-native';
+
+const { width } = Dimensions.get('window');
+const CARD_WIDTH = (width - SPACING.lg * 3) / 2;
 
 type MarketCategory = 'all' | 'phones' | 'laptops' | 'clothing' | 'services' | 'food' | 'other';
 
@@ -37,7 +41,7 @@ const CATEGORIES: { key: MarketCategory; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'phones', label: 'Phones' },
   { key: 'laptops', label: 'Laptops' },
-  { key: 'clothing', label: 'Clothing' },
+  { key: 'clothing', label: 'Fashion' },
   { key: 'services', label: 'Services' },
   { key: 'food', label: 'Food' },
   { key: 'other', label: 'Others' },
@@ -45,7 +49,7 @@ const CATEGORIES: { key: MarketCategory; label: string }[] = [
 
 const CONDITIONS = ['new', 'good', 'fair', 'used'] as const;
 
-export default function UtilitiesScreen() {
+export default function StuMarkScreen() {
   const [listings, setListings] = useState<MarketListing[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,11 +67,6 @@ export default function UtilitiesScreen() {
   const [postPhone, setPostPhone] = useState('');
   const [postError, setPostError] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
-
-  const filteredTitle = useMemo(() => {
-    const label = CATEGORIES.find((c) => c.key === category)?.label ?? 'StuMark';
-    return category === 'all' ? 'StuMark' : `StuMark • ${label}`;
-  }, [category]);
 
   const fetchListings = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -199,50 +198,29 @@ export default function UtilitiesScreen() {
 
   const formatPrice = useCallback((value: number | string) => {
     const n = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(n)) return '₵0.00';
-    return `₵${n.toFixed(2)}`;
+    if (!Number.isFinite(n)) return '₵0';
+    return `₵${n.toLocaleString()}`;
   }, []);
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Boxes size={22} color={COLORS.primary} />
-          <View>
-            <Text style={styles.title}>{filteredTitle}</Text>
-            <Text style={styles.subtitle}>Student marketplace — buy & sell on campus</Text>
+        <View style={styles.searchRow}>
+          <View style={styles.searchBox}>
+            <Search size={18} color={COLORS.textTertiary} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search items..."
+              placeholderTextColor={COLORS.textTertiary}
+              style={styles.searchInput}
+              returnKeyType="search"
+              onSubmitEditing={() => void fetchListings()}
+            />
           </View>
-        </View>
-
-        <TouchableOpacity style={styles.postButton} onPress={openPost} activeOpacity={0.85}>
-          <Plus size={18} color={COLORS.white} />
-          <Text style={styles.postButtonText}>Post</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.searchRow}>
-        <View style={styles.searchBox}>
-          <Search size={18} color={COLORS.textTertiary} />
-          <TextInput
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholder="Search phones, laptops, services..."
-            placeholderTextColor={COLORS.textTertiary}
-            style={styles.searchInput}
-            returnKeyType="search"
-            onSubmitEditing={() => void fetchListings()}
-          />
-          {searchQuery.trim().length > 0 ? (
-            <TouchableOpacity
-              onPress={() => {
-                setSearchQuery('');
-                void fetchListings({ silent: true });
-              }}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <X size={18} color={COLORS.textTertiary} />
-            </TouchableOpacity>
-          ) : null}
+          <TouchableOpacity style={styles.addButton} onPress={openPost} activeOpacity={0.8}>
+            <Plus size={22} color={COLORS.white} strokeWidth={2.5} />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -251,17 +229,17 @@ export default function UtilitiesScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.categories}
       >
-        {CATEGORIES.map((c) => {
-          const active = c.key === category;
+        {CATEGORIES.map((cat) => {
+          const active = category === cat.key;
           return (
             <TouchableOpacity
-              key={c.key}
-              style={[styles.chip, active ? styles.chipActive : null]}
-              onPress={() => setCategory(c.key)}
-              activeOpacity={0.85}
+              key={cat.key}
+              style={[styles.categoryChip, active && styles.categoryChipActive]}
+              onPress={() => setCategory(cat.key)}
+              activeOpacity={0.8}
             >
-              <Text style={[styles.chipText, active ? styles.chipTextActive : null]}>
-                {c.label}
+              <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
+                {cat.label}
               </Text>
             </TouchableOpacity>
           );
@@ -272,74 +250,73 @@ export default function UtilitiesScreen() {
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
       >
-        {loading ? (
-          <View style={styles.stateBox}>
-            <Text style={styles.stateTitle}>Loading listings…</Text>
-            <Text style={styles.stateSubtitle}>Fetching what&apos;s new on StuMark</Text>
+        {loading && listings.length === 0 ? (
+          <View style={styles.loadingBox}>
+            <Text style={styles.loadingText}>Loading...</Text>
           </View>
         ) : listings.length === 0 ? (
-          <View style={styles.stateBox}>
-            <Text style={styles.stateTitle}>No listings found</Text>
-            <Text style={styles.stateSubtitle}>Try a different category or search term</Text>
-            <TouchableOpacity style={styles.stateCta} onPress={openPost} activeOpacity={0.85}>
-              <Plus size={18} color={COLORS.white} />
-              <Text style={styles.stateCtaText}>Post the first one</Text>
+          <View style={styles.emptyBox}>
+            <ShoppingBag size={48} color={COLORS.textTertiary} strokeWidth={1.5} />
+            <Text style={styles.emptyTitle}>No items yet</Text>
+            <Text style={styles.emptySubtitle}>
+              {searchQuery.trim().length > 0
+                ? 'Try a different search'
+                : 'Be the first to list something!'}
+            </Text>
+            <TouchableOpacity style={styles.emptyBtn} onPress={openPost} activeOpacity={0.9}>
+              <Plus size={18} color={COLORS.white} strokeWidth={2.5} />
+              <Text style={styles.emptyBtnText}>List Item</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          listings.map((item) => (
-            <View key={item.id} style={styles.card}>
-              <View style={styles.cardTop}>
-                <View style={styles.cardTitleRow}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>
+          <View style={styles.grid}>
+            {listings.map((item) => (
+              <View key={item.id} style={styles.card}>
+                <View style={styles.cardImage}>
+                  <View style={styles.imagePlaceholder}>
+                    <ShoppingBag size={36} color={COLORS.textTertiary} strokeWidth={1.5} />
+                  </View>
+                  <TouchableOpacity style={styles.favoriteBtn} activeOpacity={0.7}>
+                    <Heart size={18} color={COLORS.error} strokeWidth={2} />
+                  </TouchableOpacity>
+                  {item.condition && (
+                    <View style={styles.conditionBadge}>
+                      <Text style={styles.conditionText}>{item.condition}</Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardTitle} numberOfLines={2}>
                     {item.title}
                   </Text>
-                  <Text style={styles.cardPrice}>{formatPrice(item.price)}</Text>
-                </View>
-
-                {item.description ? (
-                  <Text style={styles.cardDesc} numberOfLines={2}>
-                    {item.description}
-                  </Text>
-                ) : null}
-              </View>
-
-              <View style={styles.cardMetaRow}>
-                <View style={styles.metaPill}>
-                  <Tag size={14} color={COLORS.primary} />
-                  <Text style={styles.metaText}>{(item.category ?? 'other').toString()}</Text>
-                </View>
-                <View style={styles.metaPill}>
-                  <BadgeCheck size={14} color={COLORS.info} />
-                  <Text style={styles.metaText}>{(item.condition ?? 'good').toString()}</Text>
-                </View>
-              </View>
-
-              <View style={styles.cardBottom}>
-                <View style={styles.bottomLeft}>
-                  <View style={styles.bottomItem}>
-                    <MapPin size={14} color={COLORS.textSecondary} />
-                    <Text style={styles.bottomText} numberOfLines={1}>
-                      {(item.campus_location ?? 'On campus').toString()}
-                    </Text>
+                  <View style={styles.priceRow}>
+                    <Text style={styles.cardPrice}>{formatPrice(item.price)}</Text>
                   </View>
-                  {item.seller_phone ? (
-                    <View style={styles.bottomItem}>
-                      <Phone size={14} color={COLORS.textSecondary} />
-                      <Text style={styles.bottomText}>{item.seller_phone}</Text>
+                  {item.campus_location && (
+                    <View style={styles.locationRow}>
+                      <MapPin size={12} color={COLORS.textTertiary} />
+                      <Text style={styles.locationText} numberOfLines={1}>
+                        {item.campus_location}
+                      </Text>
                     </View>
-                  ) : null}
+                  )}
+                  <View style={styles.ratingRow}>
+                    <Star size={12} color="#F59E0B" fill="#F59E0B" />
+                    <Text style={styles.ratingText}>3.6</Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          ))
+            ))}
+          </View>
         )}
 
         <View style={styles.footerSpace} />
       </ScrollView>
 
-      <Modal visible={postOpen} animationType="slide" transparent onRequestClose={closePost}>
+      <Modal visible={postOpen} transparent animationType="slide" onRequestClose={closePost}>
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -347,24 +324,21 @@ export default function UtilitiesScreen() {
           >
             <View style={styles.modalCard}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Post on StuMark</Text>
-                <TouchableOpacity
-                  onPress={closePost}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <X size={20} color={COLORS.textSecondary} />
+                <Text style={styles.modalTitle}>List an Item</Text>
+                <TouchableOpacity onPress={closePost} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <X size={24} color={COLORS.textSecondary} />
                 </TouchableOpacity>
               </View>
 
-              {postError ? <Text style={styles.modalError}>{postError}</Text> : null}
+              {postError && <Text style={styles.modalError}>{postError}</Text>}
 
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalBody}>
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
                 <View style={styles.field}>
-                  <Text style={styles.label}>Title</Text>
+                  <Text style={styles.label}>Item title</Text>
                   <TextInput
                     value={postTitle}
                     onChangeText={setPostTitle}
-                    placeholder="e.g., iPhone 12, HP Laptop, Hair braiding..."
+                    placeholder="e.g., iPhone 13 Pro, Dell Laptop..."
                     placeholderTextColor={COLORS.textTertiary}
                     style={styles.input}
                   />
@@ -375,15 +349,16 @@ export default function UtilitiesScreen() {
                   <TextInput
                     value={postDescription}
                     onChangeText={setPostDescription}
-                    placeholder="Short details (condition, what&apos;s included, etc.)"
+                    placeholder="Describe your item..."
                     placeholderTextColor={COLORS.textTertiary}
                     style={[styles.input, styles.textArea]}
                     multiline
+                    numberOfLines={4}
                   />
                 </View>
 
                 <View style={styles.row}>
-                  <View style={[styles.field, styles.rowItem]}>
+                  <View style={styles.rowItem}>
                     <Text style={styles.label}>Price (₵)</Text>
                     <TextInput
                       value={postPrice}
@@ -391,28 +366,30 @@ export default function UtilitiesScreen() {
                       placeholder="0.00"
                       placeholderTextColor={COLORS.textTertiary}
                       style={styles.input}
-                      keyboardType="decimal-pad"
+                      keyboardType="numeric"
                     />
                   </View>
 
-                  <View style={[styles.field, styles.rowItem]}>
+                  <View style={styles.rowItem}>
                     <Text style={styles.label}>Condition</Text>
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
                       contentContainerStyle={styles.inlineChips}
                     >
-                      {CONDITIONS.map((c) => {
-                        const active = postCondition === c;
+                      {CONDITIONS.map((cond) => {
+                        const active = postCondition === cond;
                         return (
                           <TouchableOpacity
-                            key={c}
-                            style={[styles.smallChip, active ? styles.smallChipActive : null]}
-                            onPress={() => setPostCondition(c)}
+                            key={cond}
+                            style={[styles.smallChip, active && styles.smallChipActive]}
+                            onPress={() => setPostCondition(cond)}
                             activeOpacity={0.85}
                           >
-                            <Text style={[styles.smallChipText, active ? styles.smallChipTextActive : null]}>
-                              {c}
+                            <Text
+                              style={[styles.smallChipText, active && styles.smallChipTextActive]}
+                            >
+                              {cond}
                             </Text>
                           </TouchableOpacity>
                         );
@@ -434,11 +411,11 @@ export default function UtilitiesScreen() {
                       return (
                         <TouchableOpacity
                           key={c.key}
-                          style={[styles.smallChip, active ? styles.smallChipActive : null]}
+                          style={[styles.smallChip, active && styles.smallChipActive]}
                           onPress={() => setPostCategory(key)}
                           activeOpacity={0.85}
                         >
-                          <Text style={[styles.smallChipText, active ? styles.smallChipTextActive : null]}>
+                          <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>
                             {c.label}
                           </Text>
                         </TouchableOpacity>
@@ -452,7 +429,7 @@ export default function UtilitiesScreen() {
                   <TextInput
                     value={postLocation}
                     onChangeText={setPostLocation}
-                    placeholder="e.g., Science market, Hall 3, Library..."
+                    placeholder="e.g., Science market, Hall 3..."
                     placeholderTextColor={COLORS.textTertiary}
                     style={styles.input}
                   />
@@ -471,12 +448,12 @@ export default function UtilitiesScreen() {
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.submitBtn, posting ? styles.submitBtnDisabled : null]}
+                  style={[styles.submitBtn, posting && styles.submitBtnDisabled]}
                   onPress={submitPost}
-                  activeOpacity={0.85}
+                  activeOpacity={0.9}
                   disabled={posting}
                 >
-                  <Text style={styles.submitBtnText}>{posting ? 'Posting…' : 'Post listing'}</Text>
+                  <Text style={styles.submitBtnText}>{posting ? 'Posting…' : 'List Item'}</Text>
                 </TouchableOpacity>
               </ScrollView>
             </View>
@@ -488,161 +465,179 @@ export default function UtilitiesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: SPACING.md,
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1 },
-  title: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary },
-  subtitle: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
 
-  postButton: {
+  header: {
+    backgroundColor: COLORS.white,
+    paddingTop: Platform.OS === 'ios' ? 56 : 48,
+    paddingBottom: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+  },
+  searchRow: { flexDirection: 'row', gap: SPACING.sm, alignItems: 'center' },
+  searchBox: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: Platform.OS === 'ios' ? SPACING.sm : SPACING.xs - 2,
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
-    backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.full,
-  },
-  postButtonText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.white },
-
-  searchRow: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.sm },
-  searchBox: {
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.lg,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: Platform.OS === 'ios' ? SPACING.sm : 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.sm,
   },
   searchInput: {
     flex: 1,
     fontFamily: FONT.regular,
     fontSize: 14,
     color: COLORS.textPrimary,
-    paddingVertical: SPACING.sm,
+    paddingVertical: SPACING.xs,
+  },
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.lg,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 
-  categories: { paddingHorizontal: SPACING.lg, paddingBottom: SPACING.sm, gap: SPACING.sm },
-  chip: {
+  categories: {
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    gap: SPACING.sm,
+    backgroundColor: COLORS.white,
+  },
+  categoryChip: {
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.full,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.card,
+    backgroundColor: '#F3F4F6',
   },
-  chipActive: { backgroundColor: COLORS.primaryFaded, borderColor: COLORS.primary },
-  chipText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary },
-  chipTextActive: { color: COLORS.primary, fontFamily: FONT.semiBold },
+  categoryChipActive: { backgroundColor: '#16A34A' },
+  categoryText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary },
+  categoryTextActive: { color: COLORS.white },
 
   content: { flex: 1 },
-  contentContainer: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm },
+  contentContainer: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md },
 
-  stateBox: {
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+  loadingBox: {
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    marginTop: SPACING.lg,
+  },
+  loadingText: { fontFamily: FONT.medium, fontSize: 14, color: COLORS.textSecondary },
+
+  emptyBox: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
     alignItems: 'center',
     gap: SPACING.sm,
-    marginTop: SPACING.md,
+    marginTop: SPACING.lg,
   },
-  stateTitle: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.textPrimary },
-  stateSubtitle: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  stateCta: {
+  emptyTitle: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.textPrimary },
+  emptySubtitle: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
+  emptyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
+    gap: 6,
     backgroundColor: COLORS.primary,
     borderRadius: RADIUS.full,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.lg,
-    marginTop: SPACING.sm,
+    marginTop: SPACING.xs,
   },
-  stateCtaText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.white },
+  emptyBtnText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.white },
 
-  card: {
-    backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
-  },
-  cardTop: { gap: 6 },
-  cardTitleRow: {
+  grid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: SPACING.md,
   },
-  cardTitle: { flex: 1, fontFamily: FONT.bold, fontSize: 15, color: COLORS.textPrimary },
-  cardPrice: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.primary },
-  cardDesc: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, lineHeight: 18 },
-
-  cardMetaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginTop: SPACING.md },
-  metaPill: {
-    flexDirection: 'row',
+  card: {
+    width: CARD_WIDTH,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+  },
+  cardImage: {
+    width: '100%',
+    height: CARD_WIDTH,
+    position: 'relative',
+  },
+  imagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: SPACING.xs,
-    backgroundColor: COLORS.borderLight,
-    paddingVertical: 6,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: RADIUS.full,
   },
-  metaText: {
-    fontFamily: FONT.medium,
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    textTransform: 'lowercase',
+  favoriteBtn: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.sm,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  conditionBadge: {
+    position: 'absolute',
+    bottom: SPACING.sm,
+    left: SPACING.sm,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: SPACING.xs + 2,
+    paddingVertical: 3,
+    borderRadius: RADIUS.xs,
+  },
+  conditionText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 10,
+    color: COLORS.white,
+    textTransform: 'capitalize',
   },
 
-  cardBottom: { marginTop: SPACING.md, gap: SPACING.sm },
-  bottomLeft: { gap: 6 },
-  bottomItem: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  bottomText: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary, flexShrink: 1 },
+  cardBody: { padding: SPACING.sm, gap: 4 },
+  cardTitle: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary, lineHeight: 18 },
+  priceRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
+  cardPrice: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.textPrimary },
+  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  locationText: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary, flex: 1 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  ratingText: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.textSecondary },
 
-  footerSpace: { height: 28 },
+  footerSpace: { height: 32 },
 
-  modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContainer: { flex: 1, justifyContent: 'flex-end' },
   modalCard: {
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.white,
     borderTopLeftRadius: RADIUS.xl,
     borderTopRightRadius: RADIUS.xl,
     paddingHorizontal: SPACING.lg,
     paddingTop: SPACING.lg,
-    paddingBottom: SPACING.lg,
+    paddingBottom: SPACING.xl,
     maxHeight: '92%',
   },
-  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  modalTitle: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.textPrimary },
-  modalError: { marginTop: SPACING.sm, fontFamily: FONT.medium, fontSize: 13, color: COLORS.error },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  modalTitle: { fontFamily: FONT.bold, fontSize: 17, color: COLORS.textPrimary },
+  modalError: { marginBottom: SPACING.sm, fontFamily: FONT.medium, fontSize: 13, color: COLORS.error },
 
-  modalBody: { paddingTop: SPACING.md, paddingBottom: SPACING.lg, gap: SPACING.md },
-  field: { gap: 6 },
-  label: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary },
+  modalBody: { paddingTop: SPACING.xs },
+  field: { gap: 6, marginBottom: SPACING.md },
+  label: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textSecondary },
   input: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     fontFamily: FONT.regular,
@@ -650,28 +645,28 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     backgroundColor: COLORS.white,
   },
-  textArea: { minHeight: 90, textAlignVertical: 'top' },
+  textArea: { minHeight: 80, textAlignVertical: 'top' },
 
   row: { flexDirection: 'row', gap: SPACING.md },
   rowItem: { flex: 1 },
 
-  inlineChips: { gap: SPACING.sm, paddingVertical: 2 },
+  inlineChips: { gap: SPACING.xs, paddingVertical: 2 },
   smallChip: {
     paddingVertical: 6,
     paddingHorizontal: SPACING.sm,
     borderRadius: RADIUS.full,
     borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.card,
+    backgroundColor: COLORS.white,
   },
-  smallChipActive: { backgroundColor: COLORS.primaryFaded, borderColor: COLORS.primary },
+  smallChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   smallChipText: {
     fontFamily: FONT.medium,
     fontSize: 12,
     color: COLORS.textSecondary,
-    textTransform: 'lowercase',
+    textTransform: 'capitalize',
   },
-  smallChipTextActive: { color: COLORS.primary, fontFamily: FONT.semiBold },
+  smallChipTextActive: { color: COLORS.white },
 
   submitBtn: {
     backgroundColor: COLORS.primary,
