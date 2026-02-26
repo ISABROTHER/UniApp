@@ -6,7 +6,7 @@ import * as SecureStore from 'expo-secure-store';
 const CREDENTIALS_KEY = 'studentnest_biometric_credentials';
 
 interface BiometricCredentials {
-  email: string;
+  phone: string;
   password: string;
 }
 
@@ -82,13 +82,13 @@ export function useBiometricAuth() {
     }
   }, [state.isAvailable, state.biometricType]);
 
-  const saveCredentials = useCallback(async (email: string, password: string): Promise<boolean> => {
+  const saveCredentials = useCallback(async (phone: string, password: string): Promise<boolean> => {
     if (Platform.OS === 'web') {
       return false;
     }
 
     try {
-      const credentials: BiometricCredentials = { email, password };
+      const credentials: BiometricCredentials = { phone, password };
       await SecureStore.setItemAsync(CREDENTIALS_KEY, JSON.stringify(credentials));
       setState(prev => ({ ...prev, hasStoredCredentials: true }));
       return true;

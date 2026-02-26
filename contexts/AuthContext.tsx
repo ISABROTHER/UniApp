@@ -81,17 +81,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (phone: string, password: string) => {
-    const { data: memberData, error: lookupError } = await supabase
-      .from('members')
-      .select('email')
-      .eq('phone', phone.trim())
-      .maybeSingle();
+    const email = phoneToEmail(phone.trim());
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (lookupError) return { error: lookupError.message };
-    if (!memberData?.email) return { error: 'No account found with this phone number.' };
+    if (error) {
+      if (error.message.includes('Invalid login credentials')) {
+        return { error: 'Invalid phone number or password.' };
+      }
+      return { error: error.message };
+    }
 
-    const { error } = await supabase.auth.signInWithPassword({ email: memberData.email, password });
-    return { error: error?.message ?? null };
+    return { error: null };
   };
 
   const signUp = async (password: string, fullName: string, phone: string, role: 'student' | 'owner' = 'student') => {
@@ -126,15 +126,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetPassword = async (phone: string) => {
-    const { data: memberData, error: lookupError } = await supabase
-      .from('members')
-      .select('email')
-      .eq('phone', phone.trim())
-      .maybeSingle();
-
-    if (lookupError) return { error: lookupError.message };
-    if (!memberData?.email) return { error: 'No account found with this phone number.' };
-
     // Since we use synthetic emails that can't receive messages,
     // password reset via email is disabled to prevent rate limit errors.
     // Users should contact support for password resets.

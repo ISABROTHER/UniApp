@@ -49,7 +49,7 @@ export default function SignInScreen() {
       const credentials = await getStoredCredentials();
       if (credentials) {
         setLoading(true);
-        const { error: authError } = await signIn(credentials.email, credentials.password);
+        const { error: authError } = await signIn(credentials.phone, credentials.password);
         setLoading(false);
         if (authError) {
           setError('Biometric login failed. Please sign in with your password.');
