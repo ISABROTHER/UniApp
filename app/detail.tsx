@@ -7,10 +7,82 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Hostel, HostelReview } from '@/lib/types';
-import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck, Wifi, Shield, Droplet } from 'lucide-react-native';
+import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck, Wifi, Shield, Droplet, Zap, Wind, Car, BookOpen, Tv, UtensilsCrossed, WashingMachine, Dumbbell, Waves, Trash2, Eye, DoorOpen, Building2, BedDouble, CreditCard, Clock, Info, ChevronDown, ChevronUp } from 'lucide-react-native';
 import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 
 const { width: SW } = Dimensions.get('window');
+const SEMESTER_MONTHS = 4;
+const YEAR_MONTHS = 12;
+
+const AMENITY_CATEGORIES: { key: string; label: string; icon: typeof Wifi; items: string[] }[] = [
+  {
+    key: 'connectivity',
+    label: 'Connectivity',
+    icon: Wifi,
+    items: ['wifi'],
+  },
+  {
+    key: 'security',
+    label: 'Security & Safety',
+    icon: Shield,
+    items: ['security', 'cctv', 'gated compound', 'gated'],
+  },
+  {
+    key: 'power',
+    label: 'Power & Water',
+    icon: Zap,
+    items: ['electricity', 'generator', 'water', 'borehole'],
+  },
+  {
+    key: 'comfort',
+    label: 'Comfort',
+    icon: Wind,
+    items: ['air conditioning', 'ceiling fan', 'ac'],
+  },
+  {
+    key: 'facilities',
+    label: 'Shared Facilities',
+    icon: BookOpen,
+    items: ['study room', 'common room', 'kitchen', 'gym', 'swimming pool', 'parking', 'laundry', 'waste management'],
+  },
+];
+
+function getAmenityIcon(amenity: string) {
+  const a = amenity.toLowerCase();
+  if (a.includes('wifi')) return Wifi;
+  if (a.includes('security')) return Shield;
+  if (a.includes('cctv')) return Eye;
+  if (a.includes('gated')) return DoorOpen;
+  if (a.includes('water') || a.includes('borehole')) return Droplet;
+  if (a.includes('electricity') || a.includes('generator')) return Zap;
+  if (a.includes('air conditioning') || a.includes('ac')) return Wind;
+  if (a.includes('ceiling fan') || a.includes('fan')) return Wind;
+  if (a.includes('study')) return BookOpen;
+  if (a.includes('common')) return Tv;
+  if (a.includes('kitchen')) return UtensilsCrossed;
+  if (a.includes('laundry')) return WashingMachine;
+  if (a.includes('gym')) return Dumbbell;
+  if (a.includes('swimming') || a.includes('pool')) return Waves;
+  if (a.includes('parking')) return Car;
+  if (a.includes('waste')) return Trash2;
+  return CheckCircle;
+}
+
+function getPricingTier(minPrice: number): { label: string; color: string; bg: string } {
+  if (minPrice >= 900) return { label: 'Premium', color: '#7C3AED', bg: '#F3E8FF' };
+  if (minPrice >= 500) return { label: 'Mid-Range', color: COLORS.accent, bg: '#E0F2FE' };
+  return { label: 'Budget-Friendly', color: COLORS.success, bg: COLORS.successLight };
+}
+
+function getHostelType(amenities: string[]): string {
+  const a = amenities.map(x => x.toLowerCase());
+  const hasAC = a.some(x => x.includes('air conditioning') || x.includes('ac'));
+  const hasPool = a.some(x => x.includes('pool'));
+  const hasGym = a.some(x => x.includes('gym'));
+  if (hasPool || (hasAC && hasGym)) return 'Luxury Private Hostel';
+  if (hasAC) return 'Premium Private Hostel';
+  return 'Standard Private Hostel';
+}
 
 export default function DetailScreen() {
   const params = useLocalSearchParams();
@@ -24,6 +96,7 @@ export default function DetailScreen() {
   const [activeImg, setActiveImg] = useState(0);
   const [roommateCount, setRoommateCount] = useState(0);
   const [autoSlide, setAutoSlide] = useState(true);
+  const [expandedRoom, setExpandedRoom] = useState<string | null>(null);
   const autoSlideInterval = useRef<NodeJS.Timeout | null>(null);
 
   const hostelId = params.id as string;
@@ -138,6 +211,45 @@ export default function DetailScreen() {
 
   const amenities = useMemo(() => hostel?.amenities || [], [hostel?.amenities]);
   const rooms = useMemo(() => hostel?.rooms || [], [hostel?.rooms]);
+  const amenityNames = useMemo(() => amenities.map((a: any) => (a.amenity || '').toLowerCase()), [amenities]);
+
+  const pricingTier = useMemo(() => getPricingTier(hostel?.price_range_min || 0), [hostel?.price_range_min]);
+  const hostelType = useMemo(() => getHostelType(amenityNames), [amenityNames]);
+
+  const categorizedAmenities = useMemo(() => {
+    return AMENITY_CATEGORIES.map(cat => {
+      const matched = amenities.filter((a: any) => {
+        const name = (a.amenity || '').toLowerCase();
+        return cat.items.some(keyword => name.includes(keyword));
+      });
+      return { ...cat, matched };
+    }).filter(cat => cat.matched.length > 0);
+  }, [amenities]);
+
+  const utilityInclusions = useMemo(() => {
+    const included: string[] = [];
+    const notIncluded: string[] = [];
+
+    const hasWater = amenityNames.some(a => a.includes('water'));
+    const hasElectricity = amenityNames.some(a => a.includes('electricity'));
+    const hasGenerator = amenityNames.some(a => a.includes('generator'));
+    const hasWifi = amenityNames.some(a => a.includes('wifi'));
+    const hasBorehole = amenityNames.some(a => a.includes('borehole'));
+
+    if (hasWater || hasBorehole) included.push('Water Supply');
+    else notIncluded.push('Water Supply');
+
+    if (hasElectricity) included.push('Electricity (24hr)');
+    else notIncluded.push('Electricity (24hr)');
+
+    if (hasGenerator) included.push('Generator Backup');
+    else notIncluded.push('Generator Backup');
+
+    if (hasWifi) included.push('Internet / WiFi');
+    else notIncluded.push('Internet / WiFi');
+
+    return { included, notIncluded };
+  }, [amenityNames]);
 
   if (loading || !hostel) {
     return (
@@ -185,6 +297,19 @@ export default function DetailScreen() {
           </View>
         </View>
 
+        <View style={styles.infoStrip}>
+          <View style={styles.infoStripItem}>
+            <Building2 size={14} color={COLORS.textSecondary} />
+            <Text style={styles.infoStripText} numberOfLines={1}>{hostelType}</Text>
+          </View>
+          <View style={styles.infoStripDivider} />
+          <View style={styles.infoStripItem}>
+            <View style={[styles.tierBadge, { backgroundColor: pricingTier.bg }]}>
+              <Text style={[styles.tierBadgeText, { color: pricingTier.color }]}>{pricingTier.label}</Text>
+            </View>
+          </View>
+        </View>
+
         <View style={styles.statsBar}>
           <View style={styles.statItem}>
             <MapPin size={14} color={COLORS.textSecondary} />
@@ -194,6 +319,11 @@ export default function DetailScreen() {
           <View style={styles.statItem}>
             <Users size={14} color={COLORS.textSecondary} />
             <Text style={styles.statMain}>{hostel.available_rooms} beds available</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Star size={14} color={COLORS.warning} fill={COLORS.warning} />
+            <Text style={styles.statMain}>{hostel.rating} ({hostel.review_count})</Text>
           </View>
         </View>
 
@@ -219,26 +349,112 @@ export default function DetailScreen() {
           <View style={styles.tabContent}>
             <Text style={styles.description}>{hostel.description || 'No description available.'}</Text>
 
-            {rooms.length > 0 && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Room Types</Text>
-                {rooms.map((room: any) => (
-                  <View key={room.id} style={styles.roomRow}>
-                    <View style={styles.roomLeft}>
-                      <Text style={styles.roomType}>{room.room_type}</Text>
-                      <Text style={styles.roomDesc}>{room.description || 'Standard room'}</Text>
-                      {room.available_count > 0 && (
-                        <Text style={styles.roomAvail}>{room.available_count} available</Text>
+            <View style={styles.standardCard}>
+              <View style={styles.standardCardHeader}>
+                <BedDouble size={18} color={COLORS.primary} />
+                <Text style={styles.standardCardTitle}>Room Types & Pricing</Text>
+              </View>
+              <View style={styles.pricingNote}>
+                <Info size={12} color={COLORS.accent} />
+                <Text style={styles.pricingNoteText}>Prices shown per month. Semester = 4 months, Academic Year = 12 months.</Text>
+              </View>
+              {rooms.length > 0 ? (
+                rooms.map((room: any) => {
+                  const monthlyPrice = room.price_per_month || 0;
+                  const semesterPrice = monthlyPrice * SEMESTER_MONTHS;
+                  const yearPrice = monthlyPrice * YEAR_MONTHS;
+                  const isExpanded = expandedRoom === room.id;
+
+                  return (
+                    <TouchableOpacity
+                      key={room.id}
+                      style={styles.roomCard}
+                      onPress={() => setExpandedRoom(isExpanded ? null : room.id)}
+                      activeOpacity={0.85}
+                    >
+                      <View style={styles.roomCardTop}>
+                        <View style={styles.roomCardLeft}>
+                          <Text style={styles.roomType}>{room.room_type}</Text>
+                          <Text style={styles.roomDesc}>{room.description || 'Standard room'}</Text>
+                          {room.available_count > 0 && (
+                            <View style={styles.roomAvailBadge}>
+                              <View style={styles.roomAvailDot} />
+                              <Text style={styles.roomAvailText}>{room.available_count} of {room.total_count} available</Text>
+                            </View>
+                          )}
+                          {room.available_count === 0 && (
+                            <Text style={styles.roomSoldOut}>Fully booked</Text>
+                          )}
+                        </View>
+                        <View style={styles.roomCardRight}>
+                          <Text style={styles.roomPriceMain}>GH₵{monthlyPrice.toLocaleString()}</Text>
+                          <Text style={styles.roomPriceSub}>/month</Text>
+                          {isExpanded ? (
+                            <ChevronUp size={16} color={COLORS.textTertiary} style={{ marginTop: 4 }} />
+                          ) : (
+                            <ChevronDown size={16} color={COLORS.textTertiary} style={{ marginTop: 4 }} />
+                          )}
+                        </View>
+                      </View>
+
+                      {isExpanded && (
+                        <View style={styles.roomPricingBreakdown}>
+                          <View style={styles.pricingRow}>
+                            <View style={styles.pricingLabelWrap}>
+                              <Clock size={12} color={COLORS.textSecondary} />
+                              <Text style={styles.pricingLabel}>Per Semester (4 months)</Text>
+                            </View>
+                            <Text style={styles.pricingValue}>GH₵{semesterPrice.toLocaleString()}</Text>
+                          </View>
+                          <View style={styles.pricingRowLast}>
+                            <View style={styles.pricingLabelWrap}>
+                              <Calendar size={12} color={COLORS.textSecondary} />
+                              <Text style={styles.pricingLabel}>Per Academic Year (12 months)</Text>
+                            </View>
+                            <Text style={styles.pricingValue}>GH₵{yearPrice.toLocaleString()}</Text>
+                          </View>
+                        </View>
                       )}
-                    </View>
-                    <View>
-                      <Text style={styles.roomPrice}>GH₵{room.price_per_month || room.price_per_night || 0}</Text>
-                      <Text style={styles.roomPriceSub}>/month</Text>
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <Text style={styles.noDataText}>No room types listed yet</Text>
+              )}
+            </View>
+
+            <View style={styles.standardCard}>
+              <View style={styles.standardCardHeader}>
+                <CreditCard size={18} color={COLORS.primary} />
+                <Text style={styles.standardCardTitle}>Utilities & Cost Breakdown</Text>
+              </View>
+              <Text style={styles.utilitySubtitle}>What's included in the rent</Text>
+              {utilityInclusions.included.length > 0 ? (
+                utilityInclusions.included.map((item, idx) => (
+                  <View key={idx} style={styles.utilityRow}>
+                    <View style={styles.utilityIncludedDot} />
+                    <Text style={styles.utilityIncludedText}>{item}</Text>
+                    <View style={styles.utilityIncludedBadge}>
+                      <Text style={styles.utilityIncludedBadgeText}>Included</Text>
                     </View>
                   </View>
-                ))}
-              </View>
-            )}
+                ))
+              ) : null}
+              {utilityInclusions.notIncluded.length > 0 && (
+                <>
+                  <Text style={styles.utilitySubtitleMuted}>May require additional payment</Text>
+                  {utilityInclusions.notIncluded.map((item, idx) => (
+                    <View key={idx} style={styles.utilityRow}>
+                      <View style={styles.utilityNotIncludedDot} />
+                      <Text style={styles.utilityNotIncludedText}>{item}</Text>
+                      <View style={styles.utilityNotIncludedBadge}>
+                        <Text style={styles.utilityNotIncludedBadgeText}>Not included</Text>
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
+            </View>
 
             {hostel.verified && (
               <View style={styles.verifiedRow}>
@@ -318,44 +534,48 @@ export default function DetailScreen() {
 
         {activeTab === 'facilities' && (
           <View style={styles.tabContent}>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Amenities</Text>
-              {amenities.length > 0 ? (
-                <View style={styles.amenitiesGrid}>
-                  {amenities.map((amenity: any, idx: number) => (
-                    <View key={idx} style={styles.amenityPill}>
-                      <View style={styles.amenityDot} />
-                      <Text style={styles.amenityText}>{amenity.amenity}</Text>
+            {categorizedAmenities.length > 0 ? (
+              categorizedAmenities.map((cat) => {
+                const IconComp = cat.icon;
+                return (
+                  <View key={cat.key} style={styles.amenityCategoryCard}>
+                    <View style={styles.amenityCategoryHeader}>
+                      <View style={styles.amenityCategoryIcon}>
+                        <IconComp size={16} color={COLORS.primary} />
+                      </View>
+                      <Text style={styles.amenityCategoryTitle}>{cat.label}</Text>
                     </View>
-                  ))}
-                </View>
-              ) : (
-                <Text style={styles.noReviews}>No amenities listed</Text>
-              )}
-            </View>
+                    <View style={styles.amenityCategoryItems}>
+                      {cat.matched.map((amenity: any, idx: number) => {
+                        const AIcon = getAmenityIcon(amenity.amenity || '');
+                        return (
+                          <View key={idx} style={styles.amenityItemRow}>
+                            <AIcon size={15} color={COLORS.success} />
+                            <Text style={styles.amenityItemText}>{amenity.amenity}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })
+            ) : (
+              <Text style={styles.noDataText}>No amenities listed</Text>
+            )}
 
             {amenities.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Basic Facilities</Text>
-                <View style={styles.facilitiesGrid}>
-                  {amenities.some((a: any) => (a.amenity || '').toLowerCase().includes('wifi')) && (
-                    <View style={styles.facilityItem}>
-                      <Wifi size={20} color={COLORS.primary} />
-                      <Text style={styles.facilityText}>WiFi</Text>
-                    </View>
-                  )}
-                  {amenities.some((a: any) => (a.amenity || '').toLowerCase().includes('security')) && (
-                    <View style={styles.facilityItem}>
-                      <Shield size={20} color={COLORS.primary} />
-                      <Text style={styles.facilityText}>Security</Text>
-                    </View>
-                  )}
-                  {amenities.some((a: any) => (a.amenity || '').toLowerCase().includes('water')) && (
-                    <View style={styles.facilityItem}>
-                      <Droplet size={20} color={COLORS.primary} />
-                      <Text style={styles.facilityText}>24hr Water</Text>
-                    </View>
-                  )}
+                <Text style={styles.sectionTitle}>All Amenities</Text>
+                <View style={styles.amenitiesGrid}>
+                  {amenities.map((amenity: any, idx: number) => {
+                    const AIcon = getAmenityIcon(amenity.amenity || '');
+                    return (
+                      <View key={idx} style={styles.amenityPill}>
+                        <AIcon size={14} color={COLORS.primary} />
+                        <Text style={styles.amenityText}>{amenity.amenity}</Text>
+                      </View>
+                    );
+                  })}
                 </View>
               </View>
             )}
@@ -364,6 +584,43 @@ export default function DetailScreen() {
 
         {activeTab === 'others' && (
           <View style={styles.tabContent}>
+            <View style={styles.standardCard}>
+              <View style={styles.standardCardHeader}>
+                <Building2 size={18} color={COLORS.primary} />
+                <Text style={styles.standardCardTitle}>Hostel Overview</Text>
+              </View>
+              <View style={styles.overviewGrid}>
+                <View style={styles.overviewItem}>
+                  <Text style={styles.overviewLabel}>Type</Text>
+                  <Text style={styles.overviewValue}>{hostelType}</Text>
+                </View>
+                <View style={styles.overviewItem}>
+                  <Text style={styles.overviewLabel}>Total Capacity</Text>
+                  <Text style={styles.overviewValue}>{hostel.total_rooms} beds</Text>
+                </View>
+                <View style={styles.overviewItem}>
+                  <Text style={styles.overviewLabel}>Available Now</Text>
+                  <Text style={[styles.overviewValue, { color: COLORS.success }]}>{hostel.available_rooms} beds</Text>
+                </View>
+                <View style={styles.overviewItem}>
+                  <Text style={styles.overviewLabel}>Price Range</Text>
+                  <Text style={styles.overviewValue}>GH₵{hostel.price_range_min} – GH₵{hostel.price_range_max}</Text>
+                </View>
+                <View style={styles.overviewItem}>
+                  <Text style={styles.overviewLabel}>Pricing Tier</Text>
+                  <View style={[styles.tierBadge, { backgroundColor: pricingTier.bg }]}>
+                    <Text style={[styles.tierBadgeText, { color: pricingTier.color }]}>{pricingTier.label}</Text>
+                  </View>
+                </View>
+                <View style={styles.overviewItem}>
+                  <Text style={styles.overviewLabel}>Verification</Text>
+                  <Text style={[styles.overviewValue, { color: hostel.verified ? COLORS.success : COLORS.textTertiary }]}>
+                    {hostel.verified ? 'Verified ✓' : 'Not verified'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Location</Text>
               <Text style={styles.description}>{hostel.address || 'No address available'}</Text>
@@ -464,6 +721,37 @@ const styles = StyleSheet.create({
     height: '100%',
   },
 
+  infoStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.background,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 10,
+    gap: SPACING.sm,
+  },
+  infoStripItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  infoStripDivider: { width: 1, height: 24, backgroundColor: COLORS.border },
+  infoStripText: {
+    fontFamily: FONT.medium,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    flex: 1,
+  },
+  tierBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: RADIUS.full,
+  },
+  tierBadgeText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 11,
+  },
+
   statsBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -483,7 +771,7 @@ const styles = StyleSheet.create({
   statDivider: { width: 1, height: 36, backgroundColor: COLORS.borderLight },
   statMain: { 
     fontFamily: FONT.semiBold, 
-    fontSize: 13, 
+    fontSize: 12, 
     color: COLORS.textPrimary,
     flex: 1,
   },
@@ -519,16 +807,223 @@ const styles = StyleSheet.create({
   section: { marginBottom: SPACING.lg },
   sectionTitle: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.textPrimary, marginBottom: SPACING.md },
 
-  roomRow: {
-    flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between',
-    paddingVertical: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+  standardCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
-  roomLeft: { flex: 1, marginRight: SPACING.sm },
+  standardCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: SPACING.sm,
+  },
+  standardCardTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 16,
+    color: COLORS.textPrimary,
+  },
+
+  pricingNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: RADIUS.sm,
+    marginBottom: SPACING.md,
+  },
+  pricingNoteText: {
+    fontFamily: FONT.regular,
+    fontSize: 11,
+    color: COLORS.accent,
+    flex: 1,
+  },
+
+  roomCard: {
+    backgroundColor: COLORS.background,
+    borderRadius: RADIUS.md,
+    padding: SPACING.sm + 4,
+    marginBottom: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  roomCardTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  roomCardLeft: { flex: 1, marginRight: SPACING.sm },
+  roomCardRight: { alignItems: 'flex-end' },
   roomType: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary, marginBottom: 2 },
-  roomDesc: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 },
-  roomAvail: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.success },
-  roomPrice: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.primary },
+  roomDesc: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 },
+  roomAvailBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  roomAvailDot: {
+    width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.success,
+  },
+  roomAvailText: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.success },
+  roomSoldOut: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.error },
+  roomPriceMain: { fontFamily: FONT.bold, fontSize: 17, color: COLORS.primary },
   roomPriceSub: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
+
+  roomPricingBreakdown: {
+    marginTop: SPACING.sm,
+    paddingTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+  },
+  pricingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  pricingRowLast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  pricingLabelWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pricingLabel: {
+    fontFamily: FONT.regular,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+  },
+  pricingValue: {
+    fontFamily: FONT.semiBold,
+    fontSize: 13,
+    color: COLORS.textPrimary,
+  },
+
+  utilitySubtitle: {
+    fontFamily: FONT.medium,
+    fontSize: 13,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
+  },
+  utilitySubtitleMuted: {
+    fontFamily: FONT.medium,
+    fontSize: 13,
+    color: COLORS.textTertiary,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  utilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+    gap: 8,
+  },
+  utilityIncludedDot: {
+    width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.success,
+  },
+  utilityIncludedText: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textPrimary,
+    flex: 1,
+  },
+  utilityIncludedBadge: {
+    backgroundColor: COLORS.successLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+  },
+  utilityIncludedBadgeText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 10,
+    color: COLORS.success,
+  },
+  utilityNotIncludedDot: {
+    width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.textTertiary,
+  },
+  utilityNotIncludedText: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textTertiary,
+    flex: 1,
+  },
+  utilityNotIncludedBadge: {
+    backgroundColor: COLORS.borderLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: RADIUS.full,
+  },
+  utilityNotIncludedBadgeText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 10,
+    color: COLORS.textTertiary,
+  },
+
+  noDataText: {
+    fontFamily: FONT.regular,
+    fontSize: 14,
+    color: COLORS.textTertiary,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: SPACING.md,
+  },
+
+  amenityCategoryCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  amenityCategoryHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: SPACING.sm,
+  },
+  amenityCategoryIcon: {
+    width: 32, height: 32, borderRadius: RADIUS.sm,
+    backgroundColor: COLORS.primaryFaded,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  amenityCategoryTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+  },
+  amenityCategoryItems: {
+    gap: 6,
+  },
+  amenityItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 4,
+  },
+  amenityItemText: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
 
   amenitiesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm },
   amenityPill: {
@@ -537,24 +1032,28 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background, borderRadius: RADIUS.full,
     borderWidth: 1, borderColor: COLORS.border,
   },
-  amenityDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.primary },
   amenityText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textPrimary },
 
-  facilitiesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.md },
-  facilityItem: {
-    alignItems: 'center',
-    padding: SPACING.md,
-    backgroundColor: COLORS.background,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    minWidth: 80,
+  overviewGrid: {
+    gap: 2,
   },
-  facilityText: {
-    fontFamily: FONT.medium,
-    fontSize: 12,
+  overviewItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  overviewLabel: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  overviewValue: {
+    fontFamily: FONT.semiBold,
+    fontSize: 13,
     color: COLORS.textPrimary,
-    marginTop: 6,
   },
 
   verifiedRow: {
@@ -618,4 +1117,4 @@ const styles = StyleSheet.create({
     shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
   bookBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
-}); 
+});
