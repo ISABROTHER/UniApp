@@ -135,18 +135,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (lookupError) return { error: lookupError.message };
     if (!memberData?.email) return { error: 'No account found with this phone number.' };
 
-    const { error } = await supabase.auth.resetPasswordForEmail(memberData.email, {
-      redirectTo: 'uccharousing://auth/forgot-password?mode=reset',
-    });
-
-    if (error) {
-      if (error.message?.toLowerCase().includes('rate limit')) {
-        return { error: 'Too many password reset attempts. Please try again later or contact support.' };
-      }
-      return { error: error.message };
-    }
-
-    return { error: null };
+    // Since we use synthetic emails that can't receive messages,
+    // password reset via email is disabled to prevent rate limit errors.
+    // Users should contact support for password resets.
+    return {
+      error: 'Password reset is not available via phone. Please contact support at support@studentnest.app for assistance.'
+    };
   };
 
   const signOut = async () => {
