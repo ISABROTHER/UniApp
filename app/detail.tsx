@@ -7,11 +7,10 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Hostel, HostelReview } from '@/lib/types';
-import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck, Wifi, Shield, Droplet, Zap, Wind, Car, BookOpen, Tv, UtensilsCrossed, WashingMachine, Dumbbell, Waves, Trash2, Eye, DoorOpen, Building2, BedDouble, CreditCard, Clock, Info, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck, Wifi, Shield, Droplet, Zap, Wind, Car, BookOpen, Tv, UtensilsCrossed, WashingMachine, Dumbbell, Waves, Trash2, Eye, DoorOpen, Building2, BedDouble, CreditCard, Info, ChevronDown, ChevronUp } from 'lucide-react-native';
 import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 
 const { width: SW } = Dimensions.get('window');
-const SEMESTER_MONTHS = 4;
 const YEAR_MONTHS = 12;
 
 const AMENITY_CATEGORIES: { key: string; label: string; icon: typeof Wifi; items: string[] }[] = [
@@ -356,12 +355,11 @@ export default function DetailScreen() {
               </View>
               <View style={styles.pricingNote}>
                 <Info size={12} color={COLORS.accent} />
-                <Text style={styles.pricingNoteText}>Prices shown per month. Semester = 4 months, Academic Year = 12 months.</Text>
+                <Text style={styles.pricingNoteText}>Prices shown per month. Tap any room to see the annual cost (12 months).</Text>
               </View>
               {rooms.length > 0 ? (
                 rooms.map((room: any) => {
                   const monthlyPrice = room.price_per_month || 0;
-                  const semesterPrice = monthlyPrice * SEMESTER_MONTHS;
                   const yearPrice = monthlyPrice * YEAR_MONTHS;
                   const isExpanded = expandedRoom === room.id;
 
@@ -399,13 +397,6 @@ export default function DetailScreen() {
 
                       {isExpanded && (
                         <View style={styles.roomPricingBreakdown}>
-                          <View style={styles.pricingRow}>
-                            <View style={styles.pricingLabelWrap}>
-                              <Clock size={12} color={COLORS.textSecondary} />
-                              <Text style={styles.pricingLabel}>Per Semester (4 months)</Text>
-                            </View>
-                            <Text style={styles.pricingValue}>GH₵{semesterPrice.toLocaleString()}</Text>
-                          </View>
                           <View style={styles.pricingRowLast}>
                             <View style={styles.pricingLabelWrap}>
                               <Calendar size={12} color={COLORS.textSecondary} />
@@ -884,14 +875,6 @@ const styles = StyleSheet.create({
     paddingTop: SPACING.sm,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
-  },
-  pricingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
   },
   pricingRowLast: {
     flexDirection: 'row',
