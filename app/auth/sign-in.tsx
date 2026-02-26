@@ -104,7 +104,7 @@ export default function SignInScreen() {
 
           <Text style={styles.title}>Log in</Text>
           <Text style={styles.subtitle}>
-            Enter your email and password to securely access your account and manage your services.
+            Enter your phone number and password to securely access your account and manage your services.
           </Text>
 
           <View style={styles.inputGroup}>

@@ -3,6 +3,11 @@ import { supabase } from '@/lib/supabase';
 import { Member } from '@/lib/types';
 import { Session } from '@supabase/supabase-js';
 
+function phoneToEmail(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  return `${digits}@phone.studentnest.app`;
+}
+
 interface AuthContextType {
   session: Session | null;
   member: Member | null;
@@ -11,10 +16,10 @@ interface AuthContextType {
   isOwner: boolean;
   isStudent: boolean;
   signIn: (phone: string, password: string) => Promise<{ error: string | null }>;
-  signUp: (email: string, password: string, fullName: string, phone: string, role?: 'student' | 'owner') => Promise<{ error: string | null }>;
+  signUp: (password: string, fullName: string, phone: string, role?: 'student' | 'owner') => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshMember: () => Promise<void>;
-  resetPassword: (email: string) => Promise<{ error: string | null }>;
+  resetPassword: (phone: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -24,8 +29,8 @@ const AuthContext = createContext<AuthContextType>({
   isAdmin: false,
   isOwner: false,
   isStudent: true,
-  signIn: async (_phone: string, _password: string) => ({ error: null }),
-  signUp: async (_email: string, _password: string, _fullName: string, _phone: string) => ({ error: null }),
+  signIn: async () => ({ error: null }),
+  signUp: async () => ({ error: null }),
   signOut: async () => {},
   refreshMember: async () => {},
   resetPassword: async () => ({ error: null }),
@@ -89,7 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: error?.message ?? null };
   };
 
-  const signUp = async (email: string, password: string, fullName: string, phone: string, role: 'student' | 'owner' = 'student') => {
+  const signUp = async (password: string, fullName: string, phone: string, role: 'student' | 'owner' = 'student') => {
+    const email = phoneToEmail(phone);
+
     const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) return { error: error.message };
 
@@ -108,8 +115,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { error: null };
   };
 
-  const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+  const resetPassword = async (phone: string) => {
+    const { data: memberData, error: lookupError } = await supabase
+      .from('members')
+      .select('email')
+      .eq('phone', phone.trim())
+      .maybeSingle();
+
+    if (lookupError) return { error: lookupError.message };
+    if (!memberData?.email) return { error: 'No account found with this phone number.' };
+
+    const { error } = await supabase.auth.resetPasswordForEmail(memberData.email);
     return { error: error?.message ?? null };
   };
 

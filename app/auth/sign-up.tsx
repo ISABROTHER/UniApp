@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, Mail, Lock, Eye, EyeOff, User, Phone } from 'lucide-react-native';
+import { ChevronLeft, Lock, Eye, EyeOff, User, Phone } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBiometricAuth } from '@/hooks/useBiometricAuth';
@@ -20,7 +20,6 @@ export default function SignUpScreen() {
   const [firstName, setFirstName] = useState('');
   const [surname, setSurname] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -33,27 +32,26 @@ export default function SignUpScreen() {
     if (!firstName.trim()) return setError('Please enter your first name');
     if (!surname.trim()) return setError('Please enter your surname');
     if (!phone.trim()) return setError('Please enter your phone number');
-    if (!email.trim()) return setError('Please enter your email address');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError('Please enter a valid email address');
+    if (phone.trim().replace(/\D/g, '').length < 10) return setError('Please enter a valid phone number');
     if (password.length < 6) return setError('Password must be at least 6 characters');
     if (password !== confirmPassword) return setError('Passwords do not match');
 
     const fullName = `${firstName.trim()} ${surname.trim()}`;
     setLoading(true);
-    const { error: authError } = await signUp(email.trim(), password, fullName, phone.trim());
+    const { error: authError } = await signUp(password, fullName, phone.trim());
     setLoading(false);
 
     if (authError) {
       setError(
         authError.toLowerCase().includes('already')
-          ? 'An account with this email already exists. Please sign in.'
+          ? 'An account with this phone number already exists. Please sign in.'
           : authError
       );
       return;
     }
 
     if (biometricAvailable && Platform.OS !== 'web') {
-      await saveCredentials(email.trim(), password);
+      await saveCredentials(phone.trim(), password);
     }
 
     router.replace('/(tabs)');
@@ -131,25 +129,6 @@ export default function SignUpScreen() {
                 placeholder="Phone number"
                 placeholderTextColor={COLORS.textTertiary}
                 keyboardType="phone-pad"
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="next"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <View style={styles.inputWrap}>
-              <View style={styles.inputIcon}>
-                <Mail size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
-              </View>
-              <TextInput
-                style={styles.input}
-                value={email}
-                onChangeText={(v) => { setEmail(v); setError(''); }}
-                placeholder="Email address"
-                placeholderTextColor={COLORS.textTertiary}
-                keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
                 returnKeyType="next"
@@ -368,5 +347,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: AUTH_GREEN,
   },
-
 });

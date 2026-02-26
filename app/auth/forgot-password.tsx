@@ -5,8 +5,9 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ChevronLeft, Mail, Lock, Eye, EyeOff, CircleCheck as CheckCircle, Send, ShieldCheck } from 'lucide-react-native';
+import { ChevronLeft, Phone, Lock, Eye, EyeOff, CircleCheck as CheckCircle, Send, ShieldCheck } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
 const AUTH_GREEN = COLORS.authGreen;
@@ -16,9 +17,10 @@ type Step = 'request' | 'sent' | 'reset' | 'success';
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ mode?: string; access_token?: string }>();
+  const { resetPassword } = useAuth();
 
   const [step, setStep] = useState<Step>('request');
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -26,7 +28,6 @@ export default function ForgotPasswordScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // If deep linked with mode=reset, jump straight to the reset step
   useEffect(() => {
     if (params.mode === 'reset' && params.access_token) {
       setStep('reset');
@@ -35,17 +36,15 @@ export default function ForgotPasswordScreen() {
 
   const handleRequestReset = async () => {
     setError('');
-    if (!email.trim()) return setError('Please enter your email address.');
-    if (!email.includes('@')) return setError('Please enter a valid email address.');
+    if (!phone.trim()) return setError('Please enter your phone number.');
+    if (phone.trim().replace(/\D/g, '').length < 10) return setError('Please enter a valid phone number.');
 
     setLoading(true);
-    const { error: err } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: 'uccharousing://auth/forgot-password',
-    });
+    const { error: err } = await resetPassword(phone.trim());
     setLoading(false);
 
     if (err) {
-      setError(err.message);
+      setError(err);
     } else {
       setStep('sent');
     }
@@ -73,7 +72,6 @@ export default function ForgotPasswordScreen() {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
 
-          {/* STEP: REQUEST — enter email */}
           {step === 'request' && (
             <>
               <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.7}>
@@ -81,26 +79,26 @@ export default function ForgotPasswordScreen() {
               </TouchableOpacity>
 
               <View style={styles.iconCircle}>
-                <Mail size={28} color={AUTH_GREEN} strokeWidth={1.8} />
+                <Phone size={28} color={AUTH_GREEN} strokeWidth={1.8} />
               </View>
 
               <Text style={styles.title}>Reset Password</Text>
               <Text style={styles.subtitle}>
-                Enter the email address linked to your account. We'll send you a secure reset link.
+                Enter the phone number linked to your account. We'll send a password reset link to help you regain access.
               </Text>
 
               <View style={styles.inputGroup}>
                 <View style={styles.inputWrap}>
                   <View style={styles.inputIcon}>
-                    <Mail size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
+                    <Phone size={18} color={COLORS.textTertiary} strokeWidth={1.8} />
                   </View>
                   <TextInput
                     style={styles.input}
-                    value={email}
-                    onChangeText={(v) => { setEmail(v); setError(''); }}
-                    placeholder="Email address"
+                    value={phone}
+                    onChangeText={(v) => { setPhone(v); setError(''); }}
+                    placeholder="Phone number"
                     placeholderTextColor={COLORS.textTertiary}
-                    keyboardType="email-address"
+                    keyboardType="phone-pad"
                     autoCapitalize="none"
                     autoCorrect={false}
                     returnKeyType="done"
@@ -130,30 +128,22 @@ export default function ForgotPasswordScreen() {
             </>
           )}
 
-          {/* STEP: SENT — check your email */}
           {step === 'sent' && (
             <View style={styles.centerBox}>
               <View style={[styles.iconCircle, { backgroundColor: `${AUTH_GREEN}15` }]}>
                 <Send size={28} color={AUTH_GREEN} strokeWidth={1.8} />
               </View>
-              <Text style={styles.title}>Check Your Email</Text>
+              <Text style={styles.title}>Reset Link Sent</Text>
               <Text style={styles.subtitle}>
-                We've sent a password reset link to:
-              </Text>
-              <View style={styles.emailChip}>
-                <Mail size={14} color={AUTH_GREEN} />
-                <Text style={styles.emailChipText}>{email}</Text>
-              </View>
-              <Text style={styles.instructionText}>
-                Open the email and tap the reset link. It will bring you back to this app automatically.
+                A password reset link has been sent to the email associated with your phone number. Check your inbox or notifications.
               </Text>
 
               <View style={styles.stepsBox}>
                 {[
-                  '1. Open your email inbox',
-                  '2. Find the email from UCC Housing',
-                  '3. Tap "Reset Password"',
-                  '4. You\'ll return here to set your new password',
+                  '1. Check for a notification or email',
+                  '2. Open the reset link provided',
+                  '3. Set your new password',
+                  '4. Sign in with your new credentials',
                 ].map((s) => (
                   <View key={s} style={styles.stepRow}>
                     <View style={styles.stepDot} />
@@ -164,10 +154,10 @@ export default function ForgotPasswordScreen() {
 
               <TouchableOpacity
                 style={[styles.submitBtn, { marginTop: SPACING.lg }]}
-                onPress={() => { setStep('request'); setEmail(''); }}
+                onPress={() => { setStep('request'); setPhone(''); }}
                 activeOpacity={0.85}
               >
-                <Text style={styles.submitBtnText}>Try a different email</Text>
+                <Text style={styles.submitBtnText}>Try a different number</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.backLink} onPress={() => router.replace('/auth/sign-in')}>
@@ -176,7 +166,6 @@ export default function ForgotPasswordScreen() {
             </View>
           )}
 
-          {/* STEP: RESET — set new password (arrived via deep link) */}
           {step === 'reset' && (
             <>
               <View style={[styles.iconCircle, { backgroundColor: `${COLORS.accent}15` }]}>
@@ -239,7 +228,6 @@ export default function ForgotPasswordScreen() {
                 </View>
               </View>
 
-              {/* Password strength indicator */}
               {newPassword.length > 0 && (
                 <View style={styles.strengthRow}>
                   {[1, 2, 3, 4].map((i) => (
@@ -281,7 +269,6 @@ export default function ForgotPasswordScreen() {
             </>
           )}
 
-          {/* STEP: SUCCESS */}
           {step === 'success' && (
             <View style={styles.centerBox}>
               <View style={[styles.iconCircle, { backgroundColor: `${AUTH_GREEN}15`, width: 80, height: 80, borderRadius: 40 }]}>
@@ -337,16 +324,6 @@ const styles = StyleSheet.create({
   subtitle: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, lineHeight: 21, marginBottom: SPACING.lg, textAlign: 'center' },
 
   centerBox: { alignItems: 'center' },
-
-  emailChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: `${AUTH_GREEN}10`, borderRadius: RADIUS.full,
-    paddingHorizontal: 14, paddingVertical: 8, marginBottom: SPACING.md,
-    borderWidth: 1, borderColor: `${AUTH_GREEN}30`,
-  },
-  emailChipText: { fontFamily: FONT.semiBold, fontSize: 14, color: AUTH_GREEN },
-
-  instructionText: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: SPACING.md },
 
   stepsBox: { width: '100%', backgroundColor: COLORS.background, borderRadius: RADIUS.md, padding: SPACING.md, gap: SPACING.sm },
   stepRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
