@@ -96,6 +96,7 @@ export default function DetailScreen() {
   const [roommateCount, setRoommateCount] = useState(0);
   const [autoSlide, setAutoSlide] = useState(true);
   const [utilityView, setUtilityView] = useState<'included' | 'not_included'>('included');
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const autoSlideInterval = useRef<NodeJS.Timeout | null>(null);
 
   const hostelId = params.id as string;
@@ -372,14 +373,23 @@ export default function DetailScreen() {
                     occupants === 1 ? `${room.room_type} (1 Person)` :
                     `${occupants} in a Room`;
 
+                  const isSelected = selectedRoomId === room.id;
+
                   return (
-                    <View
+                    <TouchableOpacity
                       key={room.id}
-                      style={styles.roomCard}
+                      style={[styles.roomCard, isSelected && styles.roomCardSelected]}
+                      onPress={() => setSelectedRoomId(isSelected ? null : room.id)}
+                      activeOpacity={0.85}
                     >
                       <View style={styles.roomCardTop}>
                         <View style={styles.roomCardLeft}>
-                          <Text style={styles.roomType}>{displayName}</Text>
+                          <View style={styles.roomNameRow}>
+                            <View style={[styles.radioOuter, isSelected && styles.radioOuterActive]}>
+                              {isSelected && <View style={styles.radioInner} />}
+                            </View>
+                            <Text style={styles.roomType}>{displayName}</Text>
+                          </View>
                           {room.available_count > 0 && (
                             <View style={styles.roomAvailBadge}>
                               <View style={styles.roomAvailDot} />
@@ -397,7 +407,7 @@ export default function DetailScreen() {
                           )}
                         </View>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })
               ) : (
@@ -662,12 +672,17 @@ export default function DetailScreen() {
 
       <View style={styles.bottomBar}>
         <TouchableOpacity
-          style={styles.bookBtn}
-          onPress={() => router.push(`/book?hostel_id=${hostelId}` as any)}
+          style={[styles.bookBtn, !selectedRoomId && styles.bookBtnDisabled]}
+          onPress={() => {
+            if (selectedRoomId) {
+              router.push(`/book?hostel_id=${hostelId}&room_id=${selectedRoomId}` as any);
+            }
+          }}
           activeOpacity={0.85}
+          disabled={!selectedRoomId}
         >
           <Calendar size={18} color={COLORS.white} />
-          <Text style={styles.bookBtnText}>APPLY FOR HOUSING</Text>
+          <Text style={styles.bookBtnText}>{selectedRoomId ? 'APPLY FOR HOUSING' : 'SELECT A ROOM'}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.msgBtn}
@@ -879,8 +894,12 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     padding: SPACING.sm + 4,
     marginBottom: SPACING.sm,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: COLORS.borderLight,
+  },
+  roomCardSelected: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryFaded,
   },
   roomCardTop: {
     flexDirection: 'row',
@@ -890,6 +909,30 @@ const styles = StyleSheet.create({
   roomCardLeft: { flex: 1, marginRight: SPACING.sm },
   roomCardRight: { alignItems: 'flex-end' },
   roomType: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary, marginBottom: 4 },
+  roomNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  radioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  radioOuterActive: {
+    borderColor: COLORS.primary,
+  },
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.primary,
+  },
   roomAvailBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1124,6 +1167,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md, paddingVertical: 14,
     shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
+  bookBtnDisabled: { opacity: 0.5 },
   bookBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
 
   aboutText: {
