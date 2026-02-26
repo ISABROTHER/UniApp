@@ -97,7 +97,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (password: string, fullName: string, phone: string, role: 'student' | 'owner' = 'student') => {
     const email = phoneToEmail(phone);
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: undefined,
+        data: {
+          full_name: fullName,
+          phone: phone.trim(),
+        },
+      },
+    });
     if (error) return { error: error.message };
 
     if (data.user) {
@@ -125,8 +135,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (lookupError) return { error: lookupError.message };
     if (!memberData?.email) return { error: 'No account found with this phone number.' };
 
-    const { error } = await supabase.auth.resetPasswordForEmail(memberData.email);
-    return { error: error?.message ?? null };
+    const { error } = await supabase.auth.resetPasswordForEmail(memberData.email, {
+      redirectTo: 'uccharousing://auth/forgot-password?mode=reset',
+    });
+
+    if (error) {
+      if (error.message?.toLowerCase().includes('rate limit')) {
+        return { error: 'Too many password reset attempts. Please try again later or contact support.' };
+      }
+      return { error: error.message };
+    }
+
+    return { error: null };
   };
 
   const signOut = async () => {
