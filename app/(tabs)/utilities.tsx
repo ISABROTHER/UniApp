@@ -1,25 +1,13 @@
 import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, FlatList, Image, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS, UTILITY_TOPUP_AMOUNTS } from '@/lib/constants';
 import { UtilityMeter, UtilityTopup } from '@/lib/types';
-import { ArrowLeft, Zap, Droplets, Plus, Clock, CheckCircle, XCircle, Users, ShoppingBag, Search, Heart, Star, MapPin } from 'lucide-react-native';
+import { ArrowLeft, Zap, Droplets, Plus, Clock, CheckCircle, XCircle, Users } from 'lucide-react-native';
 import PaystackModal from '@/components/PaystackModal';
 
-type TabType = 'meters' | 'topup' | 'history' | 'stumark';
-
-interface Listing {
-  id: string;
-  title: string;
-  description: string;
-  price: number;
-  image_url: string | null;
-  seller_name: string;
-  category: 'food' | 'stationery' | 'services' | 'merch' | 'other';
-  is_available: boolean;
-  created_at: string;
-}
+type TabType = 'meters' | 'topup' | 'history';
 
 export default function UtilitiesScreen() {
   const router = useRouter();
@@ -37,12 +25,6 @@ export default function UtilitiesScreen() {
   const [newMeterNick, setNewMeterNick] = useState('');
   const [payModalVisible, setPayModalVisible] = useState(false);
 
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string>('all');
-
-  const categories = ['all', 'food', 'stationery', 'services', 'merch'];
-
   useFocusEffect(useCallback(() => {
     fetchData();
   }, []));
@@ -51,19 +33,15 @@ export default function UtilitiesScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    const [{ data: ms }, { data: ts }, { data: listingsData }] = await Promise.all([
+    const [{ data: ms }, { data: ts }] = await Promise.all([
       supabase.from('utility_meters').select('*').eq('user_id', user.id).order('created_at'),
       supabase.from('utility_topups').select('*, utility_meters(meter_number, nickname, meter_type)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
-      supabase.from('stumark_listings').select('*').eq('is_available', true).order('created_at', { ascending: false }),
     ]);
 
     const meterList = (ms as UtilityMeter[]) || [];
     setMeters(meterList);
     setTopups((ts as UtilityTopup[]) || []);
     if (meterList.length > 0 && !selectedMeter) setSelectedMeter(meterList[0]);
-
-    setListings((listingsData || []) as Listing[]);
-
     setLoading(false);
   };
 
@@ -135,22 +113,6 @@ export default function UtilitiesScreen() {
     return <Clock size={16} color={COLORS.warning} />;
   };
 
-  const filteredListings = listings.filter((item) => {
-    const matchesSearch = !searchQuery.trim() ||
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = activeCategory === 'all' || item.category === activeCategory;
-    return matchesSearch && matchesCategory;
-  });
-
-  const handleBuy = (item: Listing) => {
-    alert(`Contact seller for ${item.title} - GH₵${item.price}`);
-  };
-
-  const handleCreateListing = () => {
-    alert('Create new listing coming soon! (Post your item for sale)');
-  };
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -161,7 +123,7 @@ export default function UtilitiesScreen() {
       </View>
 
       <View style={styles.tabRow}>
-        {([['meters', 'My Meters'], ['topup', 'Top Up'], ['history', 'History'], ['stumark', 'StuMark']] as [TabType, string][]).map(([t, label]) => (
+        {([['meters', 'My Meters'], ['topup', 'Top Up'], ['history', 'History']] as [TabType, string][]).map(([t, label]) => (
           <TouchableOpacity key={t} style={[styles.tabBtn, tab === t && styles.tabBtnActive]} onPress={() => setTab(t)}>
             <Text style={[styles.tabLabel, tab === t && styles.tabLabelActive]}>{label}</Text>
           </TouchableOpacity>
@@ -289,7 +251,7 @@ export default function UtilitiesScreen() {
               </>
             )}
           </>
-        ) : tab === 'history' ? (
+        ) : (
           topups.length === 0 ? (
             <View style={styles.emptyState}>
               <Clock size={48} color={COLORS.textTertiary} />
@@ -311,78 +273,6 @@ export default function UtilitiesScreen() {
               </View>
             ))
           )
-        ) : (
-          <>
-            <View style={styles.stumarkHeader}>
-              <Text style={styles.stumarkTitle}>StuMark</Text>
-              <TouchableOpacity style={styles.createBtn} onPress={handleCreateListing}>
-                <Plus size={18} color={COLORS.white} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.searchBar}>
-              <Search size={18} color={COLORS.textTertiary} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search food, stationery, services..."
-                placeholderTextColor={COLORS.textTertiary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
-
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll} contentContainerStyle={styles.categoryContainer}>
-              {categories.map((cat) => (
-                <TouchableOpacity
-                  key={cat}
-                  style={[styles.categoryChip, activeCategory === cat && styles.categoryChipActive]}
-                  onPress={() => setActiveCategory(cat)}
-                >
-                  <Text style={[styles.categoryText, activeCategory === cat && styles.categoryTextActive]}>
-                    {cat === 'all' ? 'All' : cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {filteredListings.length === 0 ? (
-              <View style={styles.emptyState}>
-                <ShoppingBag size={48} color={COLORS.textTertiary} />
-                <Text style={styles.emptyTitle}>No listings yet</Text>
-                <Text style={styles.emptySubtitle}>Be the first to sell or buy on campus!</Text>
-              </View>
-            ) : (
-              <FlatList
-                data={filteredListings}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.listingCard} onPress={() => handleBuy(item)} activeOpacity={0.85}>
-                    <View style={styles.imageContainer}>
-                      {item.image_url ? (
-                        <Image source={{ uri: item.image_url }} style={styles.listingImage} />
-                      ) : (
-                        <View style={styles.placeholderImage}>
-                          <ShoppingBag size={32} color={COLORS.textTertiary} />
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.listingInfo}>
-                      <Text style={styles.listingTitle} numberOfLines={2}>{item.title}</Text>
-                      <Text style={styles.listingSeller}>by {item.seller_name}</Text>
-                      <View style={styles.priceRow}>
-                        <Text style={styles.price}>GH₵{item.price}</Text>
-                        <Text style={styles.categoryLabel}>{item.category}</Text>
-                      </View>
-                      <TouchableOpacity style={styles.buyBtn} onPress={() => handleBuy(item)}>
-                        <Text style={styles.buyBtnText}>Buy / Chat</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </TouchableOpacity>
-                )}
-                showsVerticalScrollIndicator={false}
-              />
-            )}
-          </>
         )}
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -473,62 +363,4 @@ const styles = StyleSheet.create({
   histDate: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary },
   histToken: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.success, marginTop: 2 },
   histAmount: { fontFamily: FONT.bold, fontSize: 16 },
-
-  stumarkHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
-  stumarkTitle: { fontFamily: FONT.headingBold, fontSize: 22, color: COLORS.textPrimary },
-  createBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
-
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.full,
-    marginHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    height: 48,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 15, color: COLORS.textPrimary, marginLeft: SPACING.sm },
-
-  categoryScroll: { marginBottom: SPACING.sm },
-  categoryContainer: { paddingHorizontal: SPACING.md, gap: SPACING.sm },
-  categoryChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.white,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  categoryChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  categoryText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary },
-  categoryTextActive: { color: COLORS.white },
-
-  listingCard: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    marginBottom: SPACING.sm,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  imageContainer: { width: 110, height: 110 },
-  listingImage: { width: 110, height: 110, resizeMode: 'cover' },
-  placeholderImage: { width: 110, height: 110, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
-  listingInfo: { flex: 1, padding: SPACING.md, justifyContent: 'space-between' },
-  listingTitle: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary, marginBottom: 4 },
-  listingSeller: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginBottom: 6 },
-  priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  price: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.primary },
-  categoryLabel: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.textTertiary, backgroundColor: COLORS.background, paddingHorizontal: 8, paddingVertical: 2, borderRadius: RADIUS.full },
-  buyBtn: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 8,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-  },
-  buyBtnText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.white },
-});
+}); 
