@@ -329,7 +329,7 @@ export default function HomeScreen() {
             <Text style={styles.qaLabel}>Smart Wash</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/(tabs)/utilities' as any)}>
+          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/(tabs)/stumark' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
               <ShoppingBag size={28} color={COLORS.warning} />
             </View>

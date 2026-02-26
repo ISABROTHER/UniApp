@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -10,146 +10,122 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { Plus, Search, X, Tag, MapPin, Phone, ShoppingBag, Heart, Star } from 'lucide-react-native';
+import { Plus, Zap, Droplet, X, ArrowLeft, CreditCard } from 'lucide-react-native';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - SPACING.lg * 3) / 2;
+type MeterType = 'ecg' | 'gwcl';
 
-type MarketCategory = 'all' | 'phones' | 'laptops' | 'clothing' | 'services' | 'food' | 'other';
-
-type MarketListing = {
+type UtilityMeter = {
   id: string;
-  seller_id: string;
-  title: string;
-  description: string;
-  price: number | string;
-  category: string | null;
-  condition: string | null;
-  campus_location: string | null;
-  seller_phone: string | null;
-  is_available: boolean | null;
-  is_sold: boolean | null;
+  meter_type: MeterType;
+  meter_number: string;
+  nickname: string | null;
+  is_default: boolean;
   created_at: string;
 };
 
-const CATEGORIES: { key: MarketCategory; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'phones', label: 'Phones' },
-  { key: 'laptops', label: 'Laptops' },
-  { key: 'clothing', label: 'Fashion' },
-  { key: 'services', label: 'Services' },
-  { key: 'food', label: 'Food' },
-  { key: 'other', label: 'Others' },
-];
-
-const CONDITIONS = ['new', 'good', 'fair', 'used'] as const;
+type UtilityTopup = {
+  id: string;
+  meter_id: string;
+  meter_type: MeterType;
+  amount: number;
+  vend_token: string | null;
+  status: string;
+  created_at: string;
+};
 
 export default function UtilitiesScreen() {
-  const [listings, setListings] = useState<MarketListing[]>([]);
+  const [meters, setMeters] = useState<UtilityMeter[]>([]);
+  const [topups, setTopups] = useState<UtilityTopup[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [category, setCategory] = useState<MarketCategory>('all');
+  const [addMeterOpen, setAddMeterOpen] = useState(false);
+  const [meterType, setMeterType] = useState<MeterType>('ecg');
+  const [meterNumber, setMeterNumber] = useState('');
+  const [meterNickname, setMeterNickname] = useState('');
+  const [addMeterError, setAddMeterError] = useState<string | null>(null);
+  const [addingMeter, setAddingMeter] = useState(false);
 
-  const [postOpen, setPostOpen] = useState(false);
-  const [postTitle, setPostTitle] = useState('');
-  const [postDescription, setPostDescription] = useState('');
-  const [postPrice, setPostPrice] = useState('');
-  const [postCategory, setPostCategory] = useState<Exclude<MarketCategory, 'all'>>('other');
-  const [postCondition, setPostCondition] = useState<(typeof CONDITIONS)[number]>('good');
-  const [postLocation, setPostLocation] = useState('');
-  const [postPhone, setPostPhone] = useState('');
-  const [postError, setPostError] = useState<string | null>(null);
-  const [posting, setPosting] = useState(false);
+  const [topupOpen, setTopupOpen] = useState(false);
+  const [selectedMeter, setSelectedMeter] = useState<UtilityMeter | null>(null);
+  const [topupAmount, setTopupAmount] = useState('');
+  const [topupError, setTopupError] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
 
-  const fetchListings = useCallback(
-    async (opts?: { silent?: boolean }) => {
-      const silent = opts?.silent ?? false;
-      if (!silent) setLoading(true);
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
+    if (!silent) setLoading(true);
 
-      try {
-        let query = supabase
-          .from('market_listings')
-          .select(
-            'id,seller_id,title,description,price,category,condition,campus_location,seller_phone,is_available,is_sold,created_at',
-          )
-          .order('created_at', { ascending: false });
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
 
-        if (category !== 'all') {
-          query = query.eq('category', category);
-        }
+      const userId = userData.user?.id;
+      if (!userId) return;
 
-        const q = searchQuery.trim();
-        if (q.length > 0) {
-          query = query.ilike('title', `%${q}%`);
-        }
+      const [metersRes, topupsRes] = await Promise.all([
+        supabase
+          .from('utility_meters')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('utility_topups')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(10),
+      ]);
 
-        query = query.eq('is_sold', false).eq('is_available', true);
-
-        const { data, error } = await query;
-        if (error) throw error;
-
-        setListings((data ?? []) as MarketListing[]);
-      } catch {
-        setListings([]);
-      } finally {
-        if (!silent) setLoading(false);
-      }
-    },
-    [category, searchQuery],
-  );
+      if (metersRes.data) setMeters(metersRes.data as UtilityMeter[]);
+      if (topupsRes.data) setTopups(topupsRes.data as UtilityTopup[]);
+    } catch {
+      setMeters([]);
+      setTopups([]);
+    } finally {
+      if (!silent) setLoading(false);
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      void fetchListings();
-    }, [fetchListings]),
+      void fetchData();
+    }, [fetchData]),
   );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchListings({ silent: true });
+    await fetchData({ silent: true });
     setRefreshing(false);
-  }, [fetchListings]);
+  }, [fetchData]);
 
-  const openPost = useCallback(() => {
-    setPostError(null);
-    setPostTitle('');
-    setPostDescription('');
-    setPostPrice('');
-    setPostCategory('other');
-    setPostCondition('good');
-    setPostLocation('');
-    setPostPhone('');
-    setPostOpen(true);
+  const openAddMeter = useCallback(() => {
+    setAddMeterError(null);
+    setMeterType('ecg');
+    setMeterNumber('');
+    setMeterNickname('');
+    setAddMeterOpen(true);
   }, []);
 
-  const closePost = useCallback(() => {
-    if (!posting) setPostOpen(false);
-  }, [posting]);
+  const closeAddMeter = useCallback(() => {
+    if (!addingMeter) setAddMeterOpen(false);
+  }, [addingMeter]);
 
-  const submitPost = useCallback(async () => {
-    if (posting) return;
+  const submitAddMeter = useCallback(async () => {
+    if (addingMeter) return;
 
-    const title = postTitle.trim();
-    const priceNumber = Number(postPrice);
-
-    if (title.length === 0) {
-      setPostError('Add a title.');
-      return;
-    }
-    if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
-      setPostError('Enter a valid price.');
+    const number = meterNumber.trim();
+    if (number.length === 0) {
+      setAddMeterError('Enter meter number.');
       return;
     }
 
-    setPosting(true);
-    setPostError(null);
+    setAddingMeter(true);
+    setAddMeterError(null);
 
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
@@ -157,166 +133,211 @@ export default function UtilitiesScreen() {
 
       const userId = userData.user?.id;
       if (!userId) {
-        setPostError('Please sign in to post.');
+        setAddMeterError('Please sign in.');
         return;
       }
 
-      const payload = {
-        seller_id: userId,
-        title,
-        description: postDescription.trim(),
-        price: priceNumber,
-        category: postCategory,
-        condition: postCondition,
-        campus_location: postLocation.trim(),
-        seller_phone: postPhone.trim(),
-        is_available: true,
-        is_sold: false,
-      };
+      const { error } = await supabase.from('utility_meters').insert({
+        user_id: userId,
+        meter_type: meterType,
+        meter_number: number,
+        nickname: meterNickname.trim() || null,
+        is_default: meters.length === 0,
+      });
 
-      const { error } = await supabase.from('market_listings').insert(payload);
       if (error) throw error;
 
-      setPostOpen(false);
-      await fetchListings({ silent: true });
+      setAddMeterOpen(false);
+      await fetchData({ silent: true });
     } catch {
-      setPostError('Could not post right now. Try again.');
+      setAddMeterError('Could not add meter. Try again.');
     } finally {
-      setPosting(false);
+      setAddingMeter(false);
     }
-  }, [
-    fetchListings,
-    postCategory,
-    postCondition,
-    postDescription,
-    postLocation,
-    postPhone,
-    postPrice,
-    postTitle,
-    posting,
-  ]);
+  }, [addingMeter, fetchData, meterNickname, meterNumber, meterType, meters.length]);
 
-  const formatPrice = useCallback((value: number | string) => {
-    const n = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(n)) return '₵0';
-    return `₵${n.toLocaleString()}`;
+  const openTopup = useCallback((meter: UtilityMeter) => {
+    setTopupError(null);
+    setSelectedMeter(meter);
+    setTopupAmount('');
+    setTopupOpen(true);
   }, []);
+
+  const closeTopup = useCallback(() => {
+    if (!processing) setTopupOpen(false);
+  }, [processing]);
+
+  const submitTopup = useCallback(async () => {
+    if (processing || !selectedMeter) return;
+
+    const amount = Number(topupAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setTopupError('Enter a valid amount.');
+      return;
+    }
+
+    setProcessing(true);
+    setTopupError(null);
+
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+
+      const userId = userData.user?.id;
+      if (!userId) {
+        setTopupError('Please sign in.');
+        return;
+      }
+
+      const { error } = await supabase.from('utility_topups').insert({
+        user_id: userId,
+        meter_id: selectedMeter.id,
+        meter_type: selectedMeter.meter_type,
+        amount,
+        status: 'pending',
+      });
+
+      if (error) throw error;
+
+      setTopupOpen(false);
+      await fetchData({ silent: true });
+    } catch {
+      setTopupError('Could not process topup. Try again.');
+    } finally {
+      setProcessing(false);
+    }
+  }, [fetchData, processing, selectedMeter, topupAmount]);
+
+  const getMeterIcon = (type: MeterType) => {
+    return type === 'ecg' ? (
+      <Zap size={20} color="#F59E0B" />
+    ) : (
+      <Droplet size={20} color="#3B82F6" />
+    );
+  };
+
+  const getMeterLabel = (type: MeterType) => {
+    return type === 'ecg' ? 'ECG Electricity' : 'GWCL Water';
+  };
+
+  const formatAmount = (value: number) => {
+    return `₵${value.toFixed(2)}`;
+  };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.searchRow}>
-          <View style={styles.searchBox}>
-            <Search size={18} color={COLORS.textTertiary} />
-            <TextInput
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              placeholder="Search items..."
-              placeholderTextColor={COLORS.textTertiary}
-              style={styles.searchInput}
-              returnKeyType="search"
-              onSubmitEditing={() => void fetchListings()}
-            />
-          </View>
-          <TouchableOpacity style={styles.addButton} onPress={openPost} activeOpacity={0.8}>
-            <Plus size={22} color={COLORS.white} strokeWidth={2.5} />
-          </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <ArrowLeft size={24} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <View style={styles.headerCenter}>
+          <Text style={styles.title}>Utilities</Text>
+          <Text style={styles.subtitle}>Manage ECG & GWCL top-ups</Text>
         </View>
+        <View style={styles.headerRight} />
       </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.categories}
-      >
-        {CATEGORIES.map((cat) => {
-          const active = category === cat.key;
-          return (
-            <TouchableOpacity
-              key={cat.key}
-              style={[styles.categoryChip, active && styles.categoryChipActive]}
-              onPress={() => setCategory(cat.key)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
 
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        showsVerticalScrollIndicator={false}
       >
-        {loading && listings.length === 0 ? (
-          <View style={styles.loadingBox}>
-            <Text style={styles.loadingText}>Loading...</Text>
-          </View>
-        ) : listings.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <ShoppingBag size={48} color={COLORS.textTertiary} strokeWidth={1.5} />
-            <Text style={styles.emptyTitle}>No items yet</Text>
-            <Text style={styles.emptySubtitle}>
-              {searchQuery.trim().length > 0
-                ? 'Try a different search'
-                : 'Be the first to list something!'}
-            </Text>
-            <TouchableOpacity style={styles.emptyBtn} onPress={openPost} activeOpacity={0.9}>
-              <Plus size={18} color={COLORS.white} strokeWidth={2.5} />
-              <Text style={styles.emptyBtnText}>List Item</Text>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>My Meters</Text>
+            <TouchableOpacity style={styles.addBtn} onPress={openAddMeter} activeOpacity={0.85}>
+              <Plus size={16} color={COLORS.white} />
+              <Text style={styles.addBtnText}>Add Meter</Text>
             </TouchableOpacity>
           </View>
-        ) : (
-          <View style={styles.grid}>
-            {listings.map((item) => (
-              <View key={item.id} style={styles.card}>
-                <View style={styles.cardImage}>
-                  <View style={styles.imagePlaceholder}>
-                    <ShoppingBag size={36} color={COLORS.textTertiary} strokeWidth={1.5} />
-                  </View>
-                  <TouchableOpacity style={styles.favoriteBtn} activeOpacity={0.7}>
-                    <Heart size={18} color={COLORS.error} strokeWidth={2} />
-                  </TouchableOpacity>
-                  {item.condition && (
-                    <View style={styles.conditionBadge}>
-                      <Text style={styles.conditionText}>{item.condition}</Text>
-                    </View>
-                  )}
-                </View>
 
-                <View style={styles.cardBody}>
-                  <Text style={styles.cardTitle} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                  <View style={styles.priceRow}>
-                    <Text style={styles.cardPrice}>{formatPrice(item.price)}</Text>
-                  </View>
-                  {item.campus_location && (
-                    <View style={styles.locationRow}>
-                      <MapPin size={12} color={COLORS.textTertiary} />
-                      <Text style={styles.locationText} numberOfLines={1}>
-                        {item.campus_location}
+          {loading && meters.length === 0 ? (
+            <View style={styles.stateBox}>
+              <Text style={styles.stateText}>Loading meters...</Text>
+            </View>
+          ) : meters.length === 0 ? (
+            <View style={styles.stateBox}>
+              <Text style={styles.stateTitle}>No meters added</Text>
+              <Text style={styles.stateSubtitle}>Add your ECG or GWCL meter to get started</Text>
+              <TouchableOpacity style={styles.stateCta} onPress={openAddMeter} activeOpacity={0.85}>
+                <Plus size={18} color={COLORS.white} />
+                <Text style={styles.stateCtaText}>Add First Meter</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            meters.map((meter) => (
+              <View key={meter.id} style={styles.meterCard}>
+                <View style={styles.meterTop}>
+                  <View style={styles.meterLeft}>
+                    <View style={styles.meterIconBox}>{getMeterIcon(meter.meter_type)}</View>
+                    <View style={styles.meterInfo}>
+                      <Text style={styles.meterName}>
+                        {meter.nickname || getMeterLabel(meter.meter_type)}
                       </Text>
+                      <Text style={styles.meterNumber}>{meter.meter_number}</Text>
                     </View>
-                  )}
-                  <View style={styles.ratingRow}>
-                    <Star size={12} color="#F59E0B" fill="#F59E0B" />
-                    <Text style={styles.ratingText}>3.6</Text>
+                  </View>
+                  {meter.is_default ? (
+                    <View style={styles.defaultBadge}>
+                      <Text style={styles.defaultText}>Default</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <TouchableOpacity
+                  style={styles.topupBtn}
+                  onPress={() => openTopup(meter)}
+                  activeOpacity={0.85}
+                >
+                  <CreditCard size={18} color={COLORS.white} />
+                  <Text style={styles.topupBtnText}>Top Up</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Recent Top-Ups</Text>
+          {topups.length === 0 ? (
+            <View style={styles.stateBox}>
+              <Text style={styles.stateSubtitle}>No top-ups yet</Text>
+            </View>
+          ) : (
+            topups.map((topup) => (
+              <View key={topup.id} style={styles.topupCard}>
+                <View style={styles.topupLeft}>
+                  {getMeterIcon(topup.meter_type)}
+                  <View>
+                    <Text style={styles.topupLabel}>{getMeterLabel(topup.meter_type)}</Text>
+                    <Text style={styles.topupDate}>
+                      {new Date(topup.created_at).toLocaleDateString()}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.topupRight}>
+                  <Text style={styles.topupAmount}>{formatAmount(Number(topup.amount))}</Text>
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      topup.status === 'success'
+                        ? styles.statusSuccess
+                        : topup.status === 'failed'
+                          ? styles.statusFailed
+                          : styles.statusPending,
+                    ]}
+                  >
+                    <Text style={styles.statusText}>{topup.status}</Text>
                   </View>
                 </View>
               </View>
-            ))}
-          </View>
-        )}
+            ))
+          )}
+        </View>
 
         <View style={styles.footerSpace} />
       </ScrollView>
 
-      <Modal visible={postOpen} transparent animationType="slide" onRequestClose={closePost}>
+      <Modal visible={addMeterOpen} transparent animationType="slide" onRequestClose={closeAddMeter}>
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -324,136 +345,135 @@ export default function UtilitiesScreen() {
           >
             <View style={styles.modalCard}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>List an Item</Text>
-                <TouchableOpacity onPress={closePost} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <X size={24} color={COLORS.textSecondary} />
+                <Text style={styles.modalTitle}>Add Meter</Text>
+                <TouchableOpacity
+                  onPress={closeAddMeter}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <X size={20} color={COLORS.textSecondary} />
                 </TouchableOpacity>
               </View>
 
-              {postError && <Text style={styles.modalError}>{postError}</Text>}
+              {addMeterError ? <Text style={styles.modalError}>{addMeterError}</Text> : null}
 
-              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalBody}>
                 <View style={styles.field}>
-                  <Text style={styles.label}>Item title</Text>
-                  <TextInput
-                    value={postTitle}
-                    onChangeText={setPostTitle}
-                    placeholder="e.g., iPhone 13 Pro, Dell Laptop..."
-                    placeholderTextColor={COLORS.textTertiary}
-                    style={styles.input}
-                  />
-                </View>
-
-                <View style={styles.field}>
-                  <Text style={styles.label}>Description</Text>
-                  <TextInput
-                    value={postDescription}
-                    onChangeText={setPostDescription}
-                    placeholder="Describe your item..."
-                    placeholderTextColor={COLORS.textTertiary}
-                    style={[styles.input, styles.textArea]}
-                    multiline
-                    numberOfLines={4}
-                  />
-                </View>
-
-                <View style={styles.row}>
-                  <View style={styles.rowItem}>
-                    <Text style={styles.label}>Price (₵)</Text>
-                    <TextInput
-                      value={postPrice}
-                      onChangeText={setPostPrice}
-                      placeholder="0.00"
-                      placeholderTextColor={COLORS.textTertiary}
-                      style={styles.input}
-                      keyboardType="numeric"
-                    />
-                  </View>
-
-                  <View style={styles.rowItem}>
-                    <Text style={styles.label}>Condition</Text>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.inlineChips}
+                  <Text style={styles.label}>Meter Type</Text>
+                  <View style={styles.typeRow}>
+                    <TouchableOpacity
+                      style={[styles.typeBtn, meterType === 'ecg' ? styles.typeBtnActive : null]}
+                      onPress={() => setMeterType('ecg')}
+                      activeOpacity={0.85}
                     >
-                      {CONDITIONS.map((cond) => {
-                        const active = postCondition === cond;
-                        return (
-                          <TouchableOpacity
-                            key={cond}
-                            style={[styles.smallChip, active && styles.smallChipActive]}
-                            onPress={() => setPostCondition(cond)}
-                            activeOpacity={0.85}
-                          >
-                            <Text
-                              style={[styles.smallChipText, active && styles.smallChipTextActive]}
-                            >
-                              {cond}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </ScrollView>
+                      <Zap size={18} color={meterType === 'ecg' ? COLORS.white : '#F59E0B'} />
+                      <Text
+                        style={[styles.typeText, meterType === 'ecg' ? styles.typeTextActive : null]}
+                      >
+                        ECG
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.typeBtn, meterType === 'gwcl' ? styles.typeBtnActive : null]}
+                      onPress={() => setMeterType('gwcl')}
+                      activeOpacity={0.85}
+                    >
+                      <Droplet size={18} color={meterType === 'gwcl' ? COLORS.white : '#3B82F6'} />
+                      <Text
+                        style={[styles.typeText, meterType === 'gwcl' ? styles.typeTextActive : null]}
+                      >
+                        GWCL
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Category</Text>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.inlineChips}
-                  >
-                    {CATEGORIES.filter((c) => c.key !== 'all').map((c) => {
-                      const key = c.key as Exclude<MarketCategory, 'all'>;
-                      const active = postCategory === key;
-                      return (
-                        <TouchableOpacity
-                          key={c.key}
-                          style={[styles.smallChip, active && styles.smallChipActive]}
-                          onPress={() => setPostCategory(key)}
-                          activeOpacity={0.85}
-                        >
-                          <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>
-                            {c.label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-
-                <View style={styles.field}>
-                  <Text style={styles.label}>Campus location</Text>
+                  <Text style={styles.label}>Meter Number</Text>
                   <TextInput
-                    value={postLocation}
-                    onChangeText={setPostLocation}
-                    placeholder="e.g., Science market, Hall 3..."
+                    value={meterNumber}
+                    onChangeText={setMeterNumber}
+                    placeholder="Enter meter number"
                     placeholderTextColor={COLORS.textTertiary}
                     style={styles.input}
                   />
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Phone number</Text>
+                  <Text style={styles.label}>Nickname (Optional)</Text>
                   <TextInput
-                    value={postPhone}
-                    onChangeText={setPostPhone}
-                    placeholder="Optional"
+                    value={meterNickname}
+                    onChangeText={setMeterNickname}
+                    placeholder="e.g., Hostel Room, Apartment"
                     placeholderTextColor={COLORS.textTertiary}
                     style={styles.input}
-                    keyboardType="phone-pad"
                   />
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.submitBtn, posting && styles.submitBtnDisabled]}
-                  onPress={submitPost}
-                  activeOpacity={0.9}
-                  disabled={posting}
+                  style={[styles.submitBtn, addingMeter ? styles.submitBtnDisabled : null]}
+                  onPress={submitAddMeter}
+                  activeOpacity={0.85}
+                  disabled={addingMeter}
                 >
-                  <Text style={styles.submitBtnText}>{posting ? 'Posting…' : 'List Item'}</Text>
+                  <Text style={styles.submitBtnText}>{addingMeter ? 'Adding...' : 'Add Meter'}</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      <Modal visible={topupOpen} transparent animationType="slide" onRequestClose={closeTopup}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Top Up Meter</Text>
+                <TouchableOpacity
+                  onPress={closeTopup}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <X size={20} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              {topupError ? <Text style={styles.modalError}>{topupError}</Text> : null}
+
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.modalBody}>
+                {selectedMeter ? (
+                  <View style={styles.meterPreview}>
+                    {getMeterIcon(selectedMeter.meter_type)}
+                    <View>
+                      <Text style={styles.previewLabel}>
+                        {selectedMeter.nickname || getMeterLabel(selectedMeter.meter_type)}
+                      </Text>
+                      <Text style={styles.previewNumber}>{selectedMeter.meter_number}</Text>
+                    </View>
+                  </View>
+                ) : null}
+
+                <View style={styles.field}>
+                  <Text style={styles.label}>Amount (₵)</Text>
+                  <TextInput
+                    value={topupAmount}
+                    onChangeText={setTopupAmount}
+                    placeholder="0.00"
+                    placeholderTextColor={COLORS.textTertiary}
+                    style={styles.input}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.submitBtn, processing ? styles.submitBtnDisabled : null]}
+                  onPress={submitTopup}
+                  activeOpacity={0.85}
+                  disabled={processing}
+                >
+                  <Text style={styles.submitBtnText}>{processing ? 'Processing...' : 'Top Up Now'}</Text>
                 </TouchableOpacity>
               </ScrollView>
             </View>
@@ -465,179 +485,184 @@ export default function UtilitiesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-
+  container: { flex: 1, backgroundColor: COLORS.background },
   header: {
-    backgroundColor: COLORS.white,
-    paddingTop: Platform.OS === 'ios' ? 56 : 48,
-    paddingBottom: SPACING.md,
     paddingHorizontal: SPACING.lg,
+    paddingTop: Platform.OS === 'ios' ? 56 : SPACING.lg,
+    paddingBottom: SPACING.md,
+    backgroundColor: COLORS.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-  searchRow: { flexDirection: 'row', gap: SPACING.sm, alignItems: 'center' },
-  searchBox: {
-    flex: 1,
-    backgroundColor: '#F3F4F6',
-    borderRadius: RADIUS.lg,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: Platform.OS === 'ios' ? SPACING.sm : SPACING.xs - 2,
+  backBtn: { width: 40, height: 40, justifyContent: 'center' },
+  headerCenter: { flex: 1 },
+  headerRight: { width: 40 },
+  title: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary },
+  subtitle: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+
+  content: { flex: 1 },
+  contentContainer: { padding: SPACING.lg },
+
+  section: { marginBottom: SPACING.xl },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  sectionTitle: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.textPrimary },
+
+  addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.xs,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: FONT.regular,
-    fontSize: 14,
-    color: COLORS.textPrimary,
-    paddingVertical: SPACING.xs,
-  },
-  addButton: {
-    width: 44,
-    height: 44,
-    borderRadius: RADIUS.lg,
     backgroundColor: COLORS.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-
-  categories: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    gap: SPACING.sm,
-    backgroundColor: COLORS.white,
-  },
-  categoryChip: {
     paddingVertical: SPACING.xs,
-    paddingHorizontal: SPACING.md,
+    paddingHorizontal: SPACING.sm,
     borderRadius: RADIUS.full,
-    backgroundColor: '#F3F4F6',
   },
-  categoryChipActive: { backgroundColor: '#16A34A' },
-  categoryText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary },
-  categoryTextActive: { color: COLORS.white },
+  addBtnText: { fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.white },
 
-  content: { flex: 1 },
-  contentContainer: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.md },
-
-  loadingBox: {
-    backgroundColor: COLORS.white,
+  stateBox: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
     borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    alignItems: 'center',
-    marginTop: SPACING.lg,
-  },
-  loadingText: { fontFamily: FONT.medium, fontSize: 14, color: COLORS.textSecondary },
-
-  emptyBox: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
+    padding: SPACING.lg,
     alignItems: 'center',
     gap: SPACING.sm,
-    marginTop: SPACING.lg,
   },
-  emptyTitle: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.textPrimary },
-  emptySubtitle: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
-  emptyBtn: {
+  stateText: { fontFamily: FONT.medium, fontSize: 14, color: COLORS.textSecondary },
+  stateTitle: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.textPrimary },
+  stateSubtitle: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  stateCta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: SPACING.xs,
     backgroundColor: COLORS.primary,
     borderRadius: RADIUS.full,
     paddingVertical: SPACING.sm,
     paddingHorizontal: SPACING.lg,
     marginTop: SPACING.xs,
   },
-  emptyBtnText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.white },
+  stateCtaText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.white },
 
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: SPACING.md,
+  meterCard: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
   },
-  card: {
-    width: CARD_WIDTH,
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
-  },
-  cardImage: {
-    width: '100%',
-    height: CARD_WIDTH,
-    position: 'relative',
-  },
-  imagePlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  favoriteBtn: {
-    position: 'absolute',
-    top: SPACING.sm,
-    right: SPACING.sm,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  conditionBadge: {
-    position: 'absolute',
-    bottom: SPACING.sm,
-    left: SPACING.sm,
-    backgroundColor: '#16A34A',
-    paddingHorizontal: SPACING.xs + 2,
-    paddingVertical: 3,
-    borderRadius: RADIUS.xs,
-  },
-  conditionText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 10,
-    color: COLORS.white,
-    textTransform: 'capitalize',
-  },
-
-  cardBody: { padding: SPACING.sm, gap: 4 },
-  cardTitle: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary, lineHeight: 18 },
-  priceRow: { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
-  cardPrice: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.textPrimary },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  locationText: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary, flex: 1 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  ratingText: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.textSecondary },
-
-  footerSpace: { height: 32 },
-
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalContainer: { flex: 1, justifyContent: 'flex-end' },
-  modalCard: {
-    backgroundColor: COLORS.white,
-    borderTopLeftRadius: RADIUS.xl,
-    borderTopRightRadius: RADIUS.xl,
-    paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.lg,
-    paddingBottom: SPACING.xl,
-    maxHeight: '92%',
-  },
-  modalHeader: {
+  meterTop: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: SPACING.md,
   },
-  modalTitle: { fontFamily: FONT.bold, fontSize: 17, color: COLORS.textPrimary },
-  modalError: { marginBottom: SPACING.sm, fontFamily: FONT.medium, fontSize: 13, color: COLORS.error },
+  meterLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flex: 1 },
+  meterIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.borderLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  meterInfo: { flex: 1 },
+  meterName: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary },
+  meterNumber: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  defaultBadge: {
+    backgroundColor: COLORS.primaryFaded,
+    paddingVertical: 4,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.xs,
+  },
+  defaultText: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.primary },
 
-  modalBody: { paddingTop: SPACING.xs },
-  field: { gap: 6, marginBottom: SPACING.md },
-  label: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textSecondary },
+  topupBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.sm,
+    borderRadius: RADIUS.md,
+  },
+  topupBtnText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.white },
+
+  topupCard: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  topupLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flex: 1 },
+  topupLabel: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary },
+  topupDate: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textSecondary, marginTop: 2 },
+  topupRight: { alignItems: 'flex-end', gap: 4 },
+  topupAmount: { fontFamily: FONT.bold, fontSize: 14, color: COLORS.textPrimary },
+  statusBadge: { paddingVertical: 2, paddingHorizontal: SPACING.xs, borderRadius: RADIUS.xs },
+  statusSuccess: { backgroundColor: '#D1FAE5' },
+  statusFailed: { backgroundColor: '#FEE2E2' },
+  statusPending: { backgroundColor: '#FEF3C7' },
+  statusText: { fontFamily: FONT.medium, fontSize: 10, textTransform: 'capitalize' },
+
+  footerSpace: { height: 28 },
+
+  modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
+  modalContainer: { flex: 1, justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.lg,
+    maxHeight: '80%',
+  },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  modalTitle: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.textPrimary },
+  modalError: { marginTop: SPACING.sm, fontFamily: FONT.medium, fontSize: 13, color: COLORS.error },
+
+  modalBody: { paddingTop: SPACING.md, paddingBottom: SPACING.lg, gap: SPACING.md },
+  field: { gap: 6 },
+  label: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary },
+
+  typeRow: { flexDirection: 'row', gap: SPACING.sm },
+  typeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.white,
+  },
+  typeBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  typeText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary },
+  typeTextActive: { color: COLORS.white },
+
   input: {
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: RADIUS.md,
+    borderRadius: RADIUS.lg,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
     fontFamily: FONT.regular,
@@ -645,28 +670,17 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     backgroundColor: COLORS.white,
   },
-  textArea: { minHeight: 80, textAlignVertical: 'top' },
 
-  row: { flexDirection: 'row', gap: SPACING.md },
-  rowItem: { flex: 1 },
-
-  inlineChips: { gap: SPACING.xs, paddingVertical: 2 },
-  smallChip: {
-    paddingVertical: 6,
-    paddingHorizontal: SPACING.sm,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.white,
+  meterPreview: {
+    backgroundColor: COLORS.borderLight,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
   },
-  smallChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
-  smallChipText: {
-    fontFamily: FONT.medium,
-    fontSize: 12,
-    color: COLORS.textSecondary,
-    textTransform: 'capitalize',
-  },
-  smallChipTextActive: { color: COLORS.white },
+  previewLabel: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary },
+  previewNumber: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
 
   submitBtn: {
     backgroundColor: COLORS.primary,

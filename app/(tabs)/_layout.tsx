@@ -62,7 +62,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen name="favourites" options={{ href: null }} />
-      <Tabs.Screen name="utilities" options={{ href: null }} />
+      <Tabs.Screen name="stumark" options={{ href: null }} />
     </Tabs>
   );
 }
