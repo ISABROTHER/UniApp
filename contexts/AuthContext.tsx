@@ -111,24 +111,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) return { error: error.message };
 
     if (data.user) {
-      const { error: profileError } = await supabase.from('members').insert({
-        id: data.user.id,
-        email,
-        phone: phone.trim(),
-        full_name: fullName,
-        role,
-        membership_status: 'active',
-      });
-      if (profileError) return { error: profileError.message };
+      const { data: existing } = await supabase
+        .from('members')
+        .select('id')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      if (existing) {
+        const { error: updateError } = await supabase.from('members').update({
+          email,
+          phone: phone.trim(),
+          full_name: fullName,
+          role,
+          membership_status: 'active',
+        }).eq('id', data.user.id);
+        if (updateError) return { error: updateError.message };
+      } else {
+        const { error: insertError } = await supabase.from('members').insert({
+          id: data.user.id,
+          email,
+          phone: phone.trim(),
+          full_name: fullName,
+          role,
+          membership_status: 'active',
+        });
+        if (insertError) return { error: insertError.message };
+      }
     }
 
     return { error: null };
   };
 
   const resetPassword = async (phone: string) => {
-    // Since we use synthetic emails that can't receive messages,
-    // password reset via email is disabled to prevent rate limit errors.
-    // Users should contact support for password resets.
     return {
       error: 'Password reset is not available via phone. Please contact support at support@studentnest.app for assistance.'
     };
