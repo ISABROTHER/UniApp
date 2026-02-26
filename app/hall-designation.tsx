@@ -1,239 +1,252 @@
 import { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Modal } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  RefreshControl, Platform, Animated, ActivityIndicator,
+} from 'react-native';
+import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { COLORS, FONT, SPACING, RADIUS, PAYSTACK_FEES } from '@/lib/constants';
-import { Hostel, HostelRoom } from '@/lib/types';
-import { ArrowLeft, Check, ShieldCheck, BedDouble, Users, CreditCard, User, Phone, Hash, AlertCircle } from 'lucide-react-native';
-import PaystackModal from '@/components/PaystackModal';
-import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
+import { useAuth } from '@/contexts/AuthContext';
+import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
+import {
+  Bell, Calendar, MessageCircle, AlertTriangle, Users,
+  Shield, Award, ShoppingBag, TrendingUp, Activity,
+  ChevronRight, Zap, CheckCircle2, Clock, MapPin,
+} from 'lucide-react-native';
 
-const YEAR_MONTHS = 12;
-
-function getOccupants(roomType: string): number {
-  const r = roomType.toLowerCase();
-  if (r.includes('self-contained') || r.includes('self contained') || r.includes('studio')) return 1;
-  if (r.includes('4') || r.includes('quad')) return 4;
-  if (r.includes('3') || r.includes('triple')) return 3;
-  if (r.includes('chamber') || r.includes('single')) return 1;
-  return 2;
+interface HallStats {
+  totalMembers: number;
+  residents: number;
+  affiliates: number;
+  unreadAnnouncements: number;
+  upcomingEvents: number;
+  pendingTasks: number;
+  activeElections: number;
 }
 
-function getDisplayName(roomType: string, occupants: number): string {
-  const r = roomType.toLowerCase();
-  if (r.includes('self-contained') || r.includes('self contained') || r.includes('studio')) return 'Self-Contained (1 Person)';
-  if (occupants === 1) return `${roomType} (1 Person)`;
-  return `${occupants} in a Room`;
+interface QuickStat {
+  label: string;
+  value: string | number;
+  icon: any;
+  color: string;
+  bgColor: string;
+  route?: string;
 }
 
-export default function BookScreen() {
+export default function MyHallScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const hostelId = (params.hostel_id || params.id) as string;
-  const roomId = params.room_id as string | undefined;
-
-  const [hostel, setHostel] = useState<Hostel | null>(null);
-  const [selectedRoom, setSelectedRoom] = useState<HostelRoom | null>(null);
-  const [step, setStep] = useState<'room' | 'pay'>('room');
-  const [fullName, setFullName] = useState('');
-  const [indexNumber, setIndexNumber] = useState('');
-  const [telephone, setTelephone] = useState('');
-  const [specialRequests, setSpecialRequests] = useState('');
+  const { session, member } = useAuth();
+  
+  const [hallInfo, setHallInfo] = useState<any>(null);
+  const [stats, setStats] = useState<HallStats>({
+    totalMembers: 0,
+    residents: 0,
+    affiliates: 0,
+    unreadAnnouncements: 0,
+    upcomingEvents: 0,
+    pendingTasks: 0,
+    activeElections: 0,
+  });
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
-  const [paymentVisible, setPaymentVisible] = useState(false);
-  const [pendingBookingId, setPendingBookingId] = useState<string | null>(null);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
-  const [utilityView, setUtilityView] = useState<'included' | 'not_included'>('included');
+  const [refreshing, setRefreshing] = useState(false);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const pulseAnim = useState(new Animated.Value(1))[0];
 
+  const userId = session?.user?.id || member?.id;
+
+  // Pulse animation for live indicator
   useEffect(() => {
-    if (hostelId) fetchHostel();
-  }, [hostelId]);
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.3,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [pulseAnim]);
 
-  const fetchHostel = async () => {
-    const { data } = await supabase.from('hostels').select('*, hostel_rooms(*), hostel_amenities(*)').eq('id', hostelId).maybeSingle();
-    if (data) {
-      const raw = data as any;
-      const mapped = { ...raw, rooms: raw.hostel_rooms || [], amenities: raw.hostel_amenities || [] };
-      setHostel(mapped as Hostel);
-      const rooms = raw.hostel_rooms || [];
-      if (roomId) {
-        const found = rooms.find((r: any) => r.id === roomId);
-        if (found) setSelectedRoom(found);
-        else if (rooms.length > 0) setSelectedRoom(rooms[0]);
-      } else if (rooms.length > 0) {
-        setSelectedRoom(rooms[0]);
+  // Main data fetching function
+  const fetchHallData = async (uid: string) => {
+    try {
+      const { data: memberData, error: memberError } = await supabase
+        .from('hall_members')
+        .select('hall_id, is_resident, halls(id, name)')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false }) // Get the most recent designation
+        .limit(1)
+        .maybeSingle();
+
+      if (memberError) {
+        throw memberError;
       }
-    }
-    setLoading(false);
-  };
 
-  useEffect(() => {
-    const prefill = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: member } = await supabase.from('members').select('full_name, phone, student_id').eq('id', user.id).maybeSingle();
-        if (member) {
-          if (member.full_name) setFullName(member.full_name);
-          if (member.phone) setTelephone(member.phone);
-          if (member.student_id) setIndexNumber(member.student_id);
-        }
+      if (!memberData?.hall_id || !memberData.halls) {
+        setHallInfo(null);
+        return;
       }
-    };
-    prefill();
-  }, []);
 
-  const occupants = useMemo(() => selectedRoom ? getOccupants(selectedRoom.room_type) : 1, [selectedRoom]);
-  const displayName = useMemo(() => selectedRoom ? getDisplayName(selectedRoom.room_type, occupants) : '', [selectedRoom, occupants]);
-  const totalYearPrice = useMemo(() => (selectedRoom?.price_per_month ?? 0) * YEAR_MONTHS, [selectedRoom]);
-  const perPersonYear = useMemo(() => occupants > 1 ? Math.round(totalYearPrice / occupants) : totalYearPrice, [totalYearPrice, occupants]);
-
-  const amenityNames = useMemo(() => (hostel?.amenities || []).map((a: any) => (a.amenity || '').toLowerCase()), [hostel?.amenities]);
-
-  const utilityInclusions = useMemo(() => {
-    const included: string[] = [];
-    const notIncluded: string[] = [];
-    if (amenityNames.some(a => a.includes('water') || a.includes('borehole'))) included.push('Water Supply');
-    else notIncluded.push('Water Supply');
-    if (amenityNames.some(a => a.includes('electricity'))) included.push('Electricity (24hr)');
-    else notIncluded.push('Electricity (24hr)');
-    if (amenityNames.some(a => a.includes('generator'))) included.push('Generator Backup');
-    else notIncluded.push('Generator Backup');
-    if (amenityNames.some(a => a.includes('wifi'))) included.push('Internet / WiFi');
-    else notIncluded.push('Internet / WiFi');
-    return { included, notIncluded };
-  }, [amenityNames]);
-
-  const calcPlatformFee = () => Math.round(perPersonYear * PAYSTACK_FEES.PLATFORM_FEE_PERCENT * 100) / 100;
-  const calcMomoFee = () => Math.min(
-    Math.round(perPersonYear * PAYSTACK_FEES.MOMO_PERCENT * 100) / 100,
-    PAYSTACK_FEES.MOMO_CAP_GHS
-  );
-  const calcGrandTotal = () => {
-    const total = perPersonYear + calcPlatformFee() + calcMomoFee();
-    return isNaN(total) ? 0 : parseFloat(total.toFixed(2));
-  };
-
-  const handleProceedToPay = () => {
-    setError('');
-    if (!selectedRoom) return setError('No room selected');
-    setStep('pay');
-  };
-
-  const handleBook = async () => {
-    setError('');
-    if (!fullName.trim()) return setError('Please enter your full name');
-    if (!indexNumber.trim()) return setError('Please enter your index number');
-    if (!telephone.trim()) return setError('Please enter your telephone number');
-
-    setSubmitting(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setError('Please sign in to book'); setSubmitting(false); return; }
-
-    const qrCode = `STNEST-${Date.now()}-${user.id.slice(0, 8)}`;
-    const today = new Date().toISOString().split('T')[0];
-    const yearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-
-    const { data: bookingData, error: bookError } = await supabase.from('bookings').insert({
-      hostel_id: hostelId,
-      room_id: selectedRoom!.id,
-      user_id: user.id,
-      check_in_date: today,
-      check_out_date: yearLater,
-      nights: 365,
-      total_price: calcGrandTotal(),
-      special_requests: specialRequests || null,
-      status: 'pending',
-      qr_code: qrCode,
-      payment_status: 'unpaid',
-      platform_fee: calcPlatformFee(),
-      processing_fee: calcMomoFee(),
-    }).select().single();
-
-    setSubmitting(false);
-    if (bookError) return setError(bookError.message);
-
-    setPendingBookingId(bookingData.id);
-    setPaymentVisible(true);
-  };
-
-  const handlePaymentSuccess = async (ref: string) => {
-    setPaymentVisible(false);
-    if (!pendingBookingId) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    await supabase.from('bookings').update({
-      status: 'pending',
-      payment_status: 'paid',
-      payment_reference: ref,
-      paid_at: new Date().toISOString(),
-    }).eq('id', pendingBookingId);
-
-    if (user) {
-      await supabase.from('notifications').insert({
-        user_id: user.id,
-        type: 'booking_confirmed',
-        title: 'Booking Submitted',
-        message: `Your booking at ${hostel?.name} is pending confirmation.`,
+      const hallData = Array.isArray(memberData.halls) ? memberData.halls[0] : memberData.halls;
+      
+      setHallInfo({
+        id: hallData?.id || memberData.hall_id,
+        name: hallData?.name || 'My Hall',
+        isResident: memberData.is_resident,
       });
+
+      // Fetch hall statistics
+      const [membersRes, announcementsRes, eventsRes] = await Promise.all([
+        supabase
+          .from('hall_members')
+          .select('is_resident', { count: 'exact' })
+          .eq('hall_id', memberData.hall_id),
+        supabase
+          .from('hall_posts')
+          .select('id, created_at, title, post_type, priority')
+          .eq('hall_id', memberData.hall_id)
+          .order('created_at', { ascending: false })
+          .limit(5),
+        supabase
+          .from('hall_events')
+          .select('id, title, event_date', { count: 'exact' })
+          .eq('hall_id', memberData.hall_id)
+          .gte('event_date', new Date().toISOString()),
+      ]);
+
+      const totalMembers = membersRes.count || membersRes.data?.length || 0;
+      const residents = membersRes.data?.filter(m => m.is_resident).length || 0;
+
+      setStats({
+        totalMembers,
+        residents,
+        affiliates: totalMembers - residents,
+        unreadAnnouncements: announcementsRes.data?.length || 0,
+        upcomingEvents: eventsRes.count || eventsRes.data?.length || 0,
+        pendingTasks: 0,
+        activeElections: 0,
+      });
+
+      setRecentActivity(announcementsRes.data || []);
+      
+    } catch (error) {
+      console.error('Error fetching hall data:', error);
+    }
+  };
+
+  // Lifecycle Hook: Load Data
+  useEffect(() => {
+    let isMounted = true;
+
+    if (userId) {
+      setLoading(true);
+      fetchHallData(userId).finally(() => {
+        if (isMounted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      });
+    } else {
+      // If auth isn't ready instantly, give it a moment before showing "No Hall"
+      const timer = setTimeout(() => {
+        if (isMounted) setLoading(false);
+      }, 1000);
+      return () => clearTimeout(timer);
     }
 
-    setSuccess(true);
+    return () => { isMounted = false; };
+  }, [userId]);
+
+  // Lifecycle Hook: Setup Realtime Subscriptions properly
+  useEffect(() => {
+    if (!hallInfo?.id || !userId) return;
+
+    const channelName = `hall_updates_${hallInfo.id}`;
+    
+    const channel = supabase.channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hall_posts', filter: `hall_id=eq.${hallInfo.id}` }, () => {
+        fetchHallData(userId);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hall_events', filter: `hall_id=eq.${hallInfo.id}` }, () => {
+        fetchHallData(userId);
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'hall_members', filter: `hall_id=eq.${hallInfo.id}` }, () => {
+        fetchHallData(userId);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [hallInfo?.id, userId]);
+
+  const handleRefresh = () => {
+    if (!userId) return;
+    setRefreshing(true);
+    fetchHallData(userId).finally(() => setRefreshing(false));
   };
 
-  const handlePaymentClose = () => {
-    setPaymentVisible(false);
-    if (pendingBookingId) {
-      setShowCancelConfirm(true);
-    }
-  };
-
-  const confirmCancelBooking = async () => {
-    if (pendingBookingId) {
-      await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', pendingBookingId);
-      setPendingBookingId(null);
-    }
-    setShowCancelConfirm(false);
-  };
-
-  const resumePayment = () => {
-    setShowCancelConfirm(false);
-    setPaymentVisible(true);
-  };
+  const quickStats: QuickStat[] = [
+    {
+      label: 'Announcements',
+      value: stats.unreadAnnouncements,
+      icon: Bell,
+      color: COLORS.primary,
+      bgColor: '#FEE2E2',
+      route: '/hall/announcements',
+    },
+    {
+      label: 'Events',
+      value: stats.upcomingEvents,
+      icon: Calendar,
+      color: '#10B981',
+      bgColor: '#D1FAE5',
+      route: '/hall/events',
+    },
+    {
+      label: 'Messages',
+      value: '3',
+      icon: MessageCircle,
+      color: '#3B82F6',
+      bgColor: '#DBEAFE',
+      route: '/hall/messages',
+    },
+    {
+      label: 'Services',
+      value: '8',
+      icon: ShoppingBag,
+      color: '#F59E0B',
+      bgColor: '#FEF3C7',
+      route: '/hall/services',
+    },
+  ];
 
   if (loading) {
-    return <View style={styles.container}><Text style={styles.loadingText}>Loading...</Text></View>;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={styles.loadingText}>Loading hall...</Text>
+      </View>
+    );
   }
 
-  if (success) {
+  if (!hallInfo) {
     return (
-      <View style={styles.successContainer}>
-        <View style={styles.successIcon}>
-          <Check size={40} color={COLORS.white} />
-        </View>
-        <Text style={styles.successTitle}>Payment Successful!</Text>
-        <Text style={styles.successText}>
-          Your payment for {hostel?.name} has been received and is currently being processed by the property owner. You will receive a confirmation notification with your official move-in date and further instructions once acknowledged.
-        </Text>
-
-        <View style={styles.strictWarningBox}>
-          <AlertCircle size={24} color={COLORS.error} />
-          <Text style={styles.strictWarningText}>
-            <Text style={{ fontFamily: FONT.bold }}>STRICT REQUIREMENT: </Text>
-            You are required to provide a valid Student ID along with your booking QR code upon moving in. Entry may be denied without it.
-          </Text>
-        </View>
-
-        {hostel?.verified && (
-          <View style={styles.successProtectedRow}>
-            <ShieldCheck size={16} color={COLORS.success} />
-            <Text style={styles.successProtectedText}>This booking is protected by StudentNest</Text>
-          </View>
-        )}
-        <TouchableOpacity style={styles.successBtn} onPress={() => router.replace('/(tabs)/bookings' as any)}>
-          <Text style={styles.successBtnText}>View My Bookings</Text>
+      <View style={styles.emptyContainer}>
+        <Users size={64} color={COLORS.border} />
+        <Text style={styles.emptyTitle}>No Hall Assigned</Text>
+        <Text style={styles.emptyText}>Register to your hall to access official announcements and events</Text>
+        <TouchableOpacity 
+          style={styles.registerBtn}
+          onPress={() => router.push('/hall-designation' as any)}
+          activeOpacity={0.8}
+        >
+          <Shield size={18} color={COLORS.white} />
+          <Text style={styles.registerBtnText}>Register to Hall</Text>
         </TouchableOpacity>
       </View>
     );
@@ -241,594 +254,605 @@ export default function BookScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => {
-          if (step === 'pay') { setStep('room'); setError(''); }
-          else router.back();
-        }}>
-          <ArrowLeft size={22} color={COLORS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{step === 'room' ? 'Book a Room' : 'Proceed to Pay'}</Text>
-        {hostel?.verified && <ProtectedBookingBadge compact />}
+        <View style={styles.headerTop}>
+          <View>
+            <Text style={styles.headerGreeting}>My Hall</Text>
+            <Text style={styles.headerHallName}>{hallInfo.name}</Text>
+          </View>
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/hall-designation' as any)}>
+            <Shield size={22} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Live Stats Banner */}
+        <View style={styles.liveStatsBanner}>
+          <View style={styles.liveIndicator}>
+            <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
+            <Text style={styles.liveText}>Live Updates</Text>
+          </View>
+          <View style={styles.statsRow}>
+            <View style={styles.miniStat}>
+              <Text style={styles.miniStatValue}>{stats.totalMembers}</Text>
+              <Text style={styles.miniStatLabel}>Members</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.miniStat}>
+              <Text style={styles.miniStatValue}>{stats.residents}</Text>
+              <Text style={styles.miniStatLabel}>Residents</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.miniStat}>
+              <Text style={styles.miniStatValue}>{stats.affiliates}</Text>
+              <Text style={styles.miniStatLabel}>Affiliates</Text>
+            </View>
+          </View>
+        </View>
       </View>
 
-      <View style={styles.stepIndicator}>
-        <View style={[styles.stepDot, styles.stepDotActive]} />
-        <View style={[styles.stepLine, step === 'pay' && styles.stepLineActive]} />
-        <View style={[styles.stepDot, step === 'pay' && styles.stepDotActive]} />
-      </View>
-
-      {step === 'room' && (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-          <View style={styles.hostelCard}>
-            <Text style={styles.hostelName}>{hostel?.name}</Text>
-            <Text style={styles.hostelAddr}>{hostel?.campus_proximity}</Text>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />
+        }
+      >
+        {/* Quick Actions Grid */}
+        <View style={styles.quickActionsSection}>
+          <Text style={styles.sectionTitle}>Quick Access</Text>
+          <View style={styles.quickActionsGrid}>
+            {quickStats.map((stat, index) => {
+              const Icon = stat.icon;
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.quickActionCard}
+                  onPress={() => stat.route && router.push(stat.route as any)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.quickActionIcon, { backgroundColor: stat.bgColor }]}>
+                    <Icon size={24} color={stat.color} />
+                  </View>
+                  <Text style={styles.quickActionValue}>{stat.value}</Text>
+                  <Text style={styles.quickActionLabel}>{stat.label}</Text>
+                  {typeof stat.value === 'number' && stat.value > 0 && (
+                    <View style={[styles.badge, { backgroundColor: stat.color }]}>
+                      <Text style={styles.badgeText}>{stat.value}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
+        </View>
 
-          {selectedRoom && (
-            <View style={styles.selectedRoomCard}>
-              <View style={styles.selectedRoomHeader}>
-                <BedDouble size={18} color={COLORS.primary} />
-                <Text style={styles.selectedRoomTitle}>Selected Room</Text>
-              </View>
-              <View style={styles.selectedRoomBody}>
-                <Text style={styles.selectedRoomName}>{displayName}</Text>
-                <View style={styles.selectedRoomPriceRow}>
-                  <Text style={styles.selectedRoomPrice}>GH₵{totalYearPrice.toLocaleString()}</Text>
-                  <Text style={styles.selectedRoomPriceSub}>/year</Text>
-                </View>
-                {occupants > 1 && (
-                  <View style={styles.selectedRoomSplitRow}>
-                    <Users size={14} color={COLORS.primary} />
-                    <Text style={styles.selectedRoomSplit}>GH₵{perPersonYear.toLocaleString()} per person ({occupants} occupants)</Text>
-                  </View>
-                )}
-                {selectedRoom.available_count > 0 && (
-                  <Text style={styles.selectedRoomAvail}>{selectedRoom.available_count} of {selectedRoom.total_count} available</Text>
-                )}
-              </View>
-            </View>
-          )}
-
-          <View style={styles.utilitiesCard}>
-            <View style={styles.utilitiesHeader}>
-              <CreditCard size={18} color={COLORS.primary} />
-              <Text style={styles.utilitiesTitle}>What's in the Rent</Text>
-            </View>
-            <View style={styles.utilityToggleRow}>
-              <TouchableOpacity
-                style={[styles.utilityToggleBtn, utilityView === 'included' && styles.utilityToggleBtnActive]}
-                onPress={() => setUtilityView('included')}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.utilityToggleBtnText, utilityView === 'included' && styles.utilityToggleBtnTextActive]}>Included</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.utilityToggleBtn, utilityView === 'not_included' && styles.utilityToggleBtnActiveRed]}
-                onPress={() => setUtilityView('not_included')}
-                activeOpacity={0.85}
-              >
-                <Text style={[styles.utilityToggleBtnText, utilityView === 'not_included' && styles.utilityToggleBtnTextActiveRed]}>Not Included</Text>
-              </TouchableOpacity>
-            </View>
-            {utilityView === 'included' && (
-              utilityInclusions.included.length > 0 ? (
-                utilityInclusions.included.map((item, idx) => (
-                  <View key={idx} style={styles.utilityRow}>
-                    <View style={styles.utilityDotGreen} />
-                    <Text style={styles.utilityTextGreen}>{item}</Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.utilityEmpty}>No utilities confirmed as included</Text>
-              )
-            )}
-            {utilityView === 'not_included' && (
-              utilityInclusions.notIncluded.length > 0 ? (
-                utilityInclusions.notIncluded.map((item, idx) => (
-                  <View key={idx} style={styles.utilityRow}>
-                    <View style={styles.utilityDotGrey} />
-                    <Text style={styles.utilityTextGrey}>{item}</Text>
-                  </View>
-                ))
-              ) : (
-                <Text style={styles.utilityEmpty}>All utilities are included in the rent</Text>
-              )
-            )}
-          </View>
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-          <TouchableOpacity
-            style={styles.proceedBtn}
-            onPress={handleProceedToPay}
+        {/* Main Navigation Cards */}
+        <View style={styles.mainCardsSection}>
+          <TouchableOpacity 
+            style={[styles.mainCard, styles.mainCardPrimary]}
+            onPress={() => router.push('/hall/jcrc-executives' as any)}
             activeOpacity={0.8}
           >
-            <Text style={styles.proceedBtnText}>Proceed to Pay</Text>
+            <View style={styles.mainCardHeader}>
+              <View style={styles.mainCardIconWrap}>
+                <Award size={28} color={COLORS.primary} />
+              </View>
+              <ChevronRight size={20} color={COLORS.white} />
+            </View>
+            <Text style={styles.mainCardTitle}>JCRC Executives</Text>
+            <Text style={styles.mainCardSubtitle}>View hall leadership & send messages</Text>
+            <View style={styles.mainCardFooter}>
+              <Users size={14} color={COLORS.white} />
+              <Text style={styles.mainCardFooterText}>12 Executive Members</Text>
+            </View>
           </TouchableOpacity>
-          <View style={{ height: 24 }} />
-        </ScrollView>
-      )}
 
-      {step === 'pay' && (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-          <View style={styles.payInfoCard}>
-            <Text style={styles.payInfoTitle}>Your Details</Text>
-
-            <View style={styles.inputGroup}>
-              <View style={styles.inputWrap}>
-                <User size={16} color={COLORS.textTertiary} />
-                <TextInput
-                  style={styles.input}
-                  value={fullName}
-                  onChangeText={(v) => { setFullName(v); setError(''); }}
-                  placeholder="Full Name"
-                  placeholderTextColor={COLORS.textTertiary}
-                  autoCapitalize="words"
-                />
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <View style={styles.inputWrap}>
-                <Hash size={16} color={COLORS.textTertiary} />
-                <TextInput
-                  style={styles.input}
-                  value={indexNumber}
-                  onChangeText={(v) => { setIndexNumber(v); setError(''); }}
-                  placeholder="Index Number"
-                  placeholderTextColor={COLORS.textTertiary}
-                  autoCapitalize="characters"
-                />
-              </View>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <View style={styles.inputWrap}>
-                <Phone size={16} color={COLORS.textTertiary} />
-                <TextInput
-                  style={styles.input}
-                  value={telephone}
-                  onChangeText={(v) => { setTelephone(v); setError(''); }}
-                  placeholder="Telephone"
-                  placeholderTextColor={COLORS.textTertiary}
-                  keyboardType="phone-pad"
-                />
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>Price Summary</Text>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>{displayName}</Text>
-              <Text style={styles.summaryValue}>GH₵{perPersonYear.toLocaleString()}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Platform fee</Text>
-              <Text style={styles.summaryValue}>GH₵{calcPlatformFee().toFixed(2)}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Processing fee</Text>
-              <Text style={styles.summaryValue}>GH₵{calcMomoFee().toFixed(2)}</Text>
-            </View>
-            <View style={styles.summaryDivider} />
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryTotal}>Total</Text>
-              <Text style={styles.summaryTotalValue}>GH₵{calcGrandTotal().toFixed(2)}</Text>
-            </View>
-          </View>
-
-          <Text style={styles.sectionTitle}>Special Requests (optional)</Text>
-          <TextInput
-            style={styles.requestInput}
-            value={specialRequests}
-            onChangeText={setSpecialRequests}
-            placeholder="Any specific requirements..."
-            placeholderTextColor={COLORS.textTertiary}
-            multiline
-            numberOfLines={3}
-          />
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
-          {hostel?.verified && (
-            <View style={styles.protectedRow}>
-              <ProtectedBookingBadge />
-            </View>
-          )}
-
-          <TouchableOpacity
-            style={[styles.proceedBtn, submitting && styles.proceedBtnDisabled]}
-            onPress={handleBook}
-            disabled={submitting}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.proceedBtnText}>
-              {submitting ? 'Processing...' : `Pay GH₵${calcGrandTotal().toFixed(2)}`}
-            </Text>
-          </TouchableOpacity>
-          <View style={{ height: 24 }} />
-        </ScrollView>
-      )}
-
-      <PaystackModal
-        visible={paymentVisible}
-        amount={calcGrandTotal()}
-        label={`Booking — ${hostel?.name ?? ''}`}
-        onSuccess={handlePaymentSuccess}
-        onClose={handlePaymentClose}
-      />
-
-      <Modal transparent visible={showCancelConfirm} animationType="fade">
-        <View style={styles.confirmOverlay}>
-          <View style={styles.confirmCard}>
-            <Text style={styles.confirmTitle}>Cancel Booking?</Text>
-            <Text style={styles.confirmText}>
-              Your booking has not been paid yet. Would you like to resume payment or cancel the booking?
-            </Text>
-            <TouchableOpacity style={styles.confirmResumeBtn} onPress={resumePayment}>
-              <Text style={styles.confirmResumeBtnText}>Resume Payment</Text>
+          <View style={styles.mainCardsRow}>
+            <TouchableOpacity 
+              style={[styles.mainCardSmall, { backgroundColor: '#10B981' }]}
+              onPress={() => router.push('/hall/events' as any)}
+              activeOpacity={0.8}
+            >
+              <Calendar size={24} color={COLORS.white} />
+              <Text style={styles.mainCardSmallTitle}>Events</Text>
+              <Text style={styles.mainCardSmallValue}>{stats.upcomingEvents} Upcoming</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.confirmCancelBtn} onPress={confirmCancelBooking}>
-              <Text style={styles.confirmCancelBtnText}>Cancel Booking</Text>
+
+            <TouchableOpacity 
+              style={[styles.mainCardSmall, { backgroundColor: '#3B82F6' }]}
+              onPress={() => router.push('/hall/services' as any)}
+              activeOpacity={0.8}
+            >
+              <ShoppingBag size={24} color={COLORS.white} />
+              <Text style={styles.mainCardSmallTitle}>Services</Text>
+              <Text style={styles.mainCardSmallValue}>Exercise Books & More</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </Modal>
+
+        {/* Recent Activity Feed */}
+        <View style={styles.activitySection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Activity</Text>
+            <TouchableOpacity onPress={() => router.push('/hall/announcements' as any)}>
+              <Text style={styles.seeAllText}>See All</Text>
+            </TouchableOpacity>
+          </View>
+
+          {recentActivity.length === 0 ? (
+            <View style={styles.emptyActivity}>
+              <Bell size={32} color={COLORS.border} />
+              <Text style={styles.emptyActivityText}>No recent activity</Text>
+            </View>
+          ) : (
+            recentActivity.map((activity) => (
+              <TouchableOpacity
+                key={activity.id}
+                style={styles.activityCard}
+                onPress={() => router.push(`/hall/post/${activity.id}` as any)}
+                activeOpacity={0.8}
+              >
+                <View style={[
+                  styles.activityIcon,
+                  activity.post_type === 'announcement' && { backgroundColor: '#FEE2E2' },
+                  activity.post_type === 'event' && { backgroundColor: '#D1FAE5' },
+                ]}>
+                  {activity.post_type === 'announcement' ? (
+                    <Bell size={16} color={COLORS.primary} />
+                  ) : (
+                    <Calendar size={16} color="#10B981" />
+                  )}
+                </View>
+                <View style={styles.activityContent}>
+                  <Text style={styles.activityTitle} numberOfLines={1}>{activity.title}</Text>
+                  <Text style={styles.activityTime}>{formatTime(activity.created_at)}</Text>
+                </View>
+                {activity.priority === 'urgent' && (
+                  <View style={styles.urgentBadge}>
+                    <Zap size={12} color={COLORS.error} fill={COLORS.error} />
+                  </View>
+                )}
+                <ChevronRight size={18} color={COLORS.textTertiary} />
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+
+        {/* Hall Infographic/Overview */}
+        <View style={styles.infographicSection}>
+          <Text style={styles.sectionTitle}>Hall Overview</Text>
+          <View style={styles.infographicCard}>
+            <View style={styles.infographicRow}>
+              <View style={styles.infographicItem}>
+                <TrendingUp size={20} color="#10B981" />
+                <Text style={styles.infographicValue}>87%</Text>
+                <Text style={styles.infographicLabel}>Occupancy</Text>
+              </View>
+              <View style={styles.infographicItem}>
+                <Activity size={20} color="#3B82F6" />
+                <Text style={styles.infographicValue}>45</Text>
+                <Text style={styles.infographicLabel}>Events This Sem</Text>
+              </View>
+              <View style={styles.infographicItem}>
+                <CheckCircle2 size={20} color="#F59E0B" />
+                <Text style={styles.infographicValue}>92%</Text>
+                <Text style={styles.infographicLabel}>Task Completion</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
     </View>
   );
 }
 
+function formatTime(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  
+  if (hours < 1) return 'Just now';
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return date.toLocaleDateString();
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    backgroundColor: COLORS.white,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'web' ? 20 : 56,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.md,
-    gap: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
   },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontFamily: FONT.heading, fontSize: 18, color: COLORS.textPrimary, flex: 1 },
-  loadingText: { textAlign: 'center', marginTop: 100, fontFamily: FONT.regular, fontSize: 15, color: COLORS.textSecondary },
-
-  stepIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
-    paddingVertical: SPACING.md,
-    backgroundColor: COLORS.white,
-    gap: 0,
-  },
-  stepDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: COLORS.border,
-  },
-  stepDotActive: {
-    backgroundColor: COLORS.primary,
-  },
-  stepLine: {
-    width: 60,
-    height: 3,
-    backgroundColor: COLORS.border,
-  },
-  stepLineActive: {
-    backgroundColor: COLORS.primary,
-  },
-
-  content: { padding: SPACING.md },
-
-  hostelCard: { backgroundColor: COLORS.navy, borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md },
-  hostelName: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.white, marginBottom: 4 },
-  hostelAddr: { fontFamily: FONT.regular, fontSize: 13, color: 'rgba(255,255,255,0.7)' },
-
-  selectedRoomCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    borderWidth: 1.5,
-    borderColor: COLORS.primary,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  selectedRoomHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: SPACING.sm,
+    backgroundColor: '#F8F9FA',
+    gap: SPACING.md,
   },
-  selectedRoomTitle: {
-    fontFamily: FONT.semiBold,
-    fontSize: 14,
-    color: COLORS.primary,
-  },
-  selectedRoomBody: { gap: 4 },
-  selectedRoomName: {
-    fontFamily: FONT.semiBold,
-    fontSize: 16,
-    color: COLORS.textPrimary,
-  },
-  selectedRoomPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 2,
-  },
-  selectedRoomPrice: {
-    fontFamily: FONT.semiBold,
-    fontSize: 16,
-    color: COLORS.primary,
-  },
-  selectedRoomPriceSub: {
+  loadingText: {
     fontFamily: FONT.regular,
-    fontSize: 12,
-    color: COLORS.textTertiary,
-  },
-  selectedRoomSplitRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 2,
-  },
-  selectedRoomSplit: {
-    fontFamily: FONT.medium,
-    fontSize: 13,
-    color: COLORS.primary,
-  },
-  selectedRoomAvail: {
-    fontFamily: FONT.medium,
-    fontSize: 12,
-    color: COLORS.success,
-    marginTop: 4,
-  },
-
-  utilitiesCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  utilitiesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: SPACING.sm,
-  },
-  utilitiesTitle: {
-    fontFamily: FONT.semiBold,
     fontSize: 14,
-    color: COLORS.textPrimary,
-  },
-  utilityToggleRow: {
-    flexDirection: 'row',
-    marginBottom: SPACING.sm,
-    borderRadius: RADIUS.sm,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
-  },
-  utilityToggleBtn: {
-    flex: 1,
-    paddingVertical: 9,
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-  },
-  utilityToggleBtnActive: {
-    backgroundColor: COLORS.success,
-  },
-  utilityToggleBtnActiveRed: {
-    backgroundColor: COLORS.error,
-  },
-  utilityToggleBtnText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 13,
     color: COLORS.textSecondary,
   },
-  utilityToggleBtnTextActive: {
-    color: COLORS.white,
-  },
-  utilityToggleBtnTextActiveRed: {
-    color: COLORS.white,
-  },
-  utilityRow: {
-    flexDirection: 'row',
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 7,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
-    gap: 8,
+    backgroundColor: '#F8F9FA',
+    padding: SPACING.xl,
   },
-  utilityDotGreen: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.success,
-  },
-  utilityTextGreen: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
+  emptyTitle: {
+    fontFamily: FONT.heading,
+    fontSize: 20,
     color: COLORS.textPrimary,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
   },
-  utilityDotGrey: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.textTertiary,
-  },
-  utilityTextGrey: {
+  emptyText: {
     fontFamily: FONT.regular,
-    fontSize: 13,
-    color: COLORS.textTertiary,
-  },
-  utilityEmpty: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
-    color: COLORS.textTertiary,
-    fontStyle: 'italic',
+    fontSize: 14,
+    color: COLORS.textSecondary,
     textAlign: 'center',
-    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.lg,
   },
-
-  payInfoCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  payInfoTitle: {
-    fontFamily: FONT.semiBold,
-    fontSize: 16,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.md,
-  },
-  inputGroup: {
-    marginBottom: SPACING.sm + 2,
-  },
-  inputWrap: {
+  registerBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8F8F8',
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: '#ECECEC',
-    height: 48,
-    paddingHorizontal: SPACING.sm + 4,
-    gap: SPACING.sm,
-  },
-  input: {
-    flex: 1,
-    fontFamily: FONT.regular,
-    fontSize: 14,
-    color: COLORS.textPrimary,
-    height: '100%',
-  },
-
-  summaryCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.borderLight,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  summaryTitle: {
-    fontFamily: FONT.semiBold,
-    fontSize: 15,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 5,
-  },
-  summaryLabel: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
-    color: COLORS.textSecondary,
-  },
-  summaryValue: {
-    fontFamily: FONT.medium,
-    fontSize: 13,
-    color: COLORS.textPrimary,
-  },
-  summaryDivider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: SPACING.sm,
-  },
-  summaryTotal: {
-    fontFamily: FONT.semiBold,
-    fontSize: 15,
-    color: COLORS.textPrimary,
-  },
-  summaryTotalValue: {
-    fontFamily: FONT.bold,
-    fontSize: 15,
-    color: COLORS.primary,
-  },
-
-  sectionTitle: { fontFamily: FONT.heading, fontSize: 16, color: COLORS.textPrimary, marginBottom: SPACING.sm, marginTop: SPACING.sm },
-
-  requestInput: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: SPACING.md,
-    fontFamily: FONT.regular,
-    fontSize: 14,
-    color: COLORS.textPrimary,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    marginBottom: SPACING.md,
-  },
-
-  errorText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.error, marginBottom: SPACING.sm },
-  protectedRow: { marginBottom: SPACING.md },
-
-  proceedBtn: {
+    gap: 8,
     backgroundColor: COLORS.primary,
-    borderRadius: RADIUS.md,
-    paddingVertical: 16,
-    alignItems: 'center',
-    elevation: 3,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 24,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+    elevation: 4,
   },
-  proceedBtnDisabled: { opacity: 0.6 },
-  proceedBtnText: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.white },
-
-  successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl, backgroundColor: COLORS.background },
-  successIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.success, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.lg },
-  successTitle: { fontFamily: FONT.headingBold, fontSize: 26, color: COLORS.textPrimary, marginBottom: SPACING.sm, textAlign: 'center' },
-  successText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.lg },
-  
-  strictWarningBox: {
+  registerBtnText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 15,
+    color: COLORS.white,
+  },
+  header: {
+    backgroundColor: COLORS.white,
+    paddingTop: Platform.OS === 'web' ? 20 : 56,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  headerTop: {
     flexDirection: 'row',
-    backgroundColor: `${COLORS.error}10`,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: `${COLORS.error}30`,
+    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    gap: SPACING.sm,
-    width: '100%',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.md,
   },
-  strictWarningText: {
-    flex: 1,
+  headerGreeting: {
     fontFamily: FONT.regular,
     fontSize: 13,
-    color: COLORS.error,
-    lineHeight: 20,
+    color: COLORS.textSecondary,
+    marginBottom: 4,
   },
-
-  successProtectedRow: {
+  headerHallName: {
+    fontFamily: FONT.headingBold,
+    fontSize: 26,
+    color: COLORS.primary,
+  },
+  settingsBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: COLORS.primaryFaded,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  liveStatsBanner: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+  },
+  liveIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
-    backgroundColor: COLORS.successLight,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.full,
-    marginBottom: SPACING.lg,
+    gap: 6,
+    marginBottom: SPACING.sm,
   },
-  successProtectedText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.success },
-  successBtn: { backgroundColor: COLORS.primary, paddingHorizontal: SPACING.xl, paddingVertical: 14, borderRadius: RADIUS.md },
-  successBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
-
-  confirmOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: SPACING.lg },
-  confirmCard: { backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.lg, width: '100%', maxWidth: 360 },
-  confirmTitle: { fontFamily: FONT.headingBold, fontSize: 20, color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  confirmText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, lineHeight: 22, marginBottom: SPACING.lg },
-  confirmResumeBtn: { backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: 14, alignItems: 'center', marginBottom: SPACING.sm },
-  confirmResumeBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
-  confirmCancelBtn: { borderWidth: 1.5, borderColor: COLORS.error, borderRadius: RADIUS.md, paddingVertical: 14, alignItems: 'center' },
-  confirmCancelBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.error },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  liveText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 11,
+    color: '#10B981',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  miniStat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  miniStatValue: {
+    fontFamily: FONT.bold,
+    fontSize: 20,
+    color: COLORS.textPrimary,
+  },
+  miniStatLabel: {
+    fontFamily: FONT.regular,
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  statDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: COLORS.border,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  quickActionsSection: {
+    padding: SPACING.md,
+  },
+  sectionTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 17,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  quickActionCard: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    alignItems: 'center',
+    position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  quickActionValue: {
+    fontFamily: FONT.bold,
+    fontSize: 20,
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  quickActionLabel: {
+    fontFamily: FONT.medium,
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    fontFamily: FONT.bold,
+    fontSize: 11,
+    color: COLORS.white,
+  },
+  mainCardsSection: {
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  mainCard: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.lg,
+    marginBottom: SPACING.sm,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  mainCardPrimary: {
+    backgroundColor: COLORS.primary,
+  },
+  mainCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  mainCardIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  mainCardTitle: {
+    fontFamily: FONT.headingBold,
+    fontSize: 22,
+    color: COLORS.white,
+    marginBottom: 4,
+  },
+  mainCardSubtitle: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: SPACING.md,
+  },
+  mainCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  mainCardFooterText: {
+    fontFamily: FONT.medium,
+    fontSize: 12,
+    color: COLORS.white,
+  },
+  mainCardsRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  mainCardSmall: {
+    flex: 1,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  mainCardSmallTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 14,
+    color: COLORS.white,
+    marginTop: SPACING.sm,
+    marginBottom: 4,
+  },
+  mainCardSmallValue: {
+    fontFamily: FONT.medium,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.9)',
+  },
+  activitySection: {
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  seeAllText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 13,
+    color: COLORS.primary,
+  },
+  emptyActivity: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xl,
+    alignItems: 'center',
+  },
+  emptyActivityText: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: SPACING.sm,
+  },
+  activityCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.xs,
+    gap: SPACING.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  activityIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activityContent: {
+    flex: 1,
+  },
+  activityTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  activityTime: {
+    fontFamily: FONT.regular,
+    fontSize: 11,
+    color: COLORS.textTertiary,
+  },
+  urgentBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  infographicSection: {
+    paddingHorizontal: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  infographicCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  infographicRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  infographicItem: {
+    alignItems: 'center',
+  },
+  infographicValue: {
+    fontFamily: FONT.bold,
+    fontSize: 24,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.sm,
+    marginBottom: 4,
+  },
+  infographicLabel: {
+    fontFamily: FONT.regular,
+    fontSize: 11,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
 });
