@@ -1,7 +1,7 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
-  RefreshControl, Modal, Animated, Share,
+  RefreshControl, Modal, Animated, Share, FlatList, ActivityIndicator,
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -27,18 +27,131 @@ function StatusBadge({ status }: { status: string }) {
 
 const TABS = ['All', 'Pending', 'Confirmed', 'Checked In', 'Completed', 'Cancelled'];
 
+const STATUS_MAP: Record<string, Booking['status']> = {
+  'Pending': 'pending',
+  'Confirmed': 'confirmed',
+  'Checked In': 'checked_in',
+  'Completed': 'completed',
+  'Cancelled': 'cancelled',
+};
+
+interface BookingWithHostel extends Booking {
+  hostels: {
+    name: string;
+    address?: string;
+    campus_proximity?: string;
+    hostel_images?: { url: string }[];
+  } | null;
+}
+
 interface QRModalState {
   visible: boolean;
-  booking: Booking & { hostel?: any } | null;
+  booking: BookingWithHostel | null;
 }
+
+const BookingSkeleton = () => (
+  <View style={styles.card}>
+    <View style={{ height: 58, backgroundColor: '#F0F0F3', borderRadius: RADIUS.lg, marginBottom: SPACING.md }} />
+    <View style={{ height: 92, backgroundColor: '#F0F0F3', borderRadius: RADIUS.lg, marginBottom: SPACING.md }} />
+    <View style={{ height: 54, backgroundColor: '#F0F0F3', borderRadius: RADIUS.lg }} />
+  </View>
+);
+
+const BookingCard = React.memo(({
+  booking,
+  onOpenQR,
+}: {
+  booking: BookingWithHostel;
+  onOpenQR: (booking: BookingWithHostel) => void;
+}) => {
+  const router = useRouter();
+  const hostel = booking.hostels;
+  const canShowQR = ['confirmed', 'checked_in'].includes(booking.status) && booking.qr_code;
+
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' });
+
+  return (
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={styles.cardHeaderLeft}>
+          <Text style={styles.hostelName} numberOfLines={1}>{hostel?.name || 'Hostel'}</Text>
+          <View style={styles.locationRow}>
+            <MapPin size={12} color={COLORS.textSecondary} />
+            <Text style={styles.locationText} numberOfLines={1}>{hostel?.campus_proximity || hostel?.address}</Text>
+          </View>
+        </View>
+        <StatusBadge status={booking.status} />
+      </View>
+
+      <View style={styles.datesRow}>
+        <View style={styles.dateBlock}>
+          <Text style={styles.dateLabel}>Check-in</Text>
+          <Text style={styles.dateValue}>{formatDate(booking.check_in_date)}</Text>
+        </View>
+        <View style={styles.dateDivider}>
+          <Clock size={14} color={COLORS.textTertiary} />
+          <Text style={styles.nightsText}>{booking.nights} nights</Text>
+        </View>
+        <View style={styles.dateBlock}>
+          <Text style={styles.dateLabel}>Check-out</Text>
+          <Text style={styles.dateValue}>{formatDate(booking.check_out_date)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.cardFooter}>
+        <View>
+          <Text style={styles.totalLabel}>Total</Text>
+          <Text style={styles.totalAmount}>GH₵{booking.total_price.toLocaleString()}</Text>
+        </View>
+        <View style={styles.footerActions}>
+          {canShowQR && (
+            <TouchableOpacity style={styles.qrBtn} onPress={() => onOpenQR(booking)} activeOpacity={0.7}>
+              <QrCode size={15} color={COLORS.primary} />
+              <Text style={styles.qrBtnText}>QR Code</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.detailBtn} onPress={() => router.push(`/detail?id=${booking.hostel_id}` as any)} activeOpacity={0.7}>
+            <Text style={styles.detailBtnText}>View</Text>
+            <ChevronRight size={16} color={COLORS.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {booking.status === 'confirmed' && (
+        <View style={styles.checkInTip}>
+          <CheckCircle size={13} color={COLORS.success} />
+          <Text style={styles.checkInTipText}>Show your QR code at the property to check in</Text>
+        </View>
+      )}
+      {booking.status === 'checked_in' && (
+        <View style={[styles.checkInTip, { backgroundColor: `${COLORS.info}10` }]}>
+          <AlertCircle size={13} color={COLORS.info} />
+          <Text style={[styles.checkInTipText, { color: COLORS.info }]}>You are currently checked in</Text>
+        </View>
+      )}
+      {booking.status === 'completed' && (
+        <TouchableOpacity
+          style={styles.rebookBtn}
+          onPress={() => router.push(`/detail?id=${booking.hostel_id}` as any)}
+          activeOpacity={0.8}
+        >
+          <RotateCcw size={13} color={COLORS.primary} />
+          <Text style={styles.rebookBtnText}>Rebook for Next Semester</Text>
+          <ArrowRight size={13} color={COLORS.primary} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+});
 
 export default function BookingsScreen() {
   const router = useRouter();
-  const [bookings, setBookings] = useState<(Booking & { hostel?: any })[]>([]);
+  const [bookings, setBookings] = useState<BookingWithHostel[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState('All');
   const [qrModal, setQrModal] = useState<QRModalState>({ visible: false, booking: null });
+
   const qrScale = useRef(new Animated.Value(0.8)).current;
   const qrOpacity = useRef(new Animated.Value(0)).current;
 
@@ -46,19 +159,57 @@ export default function BookingsScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
       const { data } = await supabase
         .from('bookings')
         .select('*, hostels(name, address, campus_proximity, hostel_images(url))')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-      setBookings((data || []) as (Booking & { hostel?: any })[]);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); setRefreshing(false); }
+
+      setBookings((data || []) as BookingWithHostel[]);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  useFocusEffect(useCallback(() => { fetchBookings(); }, []));
+  // Realtime updates (no extra file needed)
+  useEffect(() => {
+    let channel: any;
 
-  const openQR = (booking: Booking & { hostel?: any }) => {
+    const setupRealtime = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      channel = supabase
+        .channel(`bookings_user_${user.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'bookings',
+            filter: `user_id=eq.${user.id}`,
+          },
+          () => fetchBookings()
+        )
+        .subscribe();
+    };
+
+    setupRealtime();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    fetchBookings();
+  }, []));
+
+  const openQR = (booking: BookingWithHostel) => {
     setQrModal({ visible: true, booking });
     Animated.parallel([
       Animated.spring(qrScale, { toValue: 1, friction: 7, tension: 80, useNativeDriver: true }),
@@ -73,33 +224,19 @@ export default function BookingsScreen() {
     ]).start(() => setQrModal({ visible: false, booking: null }));
   };
 
-  const shareQR = async (booking: Booking & { hostel?: any }) => {
+  const shareQR = async (booking: BookingWithHostel) => {
     try {
       await Share.share({
-        message: `My UCC Housing booking QR: ${booking.qr_code}\nProperty: ${booking.hostel?.name || 'Hostel'}\nCheck-in: ${booking.check_in_date}`,
+        message: `My UCC Housing booking QR: ${booking.qr_code}\nProperty: ${booking.hostels?.name || 'Hostel'}\nCheck-in: ${booking.check_in_date}`,
         title: 'My Booking QR Code',
       });
     } catch {}
   };
 
-  const tabFilter = (t: string) => {
-    if (t === 'All') return true;
-    const map: Record<string, string> = {
-      'Pending': 'pending', 'Confirmed': 'confirmed',
-      'Checked In': 'checked_in', 'Completed': 'completed', 'Cancelled': 'cancelled',
-    };
-    return (b: Booking) => b.status === map[t];
-  };
-
-  const filtered = activeTab === 'All'
-    ? bookings
-    : bookings.filter((b) => {
-        const map: Record<string, string> = {
-          'Pending': 'pending', 'Confirmed': 'confirmed',
-          'Checked In': 'checked_in', 'Completed': 'completed', 'Cancelled': 'cancelled',
-        };
-        return b.status === map[activeTab];
-      });
+  const filteredBookings = useMemo(() => {
+    if (activeTab === 'All') return bookings;
+    return bookings.filter((b) => b.status === STATUS_MAP[activeTab]);
+  }, [bookings, activeTab]);
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-GH', { day: 'numeric', month: 'short', year: 'numeric' });
 
@@ -111,7 +248,32 @@ export default function BookingsScreen() {
   };
 
   const b = qrModal.booking;
-  const hostel = (b as any)?.hostels;
+  const hostel = b?.hostels;
+
+  const EmptyState = () => (
+    <View style={styles.emptyStateCard}>
+      <View style={styles.emptyIconBg}>
+        <CalendarCheck size={36} color={COLORS.textTertiary} strokeWidth={1.5} />
+      </View>
+      <Text style={styles.emptyTitle}>
+        {activeTab === 'All' ? 'No bookings yet' : `No ${activeTab.toLowerCase()} bookings`}
+      </Text>
+      <Text style={styles.emptyText}>
+        {activeTab === 'All'
+          ? 'Browse hostels and book your ideal room for the upcoming semester.'
+          : `You have no bookings in the "${activeTab}" status right now.`}
+      </Text>
+      <TouchableOpacity style={styles.browseBtn} onPress={() => router.push('/(tabs)' as any)} activeOpacity={0.8}>
+        <Text style={styles.browseBtnText}>Browse Hostels</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const SkeletonList = () => (
+    <>
+      {[1, 2, 3].map((i) => <BookingSkeleton key={i} />)}
+    </>
+  );
 
   return (
     <View style={styles.container}>
@@ -119,7 +281,6 @@ export default function BookingsScreen() {
       <View style={styles.headerContainer}>
         <View style={styles.headerRow}>
           <Text style={styles.pageTitle}>My Bookings</Text>
-          {/* Owner scan button */}
           <TouchableOpacity
             style={styles.scanBtn}
             onPress={() => router.push('/qr-scan' as any)}
@@ -138,102 +299,21 @@ export default function BookingsScreen() {
         </ScrollView>
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchBookings(); }} tintColor={COLORS.primary} />}
+      <FlatList
+        data={filteredBookings}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <BookingCard booking={item} onOpenQR={openQR} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); fetchBookings(); }}
+            tintColor={COLORS.primary}
+          />
+        }
+        ListEmptyComponent={loading ? SkeletonList : EmptyState}
         contentContainerStyle={styles.scrollContent}
-      >
-        {filtered.length === 0 && !loading && (
-          <View style={styles.emptyStateCard}>
-            <View style={styles.emptyIconBg}>
-              <CalendarCheck size={36} color={COLORS.textTertiary} strokeWidth={1.5} />
-            </View>
-            <Text style={styles.emptyTitle}>No bookings yet</Text>
-            <Text style={styles.emptyText}>Browse hostels and book your ideal room for the upcoming semester.</Text>
-            <TouchableOpacity style={styles.browseBtn} onPress={() => router.push('/(tabs)' as any)} activeOpacity={0.8}>
-              <Text style={styles.browseBtnText}>Browse Hostels</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {filtered.map((booking) => {
-          const hostel = (booking as any).hostels;
-          const canShowQR = ['confirmed', 'checked_in'].includes(booking.status) && booking.qr_code;
-          return (
-            <View key={booking.id} style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardHeaderLeft}>
-                  <Text style={styles.hostelName} numberOfLines={1}>{hostel?.name || 'Hostel'}</Text>
-                  <View style={styles.locationRow}>
-                    <MapPin size={12} color={COLORS.textSecondary} />
-                    <Text style={styles.locationText} numberOfLines={1}>{hostel?.campus_proximity || hostel?.address}</Text>
-                  </View>
-                </View>
-                <StatusBadge status={booking.status} />
-              </View>
-
-              <View style={styles.datesRow}>
-                <View style={styles.dateBlock}>
-                  <Text style={styles.dateLabel}>Check-in</Text>
-                  <Text style={styles.dateValue}>{formatDate(booking.check_in_date)}</Text>
-                </View>
-                <View style={styles.dateDivider}>
-                  <Clock size={14} color={COLORS.textTertiary} />
-                  <Text style={styles.nightsText}>{booking.nights} nights</Text>
-                </View>
-                <View style={styles.dateBlock}>
-                  <Text style={styles.dateLabel}>Check-out</Text>
-                  <Text style={styles.dateValue}>{formatDate(booking.check_out_date)}</Text>
-                </View>
-              </View>
-
-              <View style={styles.cardFooter}>
-                <View>
-                  <Text style={styles.totalLabel}>Total</Text>
-                  <Text style={styles.totalAmount}>GH₵{booking.total_price.toLocaleString()}</Text>
-                </View>
-                <View style={styles.footerActions}>
-                  {canShowQR && (
-                    <TouchableOpacity style={styles.qrBtn} onPress={() => openQR(booking)} activeOpacity={0.7}>
-                      <QrCode size={15} color={COLORS.primary} />
-                      <Text style={styles.qrBtnText}>QR Code</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity style={styles.detailBtn} onPress={() => router.push(`/detail?id=${booking.hostel_id}` as any)} activeOpacity={0.7}>
-                    <Text style={styles.detailBtnText}>View</Text>
-                    <ChevronRight size={16} color={COLORS.primary} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* Pending check-in tip */}
-              {booking.status === 'confirmed' && (
-                <View style={styles.checkInTip}>
-                  <CheckCircle size={13} color={COLORS.success} />
-                  <Text style={styles.checkInTipText}>Show your QR code at the property to check in</Text>
-                </View>
-              )}
-              {booking.status === 'checked_in' && (
-                <View style={[styles.checkInTip, { backgroundColor: `${COLORS.info}10` }]}>
-                  <AlertCircle size={13} color={COLORS.info} />
-                  <Text style={[styles.checkInTipText, { color: COLORS.info }]}>You are currently checked in</Text>
-                </View>
-              )}
-              {booking.status === 'completed' && (
-                <TouchableOpacity
-                  style={styles.rebookBtn}
-                  onPress={() => router.push(`/detail?id=${booking.hostel_id}` as any)}
-                  activeOpacity={0.8}
-                >
-                  <RotateCcw size={13} color={COLORS.primary} />
-                  <Text style={styles.rebookBtnText}>Rebook for Next Semester</Text>
-                  <ArrowRight size={13} color={COLORS.primary} />
-                </TouchableOpacity>
-              )}
-            </View>
-          );
-        })}
-      </ScrollView>
+        showsVerticalScrollIndicator={false}
+      />
 
       {/* ─── QR CODE MODAL ─── */}
       <Modal visible={qrModal.visible} transparent animationType="none" onRequestClose={closeQR}>
@@ -279,19 +359,14 @@ export default function BookingsScreen() {
                     />
                   )}
                 </View>
-                {/* Corner decorations */}
                 <View style={[styles.qrCorner, styles.qrCornerTL]} />
                 <View style={[styles.qrCorner, styles.qrCornerTR]} />
                 <View style={[styles.qrCorner, styles.qrCornerBL]} />
                 <View style={[styles.qrCorner, styles.qrCornerBR]} />
               </View>
 
-              {/* QR Code value */}
-              {b?.qr_code && (
-                <Text style={styles.qrValue}>{b.qr_code}</Text>
-              )}
+              {b?.qr_code && <Text style={styles.qrValue}>{b.qr_code}</Text>}
 
-              {/* Booking details */}
               {b && (
                 <View style={styles.qrDetails}>
                   <View style={styles.qrDetailRow}>
@@ -305,13 +380,8 @@ export default function BookingsScreen() {
                 </View>
               )}
 
-              {/* Actions */}
               <View style={styles.qrActions}>
-                <TouchableOpacity
-                  style={styles.qrShareBtn}
-                  onPress={() => b && shareQR(b)}
-                  activeOpacity={0.8}
-                >
+                <TouchableOpacity style={styles.qrShareBtn} onPress={() => b && shareQR(b)} activeOpacity={0.8}>
                   <Share2 size={16} color={COLORS.primary} />
                   <Text style={styles.qrShareBtnText}>Share</Text>
                 </TouchableOpacity>
@@ -325,7 +395,6 @@ export default function BookingsScreen() {
                   <ArrowRight size={14} color={COLORS.white} />
                 </TouchableOpacity>
               </View>
-
               <Text style={styles.qrTip}>Present this QR code at the property reception</Text>
             </TouchableOpacity>
           </Animated.View>
@@ -340,7 +409,6 @@ const QR_CORNER_THICK = 3;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F7F7F9' },
-
   headerContainer: {
     backgroundColor: 'rgba(255,255,255,0.96)',
     paddingTop: Platform.OS === 'web' ? 20 : 56,
@@ -354,16 +422,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.navy, paddingHorizontal: 14, paddingVertical: 8, borderRadius: RADIUS.full,
   },
   scanBtnText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.white },
-
   tabsScroll: { maxHeight: 52, marginBottom: SPACING.sm },
   tabsContainer: { paddingHorizontal: SPACING.md, gap: 8, alignItems: 'center' },
   tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: RADIUS.full, backgroundColor: 'rgba(0,0,0,0.03)', borderWidth: 1, borderColor: 'transparent' },
   tabActive: { backgroundColor: COLORS.navy, borderColor: COLORS.navy },
   tabText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary },
   tabTextActive: { color: COLORS.white, fontFamily: FONT.semiBold },
-
   scrollContent: { padding: SPACING.md, paddingBottom: Platform.OS === 'ios' ? 120 : 100 },
-
   card: {
     backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: RADIUS.xl,
     padding: SPACING.lg, marginBottom: SPACING.md,
@@ -378,7 +443,6 @@ const styles = StyleSheet.create({
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: RADIUS.full },
   statusDot: { width: 6, height: 6, borderRadius: 3 },
   statusText: { fontFamily: FONT.semiBold, fontSize: 11 },
-
   datesRow: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.02)', borderRadius: RADIUS.lg,
@@ -390,7 +454,6 @@ const styles = StyleSheet.create({
   dateValue: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary },
   dateDivider: { alignItems: 'center', gap: 4, paddingHorizontal: SPACING.sm },
   nightsText: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary },
-
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalLabel: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 },
   totalAmount: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.primary },
@@ -404,14 +467,12 @@ const styles = StyleSheet.create({
   qrBtnText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
   detailBtn: { flexDirection: 'row', alignItems: 'center', gap: 2, paddingLeft: 8 },
   detailBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.primary },
-
   checkInTip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: `${COLORS.success}10`, borderRadius: RADIUS.sm,
     paddingHorizontal: 10, paddingVertical: 7, marginTop: SPACING.sm,
   },
   checkInTipText: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.success, flex: 1 },
-
   rebookBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: COLORS.primaryFaded, borderRadius: RADIUS.sm,
@@ -419,7 +480,6 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: `${COLORS.primary}20`,
   },
   rebookBtnText: { fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.primary, flex: 1 },
-
   emptyStateCard: {
     alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.96)',
     borderRadius: RADIUS.xl, padding: SPACING.xl, marginTop: SPACING.xl,
@@ -432,11 +492,8 @@ const styles = StyleSheet.create({
   browseBtn: { backgroundColor: COLORS.primary, paddingHorizontal: SPACING.xl, paddingVertical: 14, borderRadius: RADIUS.full, shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
   browseBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
 
-  // QR Modal
-  modalBackdrop: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center', alignItems: 'center', padding: SPACING.md,
-  },
+  // QR Modal (unchanged)
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: SPACING.md },
   qrModalCard: {
     backgroundColor: COLORS.white, borderRadius: 28, padding: SPACING.lg,
     width: '100%', maxWidth: 360,
@@ -447,16 +504,10 @@ const styles = StyleSheet.create({
   qrModalHostel: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary },
   qrModalLocation: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary },
   qrCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
-
   qrStatusStrip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.full, alignSelf: 'flex-start', marginBottom: SPACING.md },
   qrStatusDot: { width: 7, height: 7, borderRadius: 3.5 },
   qrStatusText: { fontFamily: FONT.semiBold, fontSize: 12 },
-
-  qrCodeWrapper: {
-    alignItems: 'center', justifyContent: 'center',
-    padding: 16, position: 'relative',
-    marginBottom: SPACING.sm,
-  },
+  qrCodeWrapper: { alignItems: 'center', justifyContent: 'center', padding: 16, position: 'relative', marginBottom: SPACING.sm },
   qrCodeInner: {
     backgroundColor: COLORS.white, padding: 8, borderRadius: 12,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
@@ -466,13 +517,10 @@ const styles = StyleSheet.create({
   qrCornerTR: { top: 8, right: 8, borderTopWidth: QR_CORNER_THICK, borderRightWidth: QR_CORNER_THICK, borderColor: COLORS.primary, borderTopRightRadius: 5 },
   qrCornerBL: { bottom: 8, left: 8, borderBottomWidth: QR_CORNER_THICK, borderLeftWidth: QR_CORNER_THICK, borderColor: COLORS.primary, borderBottomLeftRadius: 5 },
   qrCornerBR: { bottom: 8, right: 8, borderBottomWidth: QR_CORNER_THICK, borderRightWidth: QR_CORNER_THICK, borderColor: COLORS.primary, borderBottomRightRadius: 5 },
-
   qrValue: { fontFamily: FONT.bold, fontSize: 11, color: COLORS.textTertiary, textAlign: 'center', letterSpacing: 1.5, marginBottom: SPACING.md },
-
   qrDetails: { backgroundColor: COLORS.background, borderRadius: RADIUS.md, padding: SPACING.sm, gap: 6, marginBottom: SPACING.md },
   qrDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   qrDetailText: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary },
-
   qrActions: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
   qrShareBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
@@ -486,6 +534,5 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.navy,
   },
   qrScanBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
-
   qrTip: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary, textAlign: 'center' },
 });
