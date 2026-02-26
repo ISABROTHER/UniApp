@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS, PAYSTACK_FEES } from '@/lib/constants';
 import { Hostel, HostelRoom } from '@/lib/types';
-import { ArrowLeft, Check, ShieldCheck, BedDouble, Users, CreditCard } from 'lucide-react-native';
+import { ArrowLeft, Check, ShieldCheck, BedDouble, Users, CreditCard, User, Phone, Hash } from 'lucide-react-native';
 import PaystackModal from '@/components/PaystackModal';
 import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 
@@ -34,6 +34,10 @@ export default function BookScreen() {
 
   const [hostel, setHostel] = useState<Hostel | null>(null);
   const [selectedRoom, setSelectedRoom] = useState<HostelRoom | null>(null);
+  const [step, setStep] = useState<'room' | 'pay'>('room');
+  const [fullName, setFullName] = useState('');
+  const [indexNumber, setIndexNumber] = useState('');
+  const [telephone, setTelephone] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -66,6 +70,21 @@ export default function BookScreen() {
     setLoading(false);
   };
 
+  useEffect(() => {
+    const prefill = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: member } = await supabase.from('members').select('full_name, phone, student_id').eq('id', user.id).maybeSingle();
+        if (member) {
+          if (member.full_name) setFullName(member.full_name);
+          if (member.phone) setTelephone(member.phone);
+          if (member.student_id) setIndexNumber(member.student_id);
+        }
+      }
+    };
+    prefill();
+  }, []);
+
   const occupants = useMemo(() => selectedRoom ? getOccupants(selectedRoom.room_type) : 1, [selectedRoom]);
   const displayName = useMemo(() => selectedRoom ? getDisplayName(selectedRoom.room_type, occupants) : '', [selectedRoom, occupants]);
   const totalYearPrice = useMemo(() => (selectedRoom?.price_per_month ?? 0) * YEAR_MONTHS, [selectedRoom]);
@@ -97,9 +116,17 @@ export default function BookScreen() {
     return isNaN(total) ? 0 : parseFloat(total.toFixed(2));
   };
 
-  const handleBook = async () => {
+  const handleProceedToPay = () => {
     setError('');
     if (!selectedRoom) return setError('No room selected');
+    setStep('pay');
+  };
+
+  const handleBook = async () => {
+    setError('');
+    if (!fullName.trim()) return setError('Please enter your full name');
+    if (!indexNumber.trim()) return setError('Please enter your index number');
+    if (!telephone.trim()) return setError('Please enter your telephone number');
 
     setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
@@ -111,7 +138,7 @@ export default function BookScreen() {
 
     const { data: bookingData, error: bookError } = await supabase.from('bookings').insert({
       hostel_id: hostelId,
-      room_id: selectedRoom.id,
+      room_id: selectedRoom!.id,
       user_id: user.id,
       check_in_date: today,
       check_out_date: yearLater,
@@ -206,96 +233,166 @@ export default function BookScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => {
+          if (step === 'pay') { setStep('room'); setError(''); }
+          else router.back();
+        }}>
           <ArrowLeft size={22} color={COLORS.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Book a Room</Text>
+        <Text style={styles.headerTitle}>{step === 'room' ? 'Book a Room' : 'Proceed to Pay'}</Text>
         {hostel?.verified && <ProtectedBookingBadge compact />}
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <View style={styles.hostelCard}>
-          <Text style={styles.hostelName}>{hostel?.name}</Text>
-          <Text style={styles.hostelAddr}>{hostel?.campus_proximity}</Text>
-        </View>
+      <View style={styles.stepIndicator}>
+        <View style={[styles.stepDot, styles.stepDotActive]} />
+        <View style={[styles.stepLine, step === 'pay' && styles.stepLineActive]} />
+        <View style={[styles.stepDot, step === 'pay' && styles.stepDotActive]} />
+      </View>
 
-        {selectedRoom && (
-          <View style={styles.selectedRoomCard}>
-            <View style={styles.selectedRoomHeader}>
-              <BedDouble size={18} color={COLORS.primary} />
-              <Text style={styles.selectedRoomTitle}>Selected Room</Text>
-            </View>
-            <View style={styles.selectedRoomBody}>
-              <Text style={styles.selectedRoomName}>{displayName}</Text>
-              <View style={styles.selectedRoomPriceRow}>
-                <Text style={styles.selectedRoomPrice}>GH₵{totalYearPrice.toLocaleString()}</Text>
-                <Text style={styles.selectedRoomPriceSub}>/year</Text>
+      {step === 'room' && (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+          <View style={styles.hostelCard}>
+            <Text style={styles.hostelName}>{hostel?.name}</Text>
+            <Text style={styles.hostelAddr}>{hostel?.campus_proximity}</Text>
+          </View>
+
+          {selectedRoom && (
+            <View style={styles.selectedRoomCard}>
+              <View style={styles.selectedRoomHeader}>
+                <BedDouble size={18} color={COLORS.primary} />
+                <Text style={styles.selectedRoomTitle}>Selected Room</Text>
               </View>
-              {occupants > 1 && (
-                <View style={styles.selectedRoomSplitRow}>
-                  <Users size={14} color={COLORS.primary} />
-                  <Text style={styles.selectedRoomSplit}>GH₵{perPersonYear.toLocaleString()} per person ({occupants} occupants)</Text>
+              <View style={styles.selectedRoomBody}>
+                <Text style={styles.selectedRoomName}>{displayName}</Text>
+                <View style={styles.selectedRoomPriceRow}>
+                  <Text style={styles.selectedRoomPrice}>GH₵{totalYearPrice.toLocaleString()}</Text>
+                  <Text style={styles.selectedRoomPriceSub}>/year</Text>
                 </View>
-              )}
-              {selectedRoom.available_count > 0 && (
-                <Text style={styles.selectedRoomAvail}>{selectedRoom.available_count} of {selectedRoom.total_count} available</Text>
-              )}
+                {occupants > 1 && (
+                  <View style={styles.selectedRoomSplitRow}>
+                    <Users size={14} color={COLORS.primary} />
+                    <Text style={styles.selectedRoomSplit}>GH₵{perPersonYear.toLocaleString()} per person ({occupants} occupants)</Text>
+                  </View>
+                )}
+                {selectedRoom.available_count > 0 && (
+                  <Text style={styles.selectedRoomAvail}>{selectedRoom.available_count} of {selectedRoom.total_count} available</Text>
+                )}
+              </View>
+            </View>
+          )}
+
+          <View style={styles.utilitiesCard}>
+            <View style={styles.utilitiesHeader}>
+              <CreditCard size={18} color={COLORS.primary} />
+              <Text style={styles.utilitiesTitle}>What's in the Rent</Text>
+            </View>
+            <View style={styles.utilityToggleRow}>
+              <TouchableOpacity
+                style={[styles.utilityToggleBtn, utilityView === 'included' && styles.utilityToggleBtnActive]}
+                onPress={() => setUtilityView('included')}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.utilityToggleBtnText, utilityView === 'included' && styles.utilityToggleBtnTextActive]}>Included</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.utilityToggleBtn, utilityView === 'not_included' && styles.utilityToggleBtnActiveRed]}
+                onPress={() => setUtilityView('not_included')}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.utilityToggleBtnText, utilityView === 'not_included' && styles.utilityToggleBtnTextActiveRed]}>Not Included</Text>
+              </TouchableOpacity>
+            </View>
+            {utilityView === 'included' && (
+              utilityInclusions.included.length > 0 ? (
+                utilityInclusions.included.map((item, idx) => (
+                  <View key={idx} style={styles.utilityRow}>
+                    <View style={styles.utilityDotGreen} />
+                    <Text style={styles.utilityTextGreen}>{item}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.utilityEmpty}>No utilities confirmed as included</Text>
+              )
+            )}
+            {utilityView === 'not_included' && (
+              utilityInclusions.notIncluded.length > 0 ? (
+                utilityInclusions.notIncluded.map((item, idx) => (
+                  <View key={idx} style={styles.utilityRow}>
+                    <View style={styles.utilityDotGrey} />
+                    <Text style={styles.utilityTextGrey}>{item}</Text>
+                  </View>
+                ))
+              ) : (
+                <Text style={styles.utilityEmpty}>All utilities are included in the rent</Text>
+              )
+            )}
+          </View>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <TouchableOpacity
+            style={styles.proceedBtn}
+            onPress={handleProceedToPay}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.proceedBtnText}>Proceed to Pay</Text>
+          </TouchableOpacity>
+          <View style={{ height: 24 }} />
+        </ScrollView>
+      )}
+
+      {step === 'pay' && (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+          <View style={styles.payInfoCard}>
+            <Text style={styles.payInfoTitle}>Your Details</Text>
+
+            <View style={styles.inputGroup}>
+              <View style={styles.inputWrap}>
+                <User size={16} color={COLORS.textTertiary} />
+                <TextInput
+                  style={styles.input}
+                  value={fullName}
+                  onChangeText={(v) => { setFullName(v); setError(''); }}
+                  placeholder="Full Name"
+                  placeholderTextColor={COLORS.textTertiary}
+                  autoCapitalize="words"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <View style={styles.inputWrap}>
+                <Hash size={16} color={COLORS.textTertiary} />
+                <TextInput
+                  style={styles.input}
+                  value={indexNumber}
+                  onChangeText={(v) => { setIndexNumber(v); setError(''); }}
+                  placeholder="Index Number"
+                  placeholderTextColor={COLORS.textTertiary}
+                  autoCapitalize="characters"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <View style={styles.inputWrap}>
+                <Phone size={16} color={COLORS.textTertiary} />
+                <TextInput
+                  style={styles.input}
+                  value={telephone}
+                  onChangeText={(v) => { setTelephone(v); setError(''); }}
+                  placeholder="Telephone"
+                  placeholderTextColor={COLORS.textTertiary}
+                  keyboardType="phone-pad"
+                />
+              </View>
             </View>
           </View>
-        )}
 
-        <View style={styles.utilitiesCard}>
-          <View style={styles.utilitiesHeader}>
-            <CreditCard size={18} color={COLORS.primary} />
-            <Text style={styles.utilitiesTitle}>What's in the Rent</Text>
-          </View>
-          <View style={styles.utilityToggleRow}>
-            <TouchableOpacity
-              style={[styles.utilityToggleBtn, utilityView === 'included' && styles.utilityToggleBtnActive]}
-              onPress={() => setUtilityView('included')}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.utilityToggleBtnText, utilityView === 'included' && styles.utilityToggleBtnTextActive]}>Included</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.utilityToggleBtn, utilityView === 'not_included' && styles.utilityToggleBtnActiveRed]}
-              onPress={() => setUtilityView('not_included')}
-              activeOpacity={0.85}
-            >
-              <Text style={[styles.utilityToggleBtnText, utilityView === 'not_included' && styles.utilityToggleBtnTextActiveRed]}>Not Included</Text>
-            </TouchableOpacity>
-          </View>
-          {utilityView === 'included' && (
-            utilityInclusions.included.length > 0 ? (
-              utilityInclusions.included.map((item, idx) => (
-                <View key={idx} style={styles.utilityRow}>
-                  <View style={styles.utilityDotGreen} />
-                  <Text style={styles.utilityTextGreen}>{item}</Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.utilityEmpty}>No utilities confirmed as included</Text>
-            )
-          )}
-          {utilityView === 'not_included' && (
-            utilityInclusions.notIncluded.length > 0 ? (
-              utilityInclusions.notIncluded.map((item, idx) => (
-                <View key={idx} style={styles.utilityRow}>
-                  <View style={styles.utilityDotGrey} />
-                  <Text style={styles.utilityTextGrey}>{item}</Text>
-                </View>
-              ))
-            ) : (
-              <Text style={styles.utilityEmpty}>All utilities are included in the rent</Text>
-            )
-          )}
-        </View>
-
-        {selectedRoom && (
           <View style={styles.summaryCard}>
             <Text style={styles.summaryTitle}>Price Summary</Text>
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Room ({occupants > 1 ? 'per person' : 'annual'})</Text>
+              <Text style={styles.summaryLabel}>{displayName}</Text>
               <Text style={styles.summaryValue}>GH₵{perPersonYear.toLocaleString()}</Text>
             </View>
             <View style={styles.summaryRow}>
@@ -312,39 +409,39 @@ export default function BookScreen() {
               <Text style={styles.summaryTotalValue}>GH₵{calcGrandTotal().toFixed(2)}</Text>
             </View>
           </View>
-        )}
 
-        <Text style={styles.sectionTitle}>Special Requests (optional)</Text>
-        <TextInput
-          style={styles.requestInput}
-          value={specialRequests}
-          onChangeText={setSpecialRequests}
-          placeholder="Any specific requirements..."
-          placeholderTextColor={COLORS.textTertiary}
-          multiline
-          numberOfLines={3}
-        />
+          <Text style={styles.sectionTitle}>Special Requests (optional)</Text>
+          <TextInput
+            style={styles.requestInput}
+            value={specialRequests}
+            onChangeText={setSpecialRequests}
+            placeholder="Any specific requirements..."
+            placeholderTextColor={COLORS.textTertiary}
+            multiline
+            numberOfLines={3}
+          />
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {hostel?.verified && (
-          <View style={styles.protectedRow}>
-            <ProtectedBookingBadge />
-          </View>
-        )}
+          {hostel?.verified && (
+            <View style={styles.protectedRow}>
+              <ProtectedBookingBadge />
+            </View>
+          )}
 
-        <TouchableOpacity
-          style={[styles.bookBtn, submitting && styles.bookBtnDisabled]}
-          onPress={handleBook}
-          disabled={submitting}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.bookBtnText}>
-            {submitting ? 'Creating Booking...' : `Pay GH₵${calcGrandTotal().toFixed(2)}`}
-          </Text>
-        </TouchableOpacity>
-        <View style={{ height: 24 }} />
-      </ScrollView>
+          <TouchableOpacity
+            style={[styles.proceedBtn, submitting && styles.proceedBtnDisabled]}
+            onPress={handleBook}
+            disabled={submitting}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.proceedBtnText}>
+              {submitting ? 'Processing...' : `Pay GH₵${calcGrandTotal().toFixed(2)}`}
+            </Text>
+          </TouchableOpacity>
+          <View style={{ height: 24 }} />
+        </ScrollView>
+      )}
 
       <PaystackModal
         visible={paymentVisible}
@@ -390,7 +487,34 @@ const styles = StyleSheet.create({
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontFamily: FONT.heading, fontSize: 18, color: COLORS.textPrimary, flex: 1 },
   loadingText: { textAlign: 'center', marginTop: 100, fontFamily: FONT.regular, fontSize: 15, color: COLORS.textSecondary },
-  content: { padding: SPACING.md, gap: 0 },
+
+  stepIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.white,
+    gap: 0,
+  },
+  stepDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: COLORS.border,
+  },
+  stepDotActive: {
+    backgroundColor: COLORS.primary,
+  },
+  stepLine: {
+    width: 60,
+    height: 3,
+    backgroundColor: COLORS.border,
+  },
+  stepLineActive: {
+    backgroundColor: COLORS.primary,
+  },
+
+  content: { padding: SPACING.md },
 
   hostelCard: { backgroundColor: COLORS.navy, borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md },
   hostelName: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.white, marginBottom: 4 },
@@ -537,6 +661,42 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
   },
 
+  payInfoCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  payInfoTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 16,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+  },
+  inputGroup: {
+    marginBottom: SPACING.sm + 2,
+  },
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: '#ECECEC',
+    height: 48,
+    paddingHorizontal: SPACING.sm + 4,
+    gap: SPACING.sm,
+  },
+  input: {
+    flex: 1,
+    fontFamily: FONT.regular,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    height: '100%',
+  },
+
   summaryCard: {
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.md,
@@ -599,10 +759,9 @@ const styles = StyleSheet.create({
   },
 
   errorText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.error, marginBottom: SPACING.sm },
-
   protectedRow: { marginBottom: SPACING.md },
 
-  bookBtn: {
+  proceedBtn: {
     backgroundColor: COLORS.primary,
     borderRadius: RADIUS.md,
     paddingVertical: 16,
@@ -613,8 +772,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
   },
-  bookBtnDisabled: { opacity: 0.6 },
-  bookBtnText: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.white },
+  proceedBtnDisabled: { opacity: 0.6 },
+  proceedBtnText: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.white },
 
   successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl, backgroundColor: COLORS.background },
   successIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.success, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.lg },
