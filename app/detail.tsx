@@ -89,7 +89,14 @@ export default function DetailScreen() {
       ]);
 
       if (hostelRes.data) {
-        setHostel(hostelRes.data as Hostel);
+        const raw = hostelRes.data as any;
+        const mapped = {
+          ...raw,
+          images: raw.hostel_images || [],
+          rooms: raw.hostel_rooms || [],
+          amenities: raw.hostel_amenities || [],
+        };
+        setHostel(mapped as Hostel);
         
         if (userRes.data?.user) {
           const [favRes, reviewsRes, roommatesRes] = await Promise.all([
@@ -318,7 +325,7 @@ export default function DetailScreen() {
                   {amenities.map((amenity: any, idx: number) => (
                     <View key={idx} style={styles.amenityPill}>
                       <View style={styles.amenityDot} />
-                      <Text style={styles.amenityText}>{amenity.name || amenity}</Text>
+                      <Text style={styles.amenityText}>{amenity.amenity || amenity.name || amenity}</Text>
                     </View>
                   ))}
                 </View>
@@ -327,29 +334,31 @@ export default function DetailScreen() {
               )}
             </View>
 
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Basic Facilities</Text>
-              <View style={styles.facilitiesGrid}>
-                {hostel.has_wifi && (
-                  <View style={styles.facilityItem}>
-                    <Wifi size={20} color={COLORS.primary} />
-                    <Text style={styles.facilityText}>WiFi</Text>
-                  </View>
-                )}
-                {hostel.has_security && (
-                  <View style={styles.facilityItem}>
-                    <Shield size={20} color={COLORS.primary} />
-                    <Text style={styles.facilityText}>Security</Text>
-                  </View>
-                )}
-                {hostel.has_laundry && (
-                  <View style={styles.facilityItem}>
-                    <Droplet size={20} color={COLORS.primary} />
-                    <Text style={styles.facilityText}>Laundry</Text>
-                  </View>
-                )}
+            {amenities.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Basic Facilities</Text>
+                <View style={styles.facilitiesGrid}>
+                  {amenities.some((a: any) => (a.amenity || a.name || '').toLowerCase().includes('wifi')) && (
+                    <View style={styles.facilityItem}>
+                      <Wifi size={20} color={COLORS.primary} />
+                      <Text style={styles.facilityText}>WiFi</Text>
+                    </View>
+                  )}
+                  {amenities.some((a: any) => (a.amenity || a.name || '').toLowerCase().includes('security')) && (
+                    <View style={styles.facilityItem}>
+                      <Shield size={20} color={COLORS.primary} />
+                      <Text style={styles.facilityText}>Security</Text>
+                    </View>
+                  )}
+                  {amenities.some((a: any) => (a.amenity || a.name || '').toLowerCase().includes('water')) && (
+                    <View style={styles.facilityItem}>
+                      <Droplet size={20} color={COLORS.primary} />
+                      <Text style={styles.facilityText}>24hr Water</Text>
+                    </View>
+                  )}
+                </View>
               </View>
-            </View>
+            )}
           </View>
         )}
 

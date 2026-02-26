@@ -29,7 +29,12 @@ export default function FavouritesScreen() {
       const hostels = (data || [])
         .map((w: any) => w.hostels)
         .filter(Boolean)
-        .map((h: any) => ({ ...h, is_favourite: true })) as Hostel[];
+        .map((h: any) => ({
+          ...h,
+          images: h.hostel_images || [],
+          rooms: h.hostel_rooms || [],
+          is_favourite: true,
+        })) as Hostel[];
 
       setFavourites(hostels);
 

@@ -380,15 +380,21 @@ export default function SearchScreen() {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { data } = await supabase
+
+      let query = supabase
         .from('hostels')
-        .select('*, hostel_images(*), hostel_rooms(*), favourites!left(id,user_id)')
+        .select(user ? '*, hostel_images(*), hostel_rooms(*), hostel_amenities(*), favourites!left(id,user_id)' : '*, hostel_images(*), hostel_rooms(*), hostel_amenities(*)')
         .eq('status', 'active')
         .order('verified', { ascending: false })
         .order('available_rooms', { ascending: false });
 
+      const { data } = await query;
+
       const processed = (data || []).map((h: any) => ({
         ...h,
+        images: h.hostel_images || [],
+        rooms: h.hostel_rooms || [],
+        amenities: h.hostel_amenities || [],
         is_favourite: user ? h.favourites?.some((w: any) => w.user_id === user.id) : false,
         favourites: undefined,
       })) as Hostel[];
@@ -438,10 +444,14 @@ export default function SearchScreen() {
       const isAvailable = (h.available_rooms ?? 0) > 0;
       const matchAvailability = filters.showSoldOut || isAvailable;
 
+      const hostelAmenities = (h.amenities || []).map((a: any) => (a.amenity || a.name || '').toLowerCase());
       const matchQuick = quickFilters.every(qf => {
         if (qf === 'verified') return h.verified;
-        if (qf === 'wifi') return h.has_wifi;
-        if (qf === 'security') return h.has_security;
+        if (qf === 'wifi') return hostelAmenities.some((a: string) => a.includes('wifi'));
+        if (qf === 'security') return hostelAmenities.some((a: string) => a.includes('security'));
+        if (qf === 'near_campus') return h.campus_proximity?.toLowerCase().includes('min');
+        if (qf === 'water_247') return hostelAmenities.some((a: string) => a.includes('water'));
+        if (qf === 'power_backup') return hostelAmenities.some((a: string) => a.includes('generator'));
         return true;
       });
 
