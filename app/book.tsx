@@ -4,7 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS, PAYSTACK_FEES } from '@/lib/constants';
 import { Hostel, HostelRoom } from '@/lib/types';
-import { ArrowLeft, Check, ShieldCheck, BedDouble, Users, CreditCard, User, Phone, Hash } from 'lucide-react-native';
+import { ArrowLeft, Check, ShieldCheck, BedDouble, Users, CreditCard, User, Phone, Hash, AlertCircle } from 'lucide-react-native';
 import PaystackModal from '@/components/PaystackModal';
 import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 
@@ -213,10 +213,19 @@ export default function BookScreen() {
         <View style={styles.successIcon}>
           <Check size={40} color={COLORS.white} />
         </View>
-        <Text style={styles.successTitle}>Booking Submitted!</Text>
+        <Text style={styles.successTitle}>Payment Successful!</Text>
         <Text style={styles.successText}>
-          Your booking at {hostel?.name} is pending confirmation. You'll receive a notification once confirmed.
+          Your payment for {hostel?.name} has been received and is currently being processed by the property owner. You will receive a confirmation notification with your official move-in date and further instructions once acknowledged.
         </Text>
+
+        <View style={styles.strictWarningBox}>
+          <AlertCircle size={24} color={COLORS.error} />
+          <Text style={styles.strictWarningText}>
+            <Text style={{ fontFamily: FONT.bold }}>STRICT REQUIREMENT: </Text>
+            You are required to provide a valid Student ID along with your booking QR code upon moving in. Entry may be denied without it.
+          </Text>
+        </View>
+
         {hostel?.verified && (
           <View style={styles.successProtectedRow}>
             <ShieldCheck size={16} color={COLORS.success} />
@@ -777,8 +786,29 @@ const styles = StyleSheet.create({
 
   successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: SPACING.xl, backgroundColor: COLORS.background },
   successIcon: { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.success, justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.lg },
-  successTitle: { fontFamily: FONT.headingBold, fontSize: 26, color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  successText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.md },
+  successTitle: { fontFamily: FONT.headingBold, fontSize: 26, color: COLORS.textPrimary, marginBottom: SPACING.sm, textAlign: 'center' },
+  successText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.lg },
+  
+  strictWarningBox: {
+    flexDirection: 'row',
+    backgroundColor: `${COLORS.error}10`,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: `${COLORS.error}30`,
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    width: '100%',
+    marginBottom: SPACING.xl,
+  },
+  strictWarningText: {
+    flex: 1,
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.error,
+    lineHeight: 20,
+  },
+
   successProtectedRow: {
     flexDirection: 'row',
     alignItems: 'center',
