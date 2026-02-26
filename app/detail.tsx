@@ -396,8 +396,11 @@ export default function DetailScreen() {
                           )}
                         </View>
                         <View style={styles.roomCardRight}>
-                          <Text style={styles.roomPriceMain}>GH₵{perPersonYear.toLocaleString()}</Text>
-                          <Text style={styles.roomPriceSub}>/year{occupants > 1 ? ' per person' : ''}</Text>
+                          <Text style={styles.roomPriceMain}>GH₵{totalYearPrice.toLocaleString()}</Text>
+                          <Text style={styles.roomPriceSub}>per year</Text>
+                          {occupants > 1 && (
+                            <Text style={styles.roomPerPerson}>GH₵{perPersonYear.toLocaleString()} per person</Text>
+                          )}
                           {isExpanded ? (
                             <ChevronUp size={16} color={COLORS.textTertiary} style={{ marginTop: 4 }} />
                           ) : (
@@ -932,6 +935,7 @@ const styles = StyleSheet.create({
   roomSoldOut: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.error },
   roomPriceMain: { fontFamily: FONT.bold, fontSize: 17, color: COLORS.primary },
   roomPriceSub: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
+  roomPerPerson: { fontFamily: FONT.semiBold, fontSize: 11, color: COLORS.primary, marginTop: 2 },
 
   roomPricingBreakdown: {
     marginTop: SPACING.sm,
