@@ -1,25 +1,39 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { COLORS, FONT, SPACING, RADIUS, GHANA_RENT_ACT, PAYSTACK_FEES } from '@/lib/constants';
+import { COLORS, FONT, SPACING, RADIUS, PAYSTACK_FEES } from '@/lib/constants';
 import { Hostel, HostelRoom } from '@/lib/types';
-import { ArrowLeft, Check, ShieldCheck } from 'lucide-react-native';
+import { ArrowLeft, Check, ShieldCheck, BedDouble, Users, CreditCard } from 'lucide-react-native';
 import PaystackModal from '@/components/PaystackModal';
-import RentActDisclosure from '@/components/RentActDisclosure';
-import SemesterDatePicker from '@/components/SemesterDatePicker';
 import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
+
+const YEAR_MONTHS = 12;
+
+function getOccupants(roomType: string): number {
+  const r = roomType.toLowerCase();
+  if (r.includes('self-contained') || r.includes('self contained') || r.includes('studio')) return 1;
+  if (r.includes('4') || r.includes('quad')) return 4;
+  if (r.includes('3') || r.includes('triple')) return 3;
+  if (r.includes('chamber') || r.includes('single')) return 1;
+  return 2;
+}
+
+function getDisplayName(roomType: string, occupants: number): string {
+  const r = roomType.toLowerCase();
+  if (r.includes('self-contained') || r.includes('self contained') || r.includes('studio')) return 'Self-Contained (1 Person)';
+  if (occupants === 1) return `${roomType} (1 Person)`;
+  return `${occupants} in a Room`;
+}
 
 export default function BookScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const hostelId = (params.hostel_id || params.id) as string;
+  const roomId = params.room_id as string | undefined;
 
   const [hostel, setHostel] = useState<Hostel | null>(null);
-  const [rooms, setRooms] = useState<HostelRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<HostelRoom | null>(null);
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -27,69 +41,81 @@ export default function BookScreen() {
   const [success, setSuccess] = useState(false);
   const [paymentVisible, setPaymentVisible] = useState(false);
   const [pendingBookingId, setPendingBookingId] = useState<string | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [utilityView, setUtilityView] = useState<'included' | 'not_included'>('included');
 
   useEffect(() => {
     if (hostelId) fetchHostel();
   }, [hostelId]);
 
   const fetchHostel = async () => {
-    const { data } = await supabase.from('hostels').select('*, hostel_rooms(*)').eq('id', hostelId).maybeSingle();
+    const { data } = await supabase.from('hostels').select('*, hostel_rooms(*), hostel_amenities(*)').eq('id', hostelId).maybeSingle();
     if (data) {
-      setHostel(data as Hostel);
-      const r = (data as any).hostel_rooms || [];
-      setRooms(r);
-      if (r.length > 0) setSelectedRoom(r[0]);
+      const raw = data as any;
+      const mapped = { ...raw, rooms: raw.hostel_rooms || [], amenities: raw.hostel_amenities || [] };
+      setHostel(mapped as Hostel);
+      const rooms = raw.hostel_rooms || [];
+      if (roomId) {
+        const found = rooms.find((r: any) => r.id === roomId);
+        if (found) setSelectedRoom(found);
+        else if (rooms.length > 0) setSelectedRoom(rooms[0]);
+      } else if (rooms.length > 0) {
+        setSelectedRoom(rooms[0]);
+      }
     }
     setLoading(false);
   };
 
-  const calcNights = () => {
-    if (!checkIn || !checkOut) return 0;
-    const diff = new Date(checkOut + 'T00:00:00').getTime() - new Date(checkIn + 'T00:00:00').getTime();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  };
+  const occupants = useMemo(() => selectedRoom ? getOccupants(selectedRoom.room_type) : 1, [selectedRoom]);
+  const displayName = useMemo(() => selectedRoom ? getDisplayName(selectedRoom.room_type, occupants) : '', [selectedRoom, occupants]);
+  const totalYearPrice = useMemo(() => (selectedRoom?.price_per_month ?? 0) * YEAR_MONTHS, [selectedRoom]);
+  const perPersonYear = useMemo(() => occupants > 1 ? Math.round(totalYearPrice / occupants) : totalYearPrice, [totalYearPrice, occupants]);
 
-  const calcRoomTotal = () => {
-    if (!selectedRoom) return 0;
-    const nights = calcNights();
-    if (nights === 0) return 0;
-    const pricePerMonth = selectedRoom.price_per_month ?? 0;
-    return parseFloat(((pricePerMonth / 30) * nights).toFixed(2));
-  };
+  const amenityNames = useMemo(() => (hostel?.amenities || []).map((a: any) => (a.amenity || '').toLowerCase()), [hostel?.amenities]);
 
-  const calcPlatformFee = () => Math.round(calcRoomTotal() * PAYSTACK_FEES.PLATFORM_FEE_PERCENT * 100) / 100;
+  const utilityInclusions = useMemo(() => {
+    const included: string[] = [];
+    const notIncluded: string[] = [];
+    if (amenityNames.some(a => a.includes('water') || a.includes('borehole'))) included.push('Water Supply');
+    else notIncluded.push('Water Supply');
+    if (amenityNames.some(a => a.includes('electricity'))) included.push('Electricity (24hr)');
+    else notIncluded.push('Electricity (24hr)');
+    if (amenityNames.some(a => a.includes('generator'))) included.push('Generator Backup');
+    else notIncluded.push('Generator Backup');
+    if (amenityNames.some(a => a.includes('wifi'))) included.push('Internet / WiFi');
+    else notIncluded.push('Internet / WiFi');
+    return { included, notIncluded };
+  }, [amenityNames]);
+
+  const calcPlatformFee = () => Math.round(perPersonYear * PAYSTACK_FEES.PLATFORM_FEE_PERCENT * 100) / 100;
   const calcMomoFee = () => Math.min(
-    Math.round(calcRoomTotal() * PAYSTACK_FEES.MOMO_PERCENT * 100) / 100,
+    Math.round(perPersonYear * PAYSTACK_FEES.MOMO_PERCENT * 100) / 100,
     PAYSTACK_FEES.MOMO_CAP_GHS
   );
   const calcGrandTotal = () => {
-    const total = calcRoomTotal() + calcPlatformFee() + calcMomoFee();
+    const total = perPersonYear + calcPlatformFee() + calcMomoFee();
     return isNaN(total) ? 0 : parseFloat(total.toFixed(2));
   };
 
-  const exceeds6Months = calcNights() > GHANA_RENT_ACT.MAX_ADVANCE_DAYS;
-
   const handleBook = async () => {
     setError('');
-    if (!selectedRoom) return setError('Select a room type');
-    if (!checkIn) return setError('Select check-in date');
-    if (!checkOut) return setError('Select check-out date');
-    if (calcNights() < 1) return setError('Check-out must be after check-in');
-    if (exceeds6Months) return setError(`Bookings cannot exceed ${GHANA_RENT_ACT.MAX_ADVANCE_MONTHS} months advance rent (${GHANA_RENT_ACT.ACT_REFERENCE})`);
+    if (!selectedRoom) return setError('No room selected');
 
     setSubmitting(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setError('Please sign in to book'); setSubmitting(false); return; }
 
     const qrCode = `STNEST-${Date.now()}-${user.id.slice(0, 8)}`;
+    const today = new Date().toISOString().split('T')[0];
+    const yearLater = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     const { data: bookingData, error: bookError } = await supabase.from('bookings').insert({
       hostel_id: hostelId,
       room_id: selectedRoom.id,
       user_id: user.id,
-      check_in_date: checkIn,
-      check_out_date: checkOut,
-      nights: calcNights(),
+      check_in_date: today,
+      check_out_date: yearLater,
+      nights: 365,
       total_price: calcGrandTotal(),
       special_requests: specialRequests || null,
       status: 'pending',
@@ -129,8 +155,6 @@ export default function BookScreen() {
 
     setSuccess(true);
   };
-
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const handlePaymentClose = () => {
     setPaymentVisible(false);
@@ -195,41 +219,98 @@ export default function BookScreen() {
           <Text style={styles.hostelAddr}>{hostel?.campus_proximity}</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Room Type</Text>
-        {rooms.map((room) => (
-          <TouchableOpacity
-            key={room.id}
-            style={[styles.roomCard, selectedRoom?.id === room.id && styles.roomCardActive]}
-            onPress={() => setSelectedRoom(room)}
-          >
-            <View style={styles.roomInfo}>
-              <Text style={styles.roomType}>{room.room_type}</Text>
-              <Text style={styles.roomDesc}>{room.description}</Text>
-              <Text style={styles.roomAvail}>{room.available_count} available</Text>
+        {selectedRoom && (
+          <View style={styles.selectedRoomCard}>
+            <View style={styles.selectedRoomHeader}>
+              <BedDouble size={18} color={COLORS.primary} />
+              <Text style={styles.selectedRoomTitle}>Selected Room</Text>
             </View>
-            <View style={styles.roomPriceCol}>
-              <Text style={styles.roomPrice}>GH₵{(room.price_per_month ?? 0).toLocaleString()}</Text>
-              <Text style={styles.roomPriceSub}>/month</Text>
+            <View style={styles.selectedRoomBody}>
+              <Text style={styles.selectedRoomName}>{displayName}</Text>
+              <View style={styles.selectedRoomPriceRow}>
+                <Text style={styles.selectedRoomPrice}>GH₵{totalYearPrice.toLocaleString()}</Text>
+                <Text style={styles.selectedRoomPriceSub}>/year</Text>
+              </View>
+              {occupants > 1 && (
+                <View style={styles.selectedRoomSplitRow}>
+                  <Users size={14} color={COLORS.primary} />
+                  <Text style={styles.selectedRoomSplit}>GH₵{perPersonYear.toLocaleString()} per person ({occupants} occupants)</Text>
+                </View>
+              )}
+              {selectedRoom.available_count > 0 && (
+                <Text style={styles.selectedRoomAvail}>{selectedRoom.available_count} of {selectedRoom.total_count} available</Text>
+              )}
             </View>
-            {selectedRoom?.id === room.id && <Check size={16} color={COLORS.primary} />}
-          </TouchableOpacity>
-        ))}
+          </View>
+        )}
 
-        <Text style={styles.sectionTitle}>Dates</Text>
-        <SemesterDatePicker
-          checkIn={checkIn}
-          checkOut={checkOut}
-          onChange={(ci, co) => { setCheckIn(ci); setCheckOut(co); }}
-        />
+        <View style={styles.utilitiesCard}>
+          <View style={styles.utilitiesHeader}>
+            <CreditCard size={18} color={COLORS.primary} />
+            <Text style={styles.utilitiesTitle}>What's in the Rent</Text>
+          </View>
+          <View style={styles.utilityToggleRow}>
+            <TouchableOpacity
+              style={[styles.utilityToggleBtn, utilityView === 'included' && styles.utilityToggleBtnActive]}
+              onPress={() => setUtilityView('included')}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.utilityToggleBtnText, utilityView === 'included' && styles.utilityToggleBtnTextActive]}>Included</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.utilityToggleBtn, utilityView === 'not_included' && styles.utilityToggleBtnActiveRed]}
+              onPress={() => setUtilityView('not_included')}
+              activeOpacity={0.85}
+            >
+              <Text style={[styles.utilityToggleBtnText, utilityView === 'not_included' && styles.utilityToggleBtnTextActiveRed]}>Not Included</Text>
+            </TouchableOpacity>
+          </View>
+          {utilityView === 'included' && (
+            utilityInclusions.included.length > 0 ? (
+              utilityInclusions.included.map((item, idx) => (
+                <View key={idx} style={styles.utilityRow}>
+                  <View style={styles.utilityDotGreen} />
+                  <Text style={styles.utilityTextGreen}>{item}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.utilityEmpty}>No utilities confirmed as included</Text>
+            )
+          )}
+          {utilityView === 'not_included' && (
+            utilityInclusions.notIncluded.length > 0 ? (
+              utilityInclusions.notIncluded.map((item, idx) => (
+                <View key={idx} style={styles.utilityRow}>
+                  <View style={styles.utilityDotGrey} />
+                  <Text style={styles.utilityTextGrey}>{item}</Text>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.utilityEmpty}>All utilities are included in the rent</Text>
+            )
+          )}
+        </View>
 
-        {calcNights() > 0 && selectedRoom && (
-          <View style={styles.summarySection}>
-            <Text style={styles.sectionTitle}>Price Summary</Text>
-            <RentActDisclosure
-              totalPrice={calcRoomTotal()}
-              nights={calcNights()}
-              exceeds6Months={exceeds6Months}
-            />
+        {selectedRoom && (
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>Price Summary</Text>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Room ({occupants > 1 ? 'per person' : 'annual'})</Text>
+              <Text style={styles.summaryValue}>GH₵{perPersonYear.toLocaleString()}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Platform fee</Text>
+              <Text style={styles.summaryValue}>GH₵{calcPlatformFee().toFixed(2)}</Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Processing fee</Text>
+              <Text style={styles.summaryValue}>GH₵{calcMomoFee().toFixed(2)}</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryTotal}>Total</Text>
+              <Text style={styles.summaryTotalValue}>GH₵{calcGrandTotal().toFixed(2)}</Text>
+            </View>
           </View>
         )}
 
@@ -253,13 +334,13 @@ export default function BookScreen() {
         )}
 
         <TouchableOpacity
-          style={[styles.bookBtn, (submitting || exceeds6Months) && styles.bookBtnDisabled]}
+          style={[styles.bookBtn, submitting && styles.bookBtnDisabled]}
           onPress={handleBook}
-          disabled={submitting || exceeds6Months}
+          disabled={submitting}
           activeOpacity={0.8}
         >
           <Text style={styles.bookBtnText}>
-            {submitting ? 'Creating Booking...' : calcNights() > 0 ? `Pay GH₵${calcGrandTotal().toFixed(2)}` : 'Confirm Booking'}
+            {submitting ? 'Creating Booking...' : `Pay GH₵${calcGrandTotal().toFixed(2)}`}
           </Text>
         </TouchableOpacity>
         <View style={{ height: 24 }} />
@@ -315,28 +396,193 @@ const styles = StyleSheet.create({
   hostelName: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.white, marginBottom: 4 },
   hostelAddr: { fontFamily: FONT.regular, fontSize: 13, color: 'rgba(255,255,255,0.7)' },
 
-  sectionTitle: { fontFamily: FONT.heading, fontSize: 16, color: COLORS.textPrimary, marginBottom: SPACING.sm, marginTop: SPACING.sm },
-  roomCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  selectedRoomCard: {
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
     borderWidth: 1.5,
-    borderColor: COLORS.border,
-    gap: SPACING.sm,
+    borderColor: COLORS.primary,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
   },
-  roomCardActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryFaded },
-  roomInfo: { flex: 1 },
-  roomType: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary, marginBottom: 2 },
-  roomDesc: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginBottom: 2 },
-  roomAvail: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.success },
-  roomPriceCol: { alignItems: 'flex-end' },
-  roomPrice: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.primary },
-  roomPriceSub: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
+  selectedRoomHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: SPACING.sm,
+  },
+  selectedRoomTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 14,
+    color: COLORS.primary,
+  },
+  selectedRoomBody: { gap: 4 },
+  selectedRoomName: {
+    fontFamily: FONT.semiBold,
+    fontSize: 16,
+    color: COLORS.textPrimary,
+  },
+  selectedRoomPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 2,
+  },
+  selectedRoomPrice: {
+    fontFamily: FONT.semiBold,
+    fontSize: 16,
+    color: COLORS.primary,
+  },
+  selectedRoomPriceSub: {
+    fontFamily: FONT.regular,
+    fontSize: 12,
+    color: COLORS.textTertiary,
+  },
+  selectedRoomSplitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  selectedRoomSplit: {
+    fontFamily: FONT.medium,
+    fontSize: 13,
+    color: COLORS.primary,
+  },
+  selectedRoomAvail: {
+    fontFamily: FONT.medium,
+    fontSize: 12,
+    color: COLORS.success,
+    marginTop: 4,
+  },
 
-  summarySection: { marginTop: SPACING.xs },
+  utilitiesCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  utilitiesHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: SPACING.sm,
+  },
+  utilitiesTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+  },
+  utilityToggleRow: {
+    flexDirection: 'row',
+    marginBottom: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: 'hidden',
+  },
+  utilityToggleBtn: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+  },
+  utilityToggleBtnActive: {
+    backgroundColor: COLORS.success,
+  },
+  utilityToggleBtnActiveRed: {
+    backgroundColor: COLORS.error,
+  },
+  utilityToggleBtnText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  utilityToggleBtnTextActive: {
+    color: COLORS.white,
+  },
+  utilityToggleBtnTextActiveRed: {
+    color: COLORS.white,
+  },
+  utilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+    gap: 8,
+  },
+  utilityDotGreen: {
+    width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.success,
+  },
+  utilityTextGreen: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textPrimary,
+  },
+  utilityDotGrey: {
+    width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.textTertiary,
+  },
+  utilityTextGrey: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textTertiary,
+  },
+  utilityEmpty: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textTertiary,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: SPACING.sm,
+  },
+
+  summaryCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+  summaryTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+  },
+  summaryLabel: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+  },
+  summaryValue: {
+    fontFamily: FONT.medium,
+    fontSize: 13,
+    color: COLORS.textPrimary,
+  },
+  summaryDivider: {
+    height: 1,
+    backgroundColor: COLORS.border,
+    marginVertical: SPACING.sm,
+  },
+  summaryTotal: {
+    fontFamily: FONT.semiBold,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+  },
+  summaryTotalValue: {
+    fontFamily: FONT.bold,
+    fontSize: 15,
+    color: COLORS.primary,
+  },
+
+  sectionTitle: { fontFamily: FONT.heading, fontSize: 16, color: COLORS.textPrimary, marginBottom: SPACING.sm, marginTop: SPACING.sm },
 
   requestInput: {
     backgroundColor: COLORS.white,
@@ -396,4 +642,4 @@ const styles = StyleSheet.create({
   confirmResumeBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
   confirmCancelBtn: { borderWidth: 1.5, borderColor: COLORS.error, borderRadius: RADIUS.md, paddingVertical: 14, alignItems: 'center' },
   confirmCancelBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.error },
-}); 
+});
