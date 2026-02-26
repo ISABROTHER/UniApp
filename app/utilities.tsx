@@ -1,342 +1,796 @@
-import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  RefreshControl,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { COLORS, FONT, SPACING, RADIUS, UTILITY_TOPUP_AMOUNTS } from '@/lib/constants';
-import { UtilityMeter, UtilityTopup } from '@/lib/types';
-import { ArrowLeft, Zap, Droplets, Plus, Clock, CheckCircle, XCircle, Users } from 'lucide-react-native';
+import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
+import { Plus, Search, X, Tag, MapPin, Phone, ShoppingBag, TrendingUp, Sparkles, BadgeCheck } from 'lucide-react-native';
 
-type TabType = 'meters' | 'topup' | 'history';
+type MarketCategory = 'all' | 'phones' | 'laptops' | 'clothing' | 'services' | 'food' | 'other';
+
+type MarketListing = {
+  id: string;
+  seller_id: string;
+  title: string;
+  description: string;
+  price: number | string;
+  category: string | null;
+  condition: string | null;
+  campus_location: string | null;
+  seller_phone: string | null;
+  is_available: boolean | null;
+  is_sold: boolean | null;
+  created_at: string;
+};
+
+const CATEGORIES: { key: MarketCategory; label: string; emoji: string; gradient: string[] }[] = [
+  { key: 'all', label: 'All Items', emoji: '🛍️', gradient: ['#667EEA', '#764BA2'] },
+  { key: 'phones', label: 'Phones', emoji: '📱', gradient: ['#F093FB', '#F5576C'] },
+  { key: 'laptops', label: 'Laptops', emoji: '💻', gradient: ['#4FACFE', '#00F2FE'] },
+  { key: 'clothing', label: 'Fashion', emoji: '👕', gradient: ['#FA709A', '#FEE140'] },
+  { key: 'services', label: 'Services', emoji: '⚡', gradient: ['#30CFD0', '#330867'] },
+  { key: 'food', label: 'Food', emoji: '🍕', gradient: ['#FDBB2D', '#22C1C3'] },
+  { key: 'other', label: 'Others', emoji: '📦', gradient: ['#A8EDEA', '#FED6E3'] },
+];
+
+const CONDITIONS = ['new', 'good', 'fair', 'used'] as const;
 
 export default function UtilitiesScreen() {
-  const router = useRouter();
-  const [tab, setTab] = useState<TabType>('meters');
-  const [meters, setMeters] = useState<UtilityMeter[]>([]);
-  const [topups, setTopups] = useState<UtilityTopup[]>([]);
-  const [selectedMeter, setSelectedMeter] = useState<UtilityMeter | null>(null);
-  const [topupAmount, setTopupAmount] = useState('');
-  const [customAmount, setCustomAmount] = useState('');
-  const [processing, setProcessing] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [addingMeter, setAddingMeter] = useState(false);
-  const [newMeterNumber, setNewMeterNumber] = useState('');
-  const [newMeterType, setNewMeterType] = useState<'ecg' | 'gwcl'>('ecg');
-  const [newMeterNick, setNewMeterNick] = useState('');
+  const [listings, setListings] = useState<MarketListing[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useFocusEffect(useCallback(() => {
-    fetchData();
-  }, []));
+  const [searchQuery, setSearchQuery] = useState('');
+  const [category, setCategory] = useState<MarketCategory>('all');
 
-  const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
+  const [postOpen, setPostOpen] = useState(false);
+  const [postTitle, setPostTitle] = useState('');
+  const [postDescription, setPostDescription] = useState('');
+  const [postPrice, setPostPrice] = useState('');
+  const [postCategory, setPostCategory] = useState<Exclude<MarketCategory, 'all'>>('other');
+  const [postCondition, setPostCondition] = useState<(typeof CONDITIONS)[number]>('good');
+  const [postLocation, setPostLocation] = useState('');
+  const [postPhone, setPostPhone] = useState('');
+  const [postError, setPostError] = useState<string | null>(null);
+  const [posting, setPosting] = useState(false);
 
-    const [{ data: ms }, { data: ts }] = await Promise.all([
-      supabase.from('utility_meters').select('*').eq('user_id', user.id).order('created_at'),
-      supabase.from('utility_topups').select('*, utility_meters(meter_number, nickname, meter_type)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
-    ]);
+  const filteredTitle = useMemo(() => {
+    const cat = CATEGORIES.find((c) => c.key === category);
+    return cat ? cat.label : 'All Items';
+  }, [category]);
 
-    const meterList = (ms as UtilityMeter[]) || [];
-    setMeters(meterList);
-    setTopups((ts as UtilityTopup[]) || []);
-    if (meterList.length > 0 && !selectedMeter) setSelectedMeter(meterList[0]);
-    setLoading(false);
-  };
+  const fetchListings = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent ?? false;
+      if (!silent) setLoading(true);
 
-  const addMeter = async () => {
-    if (!newMeterNumber.trim()) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('utility_meters').insert({
-      user_id: user.id,
-      meter_type: newMeterType,
-      meter_number: newMeterNumber.trim(),
-      nickname: newMeterNick.trim() || null,
-      is_default: meters.length === 0,
-    }).select().maybeSingle();
-    if (data) {
-      setAddingMeter(false);
-      setNewMeterNumber('');
-      setNewMeterNick('');
-      fetchData();
+      try {
+        let query = supabase
+          .from('market_listings')
+          .select(
+            'id,seller_id,title,description,price,category,condition,campus_location,seller_phone,is_available,is_sold,created_at',
+          )
+          .order('created_at', { ascending: false });
+
+        if (category !== 'all') {
+          query = query.eq('category', category);
+        }
+
+        const q = searchQuery.trim();
+        if (q.length > 0) {
+          query = query.ilike('title', `%${q}%`);
+        }
+
+        query = query.eq('is_sold', false).eq('is_available', true);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        setListings((data ?? []) as MarketListing[]);
+      } catch {
+        setListings([]);
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [category, searchQuery],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchListings();
+    }, [fetchListings]),
+  );
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await fetchListings({ silent: true });
+    setRefreshing(false);
+  }, [fetchListings]);
+
+  const openPost = useCallback(() => {
+    setPostError(null);
+    setPostTitle('');
+    setPostDescription('');
+    setPostPrice('');
+    setPostCategory('other');
+    setPostCondition('good');
+    setPostLocation('');
+    setPostPhone('');
+    setPostOpen(true);
+  }, []);
+
+  const closePost = useCallback(() => {
+    if (!posting) setPostOpen(false);
+  }, [posting]);
+
+  const submitPost = useCallback(async () => {
+    if (posting) return;
+
+    const title = postTitle.trim();
+    const priceNumber = Number(postPrice);
+
+    if (title.length === 0) {
+      setPostError('Add a title.');
+      return;
     }
-  };
+    if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
+      setPostError('Enter a valid price.');
+      return;
+    }
 
-  const handleTopup = async () => {
-    const amount = parseFloat(customAmount || topupAmount);
-    if (!selectedMeter || !amount || amount < 1) return;
-    setProcessing(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setProcessing(false); return; }
+    setPosting(true);
+    setPostError(null);
 
-    const ref = `UTIL-${Date.now()}-${user.id.slice(0, 8)}`;
-    const token = newMeterType === 'ecg'
-      ? Array.from({ length: 20 }, () => Math.floor(Math.random() * 10)).join('').replace(/(.{4})/g, '$1 ').trim()
-      : null;
+    try {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
 
-    await supabase.from('utility_topups').insert({
-      user_id: user.id,
-      meter_id: selectedMeter.id,
-      meter_type: selectedMeter.meter_type,
-      amount,
-      vend_token: token,
-      status: 'success',
-      payment_reference: ref,
-    });
+      const userId = userData.user?.id;
+      if (!userId) {
+        setPostError('Please sign in to post.');
+        return;
+      }
 
-    setProcessing(false);
-    setTopupAmount('');
-    setCustomAmount('');
-    fetchData();
-    setTab('history');
-  };
+      const payload = {
+        seller_id: userId,
+        title,
+        description: postDescription.trim(),
+        price: priceNumber,
+        category: postCategory,
+        condition: postCondition,
+        campus_location: postLocation.trim(),
+        seller_phone: postPhone.trim(),
+        is_available: true,
+        is_sold: false,
+      };
 
-  const statusIcon = (status: string) => {
-    if (status === 'success') return <CheckCircle size={16} color={COLORS.success} />;
-    if (status === 'failed') return <XCircle size={16} color={COLORS.error} />;
-    return <Clock size={16} color={COLORS.warning} />;
+      const { error } = await supabase.from('market_listings').insert(payload);
+      if (error) throw error;
+
+      setPostOpen(false);
+      await fetchListings({ silent: true });
+    } catch {
+      setPostError('Could not post right now. Try again.');
+    } finally {
+      setPosting(false);
+    }
+  }, [
+    fetchListings,
+    postCategory,
+    postCondition,
+    postDescription,
+    postLocation,
+    postPhone,
+    postPrice,
+    postTitle,
+    posting,
+  ]);
+
+  const formatPrice = useCallback((value: number | string) => {
+    const n = typeof value === 'string' ? Number(value) : value;
+    if (!Number.isFinite(n)) return '₵0';
+    return `₵${n.toLocaleString()}`;
+  }, []);
+
+  const getCategoryColor = (cat: string | null) => {
+    const found = CATEGORIES.find((c) => c.key === cat);
+    return found ? found.gradient[0] : COLORS.textSecondary;
   };
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <ArrowLeft size={22} color={COLORS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Utilities</Text>
-      </View>
-
-      <View style={styles.tabRow}>
-        {([['meters', 'My Meters'], ['topup', 'Top Up'], ['history', 'History']] as [TabType, string][]).map(([t, label]) => (
-          <TouchableOpacity key={t} style={[styles.tabBtn, tab === t && styles.tabBtnActive]} onPress={() => setTab(t)}>
-            <Text style={[styles.tabLabel, tab === t && styles.tabLabelActive]}>{label}</Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        {loading ? (
-          <Text style={styles.loadingText}>Loading...</Text>
-        ) : tab === 'meters' ? (
-          <>
-            <View style={styles.infoRow}>
-              <View style={[styles.utilCard, { backgroundColor: '#FEF9C3' }]}>
-                <Zap size={22} color={COLORS.warning} />
-                <Text style={styles.utilCardLabel}>ECG Electric</Text>
-                <Text style={styles.utilCardSub}>Prepaid electricity tokens</Text>
-              </View>
-              <View style={[styles.utilCard, { backgroundColor: '#EFF6FF' }]}>
-                <Droplets size={22} color={COLORS.accent} />
-                <Text style={styles.utilCardLabel}>GWCL Water</Text>
-                <Text style={styles.utilCardSub}>Ghana Water bill top-ups</Text>
-              </View>
+        <View style={styles.headerTop}>
+          <View style={styles.headerLeft}>
+            <View style={styles.logoBox}>
+              <ShoppingBag size={24} color={COLORS.white} strokeWidth={2.5} />
             </View>
+            <View>
+              <Text style={styles.title}>StuMark</Text>
+              <Text style={styles.subtitle}>Campus marketplace</Text>
+            </View>
+          </View>
 
-            {meters.map((m) => (
-              <View key={m.id} style={styles.meterCard}>
-                <View style={[styles.meterIcon, { backgroundColor: m.meter_type === 'ecg' ? '#FEF9C3' : '#EFF6FF' }]}>
-                  {m.meter_type === 'ecg' ? <Zap size={20} color={COLORS.warning} /> : <Droplets size={20} color={COLORS.accent} />}
+          <TouchableOpacity style={styles.sellButton} onPress={openPost} activeOpacity={0.9}>
+            <Sparkles size={16} color={COLORS.white} strokeWidth={2.5} />
+            <Text style={styles.sellButtonText}>Sell</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.searchWrapper}>
+          <View style={styles.searchBox}>
+            <Search size={20} color={COLORS.textTertiary} />
+            <TextInput
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search for anything..."
+              placeholderTextColor={COLORS.textTertiary}
+              style={styles.searchInput}
+              returnKeyType="search"
+              onSubmitEditing={() => void fetchListings()}
+            />
+            {searchQuery.trim().length > 0 ? (
+              <TouchableOpacity
+                onPress={() => {
+                  setSearchQuery('');
+                  void fetchListings({ silent: true });
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X size={20} color={COLORS.textTertiary} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
+      </View>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.categories}
+      >
+        {CATEGORIES.map((cat) => {
+          const active = category === cat.key;
+          return (
+            <TouchableOpacity
+              key={cat.key}
+              style={[
+                styles.categoryChip,
+                active && { backgroundColor: cat.gradient[0] },
+              ]}
+              onPress={() => setCategory(cat.key)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.categoryEmoji}>{cat.emoji}</Text>
+              <Text style={[styles.categoryText, active && styles.categoryTextActive]}>
+                {cat.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentContainer}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
+      >
+        {loading && listings.length === 0 ? (
+          <View style={styles.loadingBox}>
+            <Text style={styles.loadingText}>Loading marketplace...</Text>
+          </View>
+        ) : listings.length === 0 ? (
+          <View style={styles.emptyBox}>
+            <View style={styles.emptyIcon}>
+              <ShoppingBag size={48} color={COLORS.textTertiary} strokeWidth={1.5} />
+            </View>
+            <Text style={styles.emptyTitle}>No items yet</Text>
+            <Text style={styles.emptySubtitle}>
+              {searchQuery.trim().length > 0
+                ? 'Try searching for something else'
+                : 'Be the first to list something!'}
+            </Text>
+            <TouchableOpacity style={styles.emptyBtn} onPress={openPost} activeOpacity={0.9}>
+              <Plus size={18} color={COLORS.white} strokeWidth={2.5} />
+              <Text style={styles.emptyBtnText}>Post Item</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          listings.map((item) => {
+            const catColor = getCategoryColor(item.category);
+            return (
+              <View key={item.id} style={styles.card}>
+                <View style={[styles.cardImagePlaceholder, { backgroundColor: `${catColor}15` }]}>
+                  <View style={[styles.cardImageIcon, { backgroundColor: `${catColor}30` }]}>
+                    <ShoppingBag size={32} color={catColor} strokeWidth={2} />
+                  </View>
+                  {item.condition && (
+                    <View style={[styles.conditionBadge, { backgroundColor: catColor }]}>
+                      <Text style={styles.conditionText}>{item.condition}</Text>
+                    </View>
+                  )}
                 </View>
-                <View style={styles.meterInfo}>
-                  <Text style={styles.meterNum}>{m.meter_number}</Text>
-                  <Text style={styles.meterNick}>{m.nickname || (m.meter_type === 'ecg' ? 'ECG Meter' : 'GWCL Meter')}</Text>
+
+                <View style={styles.cardBody}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <View style={styles.priceBox}>
+                      <Text style={styles.priceLabel}>Price</Text>
+                      <Text style={styles.priceValue}>{formatPrice(item.price)}</Text>
+                    </View>
+                  </View>
+
+                  {item.description && item.description.length > 0 && (
+                    <Text style={styles.cardDesc} numberOfLines={2}>
+                      {item.description}
+                    </Text>
+                  )}
+
+                  <View style={styles.cardMeta}>
+                    {item.category && (
+                      <View style={[styles.metaChip, { backgroundColor: `${catColor}15` }]}>
+                        <Tag size={13} color={catColor} />
+                        <Text style={[styles.metaText, { color: catColor }]}>
+                          {CATEGORIES.find((c) => c.key === item.category)?.label || item.category}
+                        </Text>
+                      </View>
+                    )}
+
+                    {item.campus_location && (
+                      <View style={styles.metaChip}>
+                        <MapPin size={13} color={COLORS.textSecondary} />
+                        <Text style={styles.metaText}>{item.campus_location}</Text>
+                      </View>
+                    )}
+
+                    {item.seller_phone && (
+                      <View style={styles.metaChip}>
+                        <Phone size={13} color={COLORS.textSecondary} />
+                        <Text style={styles.metaText}>{item.seller_phone}</Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
-                {m.is_default && <View style={styles.defaultBadge}><Text style={styles.defaultBadgeText}>Default</Text></View>}
-                <TouchableOpacity onPress={() => { setSelectedMeter(m); setTab('topup'); }} style={styles.topupSmallBtn}>
-                  <Text style={styles.topupSmallText}>Top Up</Text>
+              </View>
+            );
+          })
+        )}
+
+        <View style={styles.footerSpace} />
+      </ScrollView>
+
+      <Modal visible={postOpen} transparent animationType="slide" onRequestClose={closePost}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <View style={styles.modalHeaderLeft}>
+                  <View style={styles.modalIcon}>
+                    <Plus size={20} color={COLORS.primary} strokeWidth={2.5} />
+                  </View>
+                  <Text style={styles.modalTitle}>List an Item</Text>
+                </View>
+                <TouchableOpacity onPress={closePost} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <X size={24} color={COLORS.textSecondary} />
                 </TouchableOpacity>
               </View>
-            ))}
 
-            {addingMeter ? (
-              <View style={styles.addMeterForm}>
-                <Text style={styles.formTitle}>Add Meter</Text>
-                <View style={styles.typeRow}>
-                  {(['ecg', 'gwcl'] as const).map((t) => (
-                    <TouchableOpacity key={t} style={[styles.typeChip, newMeterType === t && styles.typeChipActive]} onPress={() => setNewMeterType(t)}>
-                      <Text style={[styles.typeChipText, newMeterType === t && styles.typeChipTextActive]}>{t.toUpperCase()}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <TextInput style={styles.input} value={newMeterNumber} onChangeText={setNewMeterNumber} placeholder="Meter Number" placeholderTextColor={COLORS.textTertiary} />
-                <TextInput style={styles.input} value={newMeterNick} onChangeText={setNewMeterNick} placeholder="Nickname (optional)" placeholderTextColor={COLORS.textTertiary} />
-                <View style={styles.formBtns}>
-                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setAddingMeter(false)}><Text style={styles.cancelBtnText}>Cancel</Text></TouchableOpacity>
-                  <TouchableOpacity style={styles.saveBtn} onPress={addMeter}><Text style={styles.saveBtnText}>Save Meter</Text></TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <TouchableOpacity style={styles.addBtn} onPress={() => setAddingMeter(true)}>
-                <Plus size={18} color={COLORS.primary} />
-                <Text style={styles.addBtnText}>Add New Meter</Text>
-              </TouchableOpacity>
-            )}
-          </>
-        ) : tab === 'topup' ? (
-          <>
-            <Text style={styles.sectionTitle}>Select Meter</Text>
-            {meters.length === 0 ? (
-              <TouchableOpacity style={styles.noMeterBtn} onPress={() => setTab('meters')}>
-                <Text style={styles.noMeterText}>No meters added yet. Add a meter first.</Text>
-              </TouchableOpacity>
-            ) : (
-              meters.map((m) => (
-                <TouchableOpacity key={m.id} style={[styles.meterCard, selectedMeter?.id === m.id && styles.meterCardActive]} onPress={() => setSelectedMeter(m)}>
-                  <View style={[styles.meterIcon, { backgroundColor: m.meter_type === 'ecg' ? '#FEF9C3' : '#EFF6FF' }]}>
-                    {m.meter_type === 'ecg' ? <Zap size={20} color={COLORS.warning} /> : <Droplets size={20} color={COLORS.accent} />}
-                  </View>
-                  <View style={styles.meterInfo}>
-                    <Text style={styles.meterNum}>{m.meter_number}</Text>
-                    <Text style={styles.meterNick}>{m.nickname || m.meter_type.toUpperCase()}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))
-            )}
+              {postError && <Text style={styles.modalError}>{postError}</Text>}
 
-            {selectedMeter && (
-              <>
-                <Text style={styles.sectionTitle}>Amount (GH₵)</Text>
-                <View style={styles.amountsGrid}>
-                  {UTILITY_TOPUP_AMOUNTS.map((amt) => (
-                    <TouchableOpacity key={amt} style={[styles.amtChip, topupAmount === String(amt) && styles.amtChipActive]} onPress={() => { setTopupAmount(String(amt)); setCustomAmount(''); }}>
-                      <Text style={[styles.amtChipText, topupAmount === String(amt) && styles.amtChipTextActive]}>GH₵{amt}</Text>
-                    </TouchableOpacity>
-                  ))}
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Item title</Text>
+                  <TextInput
+                    value={postTitle}
+                    onChangeText={setPostTitle}
+                    placeholder="e.g., iPhone 13 Pro, Dell Laptop..."
+                    placeholderTextColor={COLORS.textTertiary}
+                    style={styles.input}
+                  />
                 </View>
-                <TextInput
-                  style={styles.input}
-                  value={customAmount}
-                  onChangeText={(v) => { setCustomAmount(v); setTopupAmount(''); }}
-                  placeholder="Or enter custom amount"
-                  placeholderTextColor={COLORS.textTertiary}
-                  keyboardType="numeric"
-                />
-                {selectedMeter.meter_type === 'ecg' && (
-                  <View style={styles.noteCard}>
-                    <Zap size={14} color={COLORS.warning} />
-                    <Text style={styles.noteText}>ECG prepaid token will be generated and displayed after payment.</Text>
-                  </View>
-                )}
 
-                <Text style={styles.sectionTitle}>Split with Roommates</Text>
-                <TouchableOpacity style={styles.splitBtn}>
-                  <Users size={16} color={COLORS.accent} />
-                  <Text style={styles.splitBtnText}>Invite roommates to split this bill</Text>
-                </TouchableOpacity>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Description</Text>
+                  <TextInput
+                    value={postDescription}
+                    onChangeText={setPostDescription}
+                    placeholder="Describe your item, its condition, etc."
+                    placeholderTextColor={COLORS.textTertiary}
+                    style={[styles.input, styles.textArea]}
+                    multiline
+                    numberOfLines={4}
+                  />
+                </View>
+
+                <View style={styles.row}>
+                  <View style={styles.rowItem}>
+                    <Text style={styles.label}>Price (₵)</Text>
+                    <TextInput
+                      value={postPrice}
+                      onChangeText={setPostPrice}
+                      placeholder="0.00"
+                      placeholderTextColor={COLORS.textTertiary}
+                      style={styles.input}
+                      keyboardType="numeric"
+                    />
+                  </View>
+
+                  <View style={styles.rowItem}>
+                    <Text style={styles.label}>Condition</Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.inlineChips}
+                    >
+                      {CONDITIONS.map((cond) => {
+                        const active = postCondition === cond;
+                        return (
+                          <TouchableOpacity
+                            key={cond}
+                            style={[styles.smallChip, active && styles.smallChipActive]}
+                            onPress={() => setPostCondition(cond)}
+                            activeOpacity={0.85}
+                          >
+                            <Text
+                              style={[styles.smallChipText, active && styles.smallChipTextActive]}
+                            >
+                              {cond}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.label}>Category</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.inlineChips}
+                  >
+                    {CATEGORIES.filter((c) => c.key !== 'all').map((c) => {
+                      const key = c.key as Exclude<MarketCategory, 'all'>;
+                      const active = postCategory === key;
+                      return (
+                        <TouchableOpacity
+                          key={c.key}
+                          style={[styles.smallChip, active && styles.smallChipActive]}
+                          onPress={() => setPostCategory(key)}
+                          activeOpacity={0.85}
+                        >
+                          <Text style={styles.categoryEmoji}>{c.emoji}</Text>
+                          <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>
+                            {c.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.label}>Campus location</Text>
+                  <TextInput
+                    value={postLocation}
+                    onChangeText={setPostLocation}
+                    placeholder="e.g., Science market, Hall 3, Library..."
+                    placeholderTextColor={COLORS.textTertiary}
+                    style={styles.input}
+                  />
+                </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.label}>Phone number</Text>
+                  <TextInput
+                    value={postPhone}
+                    onChangeText={setPostPhone}
+                    placeholder="Optional"
+                    placeholderTextColor={COLORS.textTertiary}
+                    style={styles.input}
+                    keyboardType="phone-pad"
+                  />
+                </View>
 
                 <TouchableOpacity
-                  style={[styles.topupBtn, processing && styles.topupBtnDisabled]}
-                  onPress={handleTopup}
-                  disabled={processing}
-                  activeOpacity={0.8}
+                  style={[styles.submitBtn, posting && styles.submitBtnDisabled]}
+                  onPress={submitPost}
+                  activeOpacity={0.9}
+                  disabled={posting}
                 >
-                  <Text style={styles.topupBtnText}>{processing ? 'Processing...' : `Top Up GH₵${customAmount || topupAmount || '0'}`}</Text>
+                  <Text style={styles.submitBtnText}>{posting ? 'Posting…' : 'Post Listing'}</Text>
                 </TouchableOpacity>
-              </>
-            )}
-          </>
-        ) : (
-          topups.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Clock size={48} color={COLORS.textTertiary} />
-              <Text style={styles.emptyTitle}>No History</Text>
-              <Text style={styles.emptySubtitle}>Your top-up history will appear here.</Text>
+              </ScrollView>
             </View>
-          ) : (
-            topups.map((t) => (
-              <View key={t.id} style={styles.histCard}>
-                <View style={styles.histLeft}>
-                  {statusIcon(t.status)}
-                  <View style={styles.histInfo}>
-                    <Text style={styles.histMeter}>{(t as any).utility_meters?.nickname || (t as any).utility_meters?.meter_number || t.meter_type.toUpperCase()}</Text>
-                    <Text style={styles.histDate}>{t.created_at.slice(0, 10)}</Text>
-                    {t.vend_token && <Text style={styles.histToken}>Token: {t.vend_token}</Text>}
-                  </View>
-                </View>
-                <Text style={[styles.histAmount, { color: t.status === 'failed' ? COLORS.error : COLORS.success }]}>GH₵{t.amount}</Text>
-              </View>
-            ))
-          )
-        )}
-        <View style={{ height: 24 }} />
-      </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: COLORS.white, flexDirection: 'row', alignItems: 'center', paddingTop: Platform.OS === 'web' ? 20 : 56, paddingHorizontal: SPACING.md, paddingBottom: SPACING.md, gap: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { fontFamily: FONT.heading, fontSize: 18, color: COLORS.textPrimary },
+  container: { flex: 1, backgroundColor: '#F5F7FA' },
+  
+  header: {
+    backgroundColor: COLORS.white,
+    paddingTop: Platform.OS === 'ios' ? 56 : 48,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.md,
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md, flex: 1 },
+  logoBox: {
+    width: 44,
+    height: 44,
+    borderRadius: RADIUS.lg,
+    backgroundColor: '#667EEA',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  title: { fontFamily: FONT.headingBold, fontSize: 22, color: COLORS.textPrimary },
+  subtitle: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary, marginTop: 1 },
 
-  tabRow: { flexDirection: 'row', backgroundColor: COLORS.white, paddingHorizontal: SPACING.md, paddingBottom: SPACING.sm, gap: SPACING.sm, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  tabBtn: { flex: 1, paddingVertical: 10, borderRadius: RADIUS.sm, alignItems: 'center', backgroundColor: COLORS.background },
-  tabBtnActive: { backgroundColor: COLORS.primaryFaded },
-  tabLabel: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary },
-  tabLabelActive: { color: COLORS.primary, fontFamily: FONT.semiBold },
+  sellButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 10,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.full,
+  },
+  sellButtonText: { fontFamily: FONT.bold, fontSize: 14, color: COLORS.white },
 
-  content: { padding: SPACING.md },
-  loadingText: { textAlign: 'center', marginTop: 60, fontFamily: FONT.regular, fontSize: 15, color: COLORS.textSecondary },
+  searchWrapper: { paddingHorizontal: SPACING.lg },
+  searchBox: {
+    backgroundColor: COLORS.background,
+    borderWidth: 1.5,
+    borderColor: COLORS.borderLight,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: Platform.OS === 'ios' ? SPACING.sm + 2 : SPACING.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: FONT.medium,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    paddingVertical: SPACING.xs,
+  },
 
-  infoRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md },
-  utilCard: { flex: 1, borderRadius: RADIUS.lg, padding: SPACING.md, alignItems: 'center', gap: 6 },
-  utilCardLabel: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary },
-  utilCardSub: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textSecondary, textAlign: 'center' },
+  categories: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: SPACING.sm },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: COLORS.borderLight,
+  },
+  categoryEmoji: { fontSize: 16 },
+  categoryText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textSecondary },
+  categoryTextActive: { color: COLORS.white },
 
-  meterCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm, gap: SPACING.sm, borderWidth: 1.5, borderColor: COLORS.border },
-  meterCardActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryFaded },
-  meterIcon: { width: 42, height: 42, borderRadius: RADIUS.sm, justifyContent: 'center', alignItems: 'center' },
-  meterInfo: { flex: 1 },
-  meterNum: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary },
-  meterNick: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary },
-  defaultBadge: { backgroundColor: COLORS.successLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: RADIUS.full },
-  defaultBadgeText: { fontFamily: FONT.medium, fontSize: 10, color: COLORS.success },
-  topupSmallBtn: { backgroundColor: COLORS.primaryFaded, paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.sm },
-  topupSmallText: { fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.primary },
+  content: { flex: 1 },
+  contentContainer: { paddingHorizontal: SPACING.lg, paddingTop: SPACING.sm },
 
-  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: COLORS.primary, borderStyle: 'dashed', borderRadius: RADIUS.md, paddingVertical: 14, gap: 8, marginTop: SPACING.sm },
-  addBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.primary },
+  loadingBox: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    marginTop: SPACING.lg,
+  },
+  loadingText: { fontFamily: FONT.medium, fontSize: 15, color: COLORS.textSecondary },
 
-  addMeterForm: { backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md, marginTop: SPACING.sm, borderWidth: 1, borderColor: COLORS.border },
-  formTitle: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  typeRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.sm },
-  typeChip: { flex: 1, paddingVertical: 10, borderRadius: RADIUS.sm, alignItems: 'center', backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border },
-  typeChipActive: { backgroundColor: COLORS.primaryFaded, borderColor: COLORS.primary },
-  typeChipText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary },
-  typeChipTextActive: { color: COLORS.primary, fontFamily: FONT.semiBold },
-  input: { backgroundColor: COLORS.background, borderRadius: RADIUS.md, borderWidth: 1, borderColor: COLORS.border, paddingHorizontal: SPACING.md, height: 46, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textPrimary, marginBottom: SPACING.sm },
-  formBtns: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
-  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: RADIUS.md, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  cancelBtnText: { fontFamily: FONT.medium, fontSize: 14, color: COLORS.textSecondary },
-  saveBtn: { flex: 1, paddingVertical: 12, borderRadius: RADIUS.md, alignItems: 'center', backgroundColor: COLORS.primary },
-  saveBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
+  emptyBox: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginTop: SPACING.lg,
+  },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: RADIUS.xl,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  emptyTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
+  emptySubtitle: {
+    fontFamily: FONT.regular,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  emptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.full,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.sm,
+  },
+  emptyBtnText: { fontFamily: FONT.bold, fontSize: 14, color: COLORS.white },
 
-  sectionTitle: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary, marginBottom: SPACING.sm, marginTop: SPACING.sm },
-  noMeterBtn: { backgroundColor: COLORS.warningLight, borderRadius: RADIUS.md, padding: SPACING.md, alignItems: 'center' },
-  noMeterText: { fontFamily: FONT.medium, fontSize: 14, color: COLORS.warning },
-  amountsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, marginBottom: SPACING.sm },
-  amtChip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: RADIUS.full, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: COLORS.white },
-  amtChipActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryFaded },
-  amtChipText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary },
-  amtChipTextActive: { color: COLORS.primary, fontFamily: FONT.semiBold },
-  noteCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: COLORS.warningLight, borderRadius: RADIUS.sm, padding: SPACING.sm, marginBottom: SPACING.sm },
-  noteText: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, flex: 1 },
-  splitBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: COLORS.accent, borderRadius: RADIUS.md, paddingVertical: 12, paddingHorizontal: SPACING.md, marginBottom: SPACING.md },
-  splitBtnText: { fontFamily: FONT.medium, fontSize: 14, color: COLORS.accent },
-  topupBtn: { backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: 16, alignItems: 'center', elevation: 3, shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
-  topupBtnDisabled: { opacity: 0.6 },
-  topupBtnText: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.white },
+  card: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.xl,
+    marginBottom: SPACING.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+  },
+  cardImagePlaceholder: {
+    height: 160,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  cardImageIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  conditionBadge: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.sm,
+    paddingVertical: 4,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.full,
+  },
+  conditionText: {
+    fontFamily: FONT.bold,
+    fontSize: 11,
+    color: COLORS.white,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
 
-  emptyState: { alignItems: 'center', paddingTop: 80, paddingHorizontal: SPACING.xl },
-  emptyTitle: { fontFamily: FONT.heading, fontSize: 20, color: COLORS.textPrimary, marginTop: SPACING.md, marginBottom: SPACING.sm },
-  emptySubtitle: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
+  cardBody: { padding: SPACING.md, gap: SPACING.sm },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', gap: SPACING.md },
+  cardTitle: { flex: 1, fontFamily: FONT.bold, fontSize: 16, color: COLORS.textPrimary, lineHeight: 22 },
+  priceBox: { alignItems: 'flex-end' },
+  priceLabel: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.textTertiary, marginBottom: 2 },
+  priceValue: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.primary },
+  cardDesc: {
+    fontFamily: FONT.regular,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    lineHeight: 20,
+  },
 
-  histCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.sm, borderWidth: 1, borderColor: COLORS.border, gap: SPACING.sm },
-  histLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  histInfo: { flex: 1 },
-  histMeter: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary },
-  histDate: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary },
-  histToken: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.success, marginTop: 2 },
-  histAmount: { fontFamily: FONT.bold, fontSize: 16 },
+  cardMeta: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs, marginTop: SPACING.xs },
+  metaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: COLORS.background,
+    paddingVertical: 4,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.full,
+  },
+  metaText: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary },
+
+  footerSpace: { height: 32 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalContainer: { flex: 1, justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.xl,
+    maxHeight: '92%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  modalHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
+  modalIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: RADIUS.md,
+    backgroundColor: COLORS.primaryFaded,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
+  modalError: { marginBottom: SPACING.sm, fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.error },
+
+  modalBody: { paddingTop: SPACING.xs, gap: SPACING.md },
+  field: { gap: 6, marginBottom: SPACING.sm },
+  label: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textSecondary },
+  input: {
+    borderWidth: 1.5,
+    borderColor: COLORS.borderLight,
+    borderRadius: RADIUS.lg,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm + 2,
+    fontFamily: FONT.medium,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.background,
+  },
+  textArea: { minHeight: 90, textAlignVertical: 'top' },
+
+  row: { flexDirection: 'row', gap: SPACING.md },
+  rowItem: { flex: 1 },
+
+  inlineChips: { gap: SPACING.xs, paddingVertical: 2 },
+  smallChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.full,
+    borderWidth: 1.5,
+    borderColor: COLORS.borderLight,
+    backgroundColor: COLORS.background,
+  },
+  smallChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  smallChipText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textTransform: 'capitalize',
+  },
+  smallChipTextActive: { color: COLORS.white },
+
+  submitBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    marginTop: SPACING.md,
+  },
+  submitBtnDisabled: { opacity: 0.7 },
+  submitBtnText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.white },
 });
