@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Hostel, HostelReview } from '@/lib/types';
-import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck, Wifi, Shield, Droplet, Zap, Wind, Car, BookOpen, Tv, UtensilsCrossed, WashingMachine, Dumbbell, Waves, Trash2, Eye, DoorOpen, Building2, BedDouble, CreditCard, Info, ChevronDown, ChevronUp, FileText } from 'lucide-react-native';
+import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck, Wifi, Shield, Droplet, Zap, Wind, Car, BookOpen, Tv, UtensilsCrossed, WashingMachine, Dumbbell, Waves, Trash2, Eye, DoorOpen, Building2, BedDouble, CreditCard, Info, FileText } from 'lucide-react-native';
 import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 
 const { width: SW } = Dimensions.get('window');
@@ -95,7 +95,6 @@ export default function DetailScreen() {
   const [activeImg, setActiveImg] = useState(0);
   const [roommateCount, setRoommateCount] = useState(0);
   const [autoSlide, setAutoSlide] = useState(true);
-  const [expandedRoom, setExpandedRoom] = useState<string | null>(null);
   const [utilityView, setUtilityView] = useState<'included' | 'not_included'>('included');
   const autoSlideInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -369,22 +368,18 @@ export default function DetailScreen() {
                   }
                   const totalYearPrice = (room.price_per_month || 0) * YEAR_MONTHS;
                   const perPersonYear = occupants > 1 ? Math.round(totalYearPrice / occupants) : totalYearPrice;
-                  const isExpanded = expandedRoom === room.id;
                   const displayName = isSelfContained ? 'Self-Contained (1 Person)' :
                     occupants === 1 ? `${room.room_type} (1 Person)` :
                     `${occupants} in a Room`;
 
                   return (
-                    <TouchableOpacity
+                    <View
                       key={room.id}
                       style={styles.roomCard}
-                      onPress={() => setExpandedRoom(isExpanded ? null : room.id)}
-                      activeOpacity={0.85}
                     >
                       <View style={styles.roomCardTop}>
                         <View style={styles.roomCardLeft}>
                           <Text style={styles.roomType}>{displayName}</Text>
-                          <Text style={styles.roomDesc}>{room.description || 'Standard room'}</Text>
                           {room.available_count > 0 && (
                             <View style={styles.roomAvailBadge}>
                               <View style={styles.roomAvailDot} />
@@ -397,39 +392,12 @@ export default function DetailScreen() {
                         </View>
                         <View style={styles.roomCardRight}>
                           <Text style={styles.roomPriceMain}>GH₵{totalYearPrice.toLocaleString()}</Text>
-                          <Text style={styles.roomPriceSub}>per year</Text>
                           {occupants > 1 && (
                             <Text style={styles.roomPerPerson}>GH₵{perPersonYear.toLocaleString()} per person</Text>
                           )}
-                          {isExpanded ? (
-                            <ChevronUp size={16} color={COLORS.textTertiary} style={{ marginTop: 4 }} />
-                          ) : (
-                            <ChevronDown size={16} color={COLORS.textTertiary} style={{ marginTop: 4 }} />
-                          )}
                         </View>
                       </View>
-
-                      {isExpanded && (
-                        <View style={styles.roomPricingBreakdown}>
-                          <View style={styles.pricingRowLast}>
-                            <View style={styles.pricingLabelWrap}>
-                              <Calendar size={12} color={COLORS.textSecondary} />
-                              <Text style={styles.pricingLabel}>Total Room Cost / Year</Text>
-                            </View>
-                            <Text style={styles.pricingValue}>GH₵{totalYearPrice.toLocaleString()}</Text>
-                          </View>
-                          {occupants > 1 && (
-                            <View style={styles.pricingRowLast}>
-                              <View style={styles.pricingLabelWrap}>
-                                <Users size={12} color={COLORS.textSecondary} />
-                                <Text style={styles.pricingLabel}>Split by {occupants} occupants</Text>
-                              </View>
-                              <Text style={[styles.pricingValue, { color: COLORS.primary }]}>GH₵{perPersonYear.toLocaleString()} each</Text>
-                            </View>
-                          )}
-                        </View>
-                      )}
-                    </TouchableOpacity>
+                    </View>
                   );
                 })
               ) : (
@@ -921,8 +889,7 @@ const styles = StyleSheet.create({
   },
   roomCardLeft: { flex: 1, marginRight: SPACING.sm },
   roomCardRight: { alignItems: 'flex-end' },
-  roomType: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary, marginBottom: 2 },
-  roomDesc: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 },
+  roomType: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textPrimary, marginBottom: 4 },
   roomAvailBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -933,37 +900,8 @@ const styles = StyleSheet.create({
   },
   roomAvailText: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.success },
   roomSoldOut: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.error },
-  roomPriceMain: { fontFamily: FONT.bold, fontSize: 17, color: COLORS.primary },
-  roomPriceSub: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
+  roomPriceMain: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.primary },
   roomPerPerson: { fontFamily: FONT.semiBold, fontSize: 11, color: COLORS.primary, marginTop: 2 },
-
-  roomPricingBreakdown: {
-    marginTop: SPACING.sm,
-    paddingTop: SPACING.sm,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-  },
-  pricingRowLast: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-  },
-  pricingLabelWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  pricingLabel: {
-    fontFamily: FONT.regular,
-    fontSize: 12,
-    color: COLORS.textSecondary,
-  },
-  pricingValue: {
-    fontFamily: FONT.semiBold,
-    fontSize: 13,
-    color: COLORS.textPrimary,
-  },
 
   utilityToggleRow: {
     flexDirection: 'row',
