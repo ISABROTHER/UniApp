@@ -1,447 +1,345 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Platform, Animated, ActivityIndicator,
+  Platform, ActivityIndicator, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import {
-  Bell, Calendar, MessageCircle, AlertTriangle, Users,
-  Shield, Award, ShoppingBag, TrendingUp, Activity,
-  ChevronRight, Zap, CheckCircle2, Clock, MapPin,
+  ArrowLeft, Shield, Home, Users, CheckCircle, AlertCircle,
 } from 'lucide-react-native';
 
-interface HallStats {
-  totalMembers: number;
-  residents: number;
-  affiliates: number;
-  unreadAnnouncements: number;
-  upcomingEvents: number;
-  pendingTasks: number;
-  activeElections: number;
+interface Hall {
+  id: string;
+  name: string;
+  short_name: string | null;
+  hall_type: 'male' | 'female' | 'mixed';
+  hall_category: 'traditional' | 'src' | 'graduate';
+  capacity: number;
+  is_graduate: boolean;
+  total_members: number;
 }
 
-interface QuickStat {
-  label: string;
-  value: string | number;
-  icon: any;
-  color: string;
-  bgColor: string;
-  route?: string;
+const STUDENT_LEVELS = ['100', '200', '300', '400', 'Postgraduate'];
+
+function HallCard({ hall, selected, onPress }: { hall: Hall; selected: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      style={[styles.hallCard, selected && styles.hallCardActive]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.hallHeader}>
+        <Home size={20} color={selected ? COLORS.primary : COLORS.textSecondary} />
+        {selected && <CheckCircle size={18} color={COLORS.primary} />}
+      </View>
+      <Text style={[styles.hallName, selected && styles.hallNameActive]} numberOfLines={2}>
+        {hall.name}
+      </Text>
+      {hall.short_name && (
+        <Text style={styles.hallShortName}>{hall.short_name}</Text>
+      )}
+      <View style={styles.hallMeta}>
+        <Users size={12} color={COLORS.textTertiary} />
+        <Text style={styles.hallMetaText}>{hall.total_members} members</Text>
+      </View>
+      <View style={styles.hallBadgeRow}>
+        <View style={[
+          styles.hallTypeBadge,
+          hall.hall_type === 'male' && styles.hallTypeMale,
+          hall.hall_type === 'female' && styles.hallTypeFemale,
+          hall.hall_type === 'mixed' && styles.hallTypeMixed,
+        ]}>
+          <Text style={styles.hallTypeText}>
+            {hall.hall_type === 'male' ? 'Male' : hall.hall_type === 'female' ? 'Female' : 'Mixed'}
+          </Text>
+        </View>
+        {hall.is_graduate && (
+          <View style={styles.hallGradBadge}>
+            <Text style={styles.hallGradText}>Grad</Text>
+          </View>
+        )}
+      </View>
+    </TouchableOpacity>
+  );
 }
 
-export default function MyHallScreen() {
+export default function HallDesignationScreen() {
   const router = useRouter();
   const { session, member } = useAuth();
-  
-  const [hallInfo, setHallInfo] = useState<any>(null);
-  const [stats, setStats] = useState<HallStats>({
-    totalMembers: 0,
-    residents: 0,
-    affiliates: 0,
-    unreadAnnouncements: 0,
-    upcomingEvents: 0,
-    pendingTasks: 0,
-    activeElections: 0,
-  });
+  const [halls, setHalls] = useState<Hall[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
-  const pulseAnim = useState(new Animated.Value(1))[0];
+  const [submitting, setSubmitting] = useState(false);
+  const [currentDesignation, setCurrentDesignation] = useState<any>(null);
 
-  const userId = session?.user?.id || member?.id;
+  const [selectedHall, setSelectedHall] = useState<string | null>(null);
+  const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
+  const [isResident, setIsResident] = useState<boolean | null>(null);
 
-  // Pulse animation for live indicator
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.3,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  }, [pulseAnim]);
+    fetchData();
+  }, []);
 
-  // Main data fetching function
-  const fetchHallData = async (uid: string) => {
+  const fetchData = async () => {
     try {
-      const { data: memberData, error: memberError } = await supabase
-        .from('hall_members')
-        .select('hall_id, is_resident, halls(id, name)')
-        .eq('user_id', uid)
-        .order('created_at', { ascending: false }) // Get the most recent designation
-        .limit(1)
-        .maybeSingle();
+      const userId = session?.user?.id || member?.id;
 
-      if (memberError) {
-        throw memberError;
+      const hallsRes = await supabase
+        .from('halls')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+
+      if (hallsRes.data) {
+        const hallsWithCount = await Promise.all(
+          hallsRes.data.map(async (hall) => {
+            const { count } = await supabase
+              .from('hall_members')
+              .select('id', { count: 'exact', head: true })
+              .eq('hall_id', hall.id)
+              .eq('academic_year', '2026/27');
+
+            return {
+              ...hall,
+              total_members: count || 0,
+            };
+          })
+        );
+        setHalls(hallsWithCount);
       }
 
-      if (!memberData?.hall_id || !memberData.halls) {
-        setHallInfo(null);
-        return;
-      }
-
-      const hallData = Array.isArray(memberData.halls) ? memberData.halls[0] : memberData.halls;
-      
-      setHallInfo({
-        id: hallData?.id || memberData.hall_id,
-        name: hallData?.name || 'My Hall',
-        isResident: memberData.is_resident,
-      });
-
-      // Fetch hall statistics
-      const [membersRes, announcementsRes, eventsRes] = await Promise.all([
-        supabase
+      if (userId) {
+        const { data: designationData } = await supabase
           .from('hall_members')
-          .select('is_resident', { count: 'exact' })
-          .eq('hall_id', memberData.hall_id),
-        supabase
-          .from('hall_posts')
-          .select('id, created_at, title, post_type, priority')
-          .eq('hall_id', memberData.hall_id)
-          .order('created_at', { ascending: false })
-          .limit(5),
-        supabase
-          .from('hall_events')
-          .select('id, title, event_date', { count: 'exact' })
-          .eq('hall_id', memberData.hall_id)
-          .gte('event_date', new Date().toISOString()),
-      ]);
+          .select('*, halls(name)')
+          .eq('user_id', userId)
+          .eq('academic_year', '2026/27')
+          .maybeSingle();
 
-      const totalMembers = membersRes.count || membersRes.data?.length || 0;
-      const residents = membersRes.data?.filter(m => m.is_resident).length || 0;
-
-      setStats({
-        totalMembers,
-        residents,
-        affiliates: totalMembers - residents,
-        unreadAnnouncements: announcementsRes.data?.length || 0,
-        upcomingEvents: eventsRes.count || eventsRes.data?.length || 0,
-        pendingTasks: 0,
-        activeElections: 0,
-      });
-
-      setRecentActivity(announcementsRes.data || []);
-      
-    } catch (error) {
-      console.error('Error fetching hall data:', error);
-    }
-  };
-
-  // Lifecycle Hook: Load Data
-  useEffect(() => {
-    let isMounted = true;
-
-    if (userId) {
-      setLoading(true);
-      fetchHallData(userId).finally(() => {
-        if (isMounted) {
-          setLoading(false);
-          setRefreshing(false);
+        if (designationData) {
+          setCurrentDesignation(designationData);
+          setSelectedHall(designationData.hall_id);
+          setSelectedLevel(designationData.student_level);
+          setIsResident(designationData.is_resident);
         }
-      });
-    } else {
-      // If auth isn't ready instantly, give it a moment before showing "No Hall"
-      const timer = setTimeout(() => {
-        if (isMounted) setLoading(false);
-      }, 1000);
-      return () => clearTimeout(timer);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
     }
-
-    return () => { isMounted = false; };
-  }, [userId]);
-
-  // Lifecycle Hook: Setup Realtime Subscriptions properly
-  useEffect(() => {
-    if (!hallInfo?.id || !userId) return;
-
-    const channelName = `hall_updates_${hallInfo.id}`;
-    
-    const channel = supabase.channel(channelName)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'hall_posts', filter: `hall_id=eq.${hallInfo.id}` }, () => {
-        fetchHallData(userId);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'hall_events', filter: `hall_id=eq.${hallInfo.id}` }, () => {
-        fetchHallData(userId);
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'hall_members', filter: `hall_id=eq.${hallInfo.id}` }, () => {
-        fetchHallData(userId);
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [hallInfo?.id, userId]);
-
-  const handleRefresh = () => {
-    if (!userId) return;
-    setRefreshing(true);
-    fetchHallData(userId).finally(() => setRefreshing(false));
   };
 
-  const quickStats: QuickStat[] = [
-    {
-      label: 'Announcements',
-      value: stats.unreadAnnouncements,
-      icon: Bell,
-      color: COLORS.primary,
-      bgColor: '#FEE2E2',
-      route: '/hall/announcements',
-    },
-    {
-      label: 'Events',
-      value: stats.upcomingEvents,
-      icon: Calendar,
-      color: '#10B981',
-      bgColor: '#D1FAE5',
-      route: '/hall/events',
-    },
-    {
-      label: 'Messages',
-      value: '3',
-      icon: MessageCircle,
-      color: '#3B82F6',
-      bgColor: '#DBEAFE',
-      route: '/hall/messages',
-    },
-    {
-      label: 'Services',
-      value: '8',
-      icon: ShoppingBag,
-      color: '#F59E0B',
-      bgColor: '#FEF3C7',
-      route: '/hall/services',
-    },
-  ];
+  const handleSubmit = async () => {
+    if (!selectedHall || !selectedLevel || isResident === null) {
+      Alert.alert('Incomplete', 'Please select hall, level, and residence status');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const userId = session?.user?.id || member?.id;
+      if (!userId) return;
+
+      const hallMemberData = {
+        hall_id: selectedHall,
+        user_id: userId,
+        student_id: member?.student_id || userId.slice(0, 8),
+        student_level: selectedLevel,
+        is_resident: isResident,
+        affiliation_type: isResident ? 'resident' : 'diaspora',
+        academic_year: '2026/27',
+        verified_at: new Date().toISOString(),
+      };
+
+      if (currentDesignation) {
+        await supabase
+          .from('hall_members')
+          .update(hallMemberData)
+          .eq('id', currentDesignation.id);
+      } else {
+        await supabase.from('hall_members').insert(hallMemberData);
+      }
+
+      await supabase
+        .from('members')
+        .update({ hall_id: selectedHall })
+        .eq('id', userId);
+
+      // Navigate to hall page after successful registration
+      router.replace('/hall');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update hall designation');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading hall...</Text>
-      </View>
-    );
-  }
-
-  if (!hallInfo) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Users size={64} color={COLORS.border} />
-        <Text style={styles.emptyTitle}>No Hall Assigned</Text>
-        <Text style={styles.emptyText}>Register to your hall to access official announcements and events</Text>
-        <TouchableOpacity 
-          style={styles.registerBtn}
-          onPress={() => router.push('/hall-designation' as any)}
-          activeOpacity={0.8}
-        >
-          <Shield size={18} color={COLORS.white} />
-          <Text style={styles.registerBtnText}>Register to Hall</Text>
-        </TouchableOpacity>
+        <Text style={styles.loadingText}>Loading halls...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.headerGreeting}>My Hall</Text>
-            <Text style={styles.headerHallName}>{hallInfo.name}</Text>
-          </View>
-          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/hall-designation' as any)}>
-            <Shield size={22} color={COLORS.primary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Live Stats Banner */}
-        <View style={styles.liveStatsBanner}>
-          <View style={styles.liveIndicator}>
-            <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
-            <Text style={styles.liveText}>Live Updates</Text>
-          </View>
-          <View style={styles.statsRow}>
-            <View style={styles.miniStat}>
-              <Text style={styles.miniStatValue}>{stats.totalMembers}</Text>
-              <Text style={styles.miniStatLabel}>Members</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.miniStat}>
-              <Text style={styles.miniStatValue}>{stats.residents}</Text>
-              <Text style={styles.miniStatLabel}>Residents</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.miniStat}>
-              <Text style={styles.miniStatValue}>{stats.affiliates}</Text>
-              <Text style={styles.miniStatLabel}>Affiliates</Text>
-            </View>
-          </View>
-        </View>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <ArrowLeft size={22} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Hall Designation</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={COLORS.primary} />
-        }
-      >
-        {/* Quick Actions Grid */}
-        <View style={styles.quickActionsSection}>
-          <Text style={styles.sectionTitle}>Quick Access</Text>
-          <View style={styles.quickActionsGrid}>
-            {quickStats.map((stat, index) => {
-              const Icon = stat.icon;
-              return (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.quickActionCard}
-                  onPress={() => stat.route && router.push(stat.route as any)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.quickActionIcon, { backgroundColor: stat.bgColor }]}>
-                    <Icon size={24} color={stat.color} />
-                  </View>
-                  <Text style={styles.quickActionValue}>{stat.value}</Text>
-                  <Text style={styles.quickActionLabel}>{stat.label}</Text>
-                  {typeof stat.value === 'number' && stat.value > 0 && (
-                    <View style={[styles.badge, { backgroundColor: stat.color }]}>
-                      <Text style={styles.badgeText}>{stat.value}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {currentDesignation && (
+          <View style={styles.statusCard}>
+            <CheckCircle size={20} color={COLORS.success} />
+            <View style={styles.statusText}>
+              <Text style={styles.statusTitle}>Currently Registered</Text>
+              <Text style={styles.statusSubtitle}>
+                {currentDesignation.halls?.name} • {currentDesignation.student_level} Level • {currentDesignation.is_resident ? 'Resident' : 'Affiliate'}
+              </Text>
+            </View>
           </View>
+        )}
+
+        <View style={styles.infoCard}>
+          <Shield size={20} color={COLORS.info} />
+          <Text style={styles.infoText}>
+            Register to your hall to access official announcements, events, exercises, and elections.
+          </Text>
         </View>
 
-        {/* Main Navigation Cards */}
-        <View style={styles.mainCardsSection}>
-          <TouchableOpacity 
-            style={[styles.mainCard, styles.mainCardPrimary]}
-            onPress={() => router.push('/hall/jcrc-executives' as any)}
-            activeOpacity={0.8}
+        <Text style={styles.sectionTitle}>Select Your Hall</Text>
+
+        {halls.length === 0 ? (
+          <View style={styles.emptyHallsCard}>
+            <Home size={48} color={COLORS.border} />
+            <Text style={styles.emptyHallsTitle}>No Halls Available</Text>
+            <Text style={styles.emptyHallsText}>
+              The halls database needs to be set up. Please contact your administrator or run the hall migration script in Supabase.
+            </Text>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.categoryLabel}>Traditional Halls</Text>
+            <View style={styles.hallsGrid}>
+              {halls.filter(h => h.hall_category === 'traditional').map((hall) => (
+                <HallCard key={hall.id} hall={hall} selected={selectedHall === hall.id} onPress={() => setSelectedHall(hall.id)} />
+              ))}
+            </View>
+
+            <Text style={styles.categoryLabel}>SRC / Graduate Halls</Text>
+            <View style={styles.hallsGrid}>
+              {halls.filter(h => h.hall_category !== 'traditional').map((hall) => (
+                <HallCard key={hall.id} hall={hall} selected={selectedHall === hall.id} onPress={() => setSelectedHall(hall.id)} />
+              ))}
+            </View>
+          </>
+        )}
+
+        <Text style={styles.sectionTitle}>Your Level</Text>
+        <View style={styles.levelGrid}>
+          {STUDENT_LEVELS.map((level) => (
+            <TouchableOpacity
+              key={level}
+              style={[
+                styles.levelChip,
+                selectedLevel === level && styles.levelChipActive,
+              ]}
+              onPress={() => setSelectedLevel(level)}
+            >
+              <Text style={[
+                styles.levelChipText,
+                selectedLevel === level && styles.levelChipTextActive,
+              ]}>
+                {level}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <Text style={styles.sectionTitle}>Residence Status</Text>
+        <View style={styles.residenceRow}>
+          <TouchableOpacity
+            style={[
+              styles.residenceCard,
+              isResident === true && styles.residenceCardActive,
+            ]}
+            onPress={() => setIsResident(true)}
+            activeOpacity={0.7}
           >
-            <View style={styles.mainCardHeader}>
-              <View style={styles.mainCardIconWrap}>
-                <Award size={28} color={COLORS.primary} />
-              </View>
-              <ChevronRight size={20} color={COLORS.white} />
-            </View>
-            <Text style={styles.mainCardTitle}>JCRC Executives</Text>
-            <Text style={styles.mainCardSubtitle}>View hall leadership & send messages</Text>
-            <View style={styles.mainCardFooter}>
-              <Users size={14} color={COLORS.white} />
-              <Text style={styles.mainCardFooterText}>12 Executive Members</Text>
-            </View>
+            <Home size={24} color={isResident === true ? COLORS.primary : COLORS.textSecondary} />
+            <Text style={[
+              styles.residenceTitle,
+              isResident === true && styles.residenceTitleActive,
+            ]}>
+              Resident
+            </Text>
+            <Text style={styles.residenceDesc}>
+              I live in the hall
+            </Text>
+            {isResident === true && (
+              <CheckCircle size={20} color={COLORS.primary} style={styles.residenceCheck} />
+            )}
           </TouchableOpacity>
 
-          <View style={styles.mainCardsRow}>
-            <TouchableOpacity 
-              style={[styles.mainCardSmall, { backgroundColor: '#10B981' }]}
-              onPress={() => router.push('/hall/events' as any)}
-              activeOpacity={0.8}
-            >
-              <Calendar size={24} color={COLORS.white} />
-              <Text style={styles.mainCardSmallTitle}>Events</Text>
-              <Text style={styles.mainCardSmallValue}>{stats.upcomingEvents} Upcoming</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.mainCardSmall, { backgroundColor: '#3B82F6' }]}
-              onPress={() => router.push('/hall/services' as any)}
-              activeOpacity={0.8}
-            >
-              <ShoppingBag size={24} color={COLORS.white} />
-              <Text style={styles.mainCardSmallTitle}>Services</Text>
-              <Text style={styles.mainCardSmallValue}>Exercise Books & More</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[
+              styles.residenceCard,
+              isResident === false && styles.residenceCardActive,
+            ]}
+            onPress={() => setIsResident(false)}
+            activeOpacity={0.7}
+          >
+            <Users size={24} color={isResident === false ? COLORS.primary : COLORS.textSecondary} />
+            <Text style={[
+              styles.residenceTitle,
+              isResident === false && styles.residenceTitleActive,
+            ]}>
+              Affiliate
+            </Text>
+            <Text style={styles.residenceDesc}>
+              I'm affiliated but live elsewhere
+            </Text>
+            {isResident === false && (
+              <CheckCircle size={20} color={COLORS.primary} style={styles.residenceCheck} />
+            )}
+          </TouchableOpacity>
         </View>
 
-        {/* Recent Activity Feed */}
-        <View style={styles.activitySection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <TouchableOpacity onPress={() => router.push('/hall/announcements' as any)}>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
+        {!selectedHall || !selectedLevel || isResident === null ? (
+          <View style={styles.warningCard}>
+            <AlertCircle size={18} color={COLORS.warning} />
+            <Text style={styles.warningText}>
+              Please complete all selections above
+            </Text>
           </View>
+        ) : null}
 
-          {recentActivity.length === 0 ? (
-            <View style={styles.emptyActivity}>
-              <Bell size={32} color={COLORS.border} />
-              <Text style={styles.emptyActivityText}>No recent activity</Text>
-            </View>
+        <TouchableOpacity
+          style={[
+            styles.submitBtn,
+            (!selectedHall || !selectedLevel || isResident === null || submitting) && styles.submitBtnDisabled,
+          ]}
+          onPress={handleSubmit}
+          disabled={!selectedHall || !selectedLevel || isResident === null || submitting}
+          activeOpacity={0.8}
+        >
+          {submitting ? (
+            <ActivityIndicator color={COLORS.white} />
           ) : (
-            recentActivity.map((activity) => (
-              <TouchableOpacity
-                key={activity.id}
-                style={styles.activityCard}
-                onPress={() => router.push(`/hall/post/${activity.id}` as any)}
-                activeOpacity={0.8}
-              >
-                <View style={[
-                  styles.activityIcon,
-                  activity.post_type === 'announcement' && { backgroundColor: '#FEE2E2' },
-                  activity.post_type === 'event' && { backgroundColor: '#D1FAE5' },
-                ]}>
-                  {activity.post_type === 'announcement' ? (
-                    <Bell size={16} color={COLORS.primary} />
-                  ) : (
-                    <Calendar size={16} color="#10B981" />
-                  )}
-                </View>
-                <View style={styles.activityContent}>
-                  <Text style={styles.activityTitle} numberOfLines={1}>{activity.title}</Text>
-                  <Text style={styles.activityTime}>{formatTime(activity.created_at)}</Text>
-                </View>
-                {activity.priority === 'urgent' && (
-                  <View style={styles.urgentBadge}>
-                    <Zap size={12} color={COLORS.error} fill={COLORS.error} />
-                  </View>
-                )}
-                <ChevronRight size={18} color={COLORS.textTertiary} />
-              </TouchableOpacity>
-            ))
+            <Text style={styles.submitBtnText}>
+              {currentDesignation ? 'Update Designation' : 'Register to Hall'}
+            </Text>
           )}
-        </View>
-
-        {/* Hall Infographic/Overview */}
-        <View style={styles.infographicSection}>
-          <Text style={styles.sectionTitle}>Hall Overview</Text>
-          <View style={styles.infographicCard}>
-            <View style={styles.infographicRow}>
-              <View style={styles.infographicItem}>
-                <TrendingUp size={20} color="#10B981" />
-                <Text style={styles.infographicValue}>87%</Text>
-                <Text style={styles.infographicLabel}>Occupancy</Text>
-              </View>
-              <View style={styles.infographicItem}>
-                <Activity size={20} color="#3B82F6" />
-                <Text style={styles.infographicValue}>45</Text>
-                <Text style={styles.infographicLabel}>Events This Sem</Text>
-              </View>
-              <View style={styles.infographicItem}>
-                <CheckCircle2 size={20} color="#F59E0B" />
-                <Text style={styles.infographicValue}>92%</Text>
-                <Text style={styles.infographicLabel}>Task Completion</Text>
-              </View>
-            </View>
-          </View>
-        </View>
+        </TouchableOpacity>
 
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -449,410 +347,315 @@ export default function MyHallScreen() {
   );
 }
 
-function formatTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  
-  if (hours < 1) return 'Just now';
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString();
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    gap: SPACING.md,
+    backgroundColor: COLORS.background,
   },
   loadingText: {
     fontFamily: FONT.regular,
     fontSize: 14,
     color: COLORS.textSecondary,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    padding: SPACING.xl,
-  },
-  emptyTitle: {
-    fontFamily: FONT.heading,
-    fontSize: 20,
-    color: COLORS.textPrimary,
     marginTop: SPACING.md,
-    marginBottom: SPACING.sm,
   },
-  emptyText: {
-    fontFamily: FONT.regular,
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginBottom: SPACING.lg,
-  },
-  registerBtn: {
+  header: {
+    backgroundColor: COLORS.white,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    paddingTop: Platform.OS === 'web' ? 20 : 56,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontFamily: FONT.heading,
+    fontSize: 18,
+    color: COLORS.textPrimary,
+  },
+  content: {
+    flex: 1,
+    padding: SPACING.md,
+  },
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.successLight,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.md,
+  },
+  statusText: {
+    flex: 1,
+  },
+  statusTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 14,
+    color: COLORS.success,
+    marginBottom: 2,
+  },
+  statusSubtitle: {
+    fontFamily: FONT.regular,
+    fontSize: 12,
+    color: COLORS.success,
+  },
+  infoCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.infoLight,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.lg,
+  },
+  infoText: {
+    flex: 1,
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.info,
+    lineHeight: 18,
+  },
+  sectionTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 16,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.sm,
+  },
+  hallsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  hallCard: {
+    flex: 1,
+    minWidth: '47%',
+    backgroundColor: COLORS.white,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    position: 'relative',
+  },
+  hallCardActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryFaded,
+  },
+  hallHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.xs,
+  },
+  hallName: {
+    fontFamily: FONT.semiBold,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.xs,
+  },
+  hallNameActive: {
+    color: COLORS.primary,
+  },
+  hallMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: SPACING.xs,
+  },
+  hallMetaText: {
+    fontFamily: FONT.regular,
+    fontSize: 11,
+    color: COLORS.textTertiary,
+  },
+  categoryLabel: {
+    fontFamily: FONT.semiBold,
+    fontSize: 13,
+    color: COLORS.textTertiary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.xs,
+  },
+  emptyHallsCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    borderStyle: 'dashed',
+  },
+  emptyHallsTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 16,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.xs,
+  },
+  emptyHallsText: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  hallShortName: {
+    fontFamily: FONT.regular,
+    fontSize: 11,
+    color: COLORS.textTertiary,
+    marginBottom: SPACING.xs,
+  },
+  hallBadgeRow: {
+    flexDirection: 'row',
+    gap: 4,
+    flexWrap: 'wrap',
+  },
+  hallTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  hallTypeMale: {
+    backgroundColor: '#DBEAFE',
+  },
+  hallTypeFemale: {
+    backgroundColor: '#FCE7F3',
+  },
+  hallTypeMixed: {
+    backgroundColor: '#DCFCE7',
+  },
+  hallTypeText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 10,
+    color: COLORS.textPrimary,
+  },
+  hallGradBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    backgroundColor: '#FEF9C3',
+  },
+  hallGradText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 10,
+    color: '#92400E',
+  },
+  levelGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  levelChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: COLORS.white,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+  },
+  levelChipActive: {
     backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 24,
+    borderColor: COLORS.primary,
+  },
+  levelChipText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 13,
+    color: COLORS.textPrimary,
+  },
+  levelChipTextActive: {
+    color: COLORS.white,
+  },
+  residenceRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  residenceCard: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+    position: 'relative',
+  },
+  residenceCardActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryFaded,
+  },
+  residenceTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    marginTop: SPACING.xs,
+    marginBottom: 4,
+  },
+  residenceTitleActive: {
+    color: COLORS.primary,
+  },
+  residenceDesc: {
+    fontFamily: FONT.regular,
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
+  residenceCheck: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+  },
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.warningLight,
+    padding: SPACING.md,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.md,
+  },
+  warningText: {
+    fontFamily: FONT.medium,
+    fontSize: 13,
+    color: COLORS.warning,
+    flex: 1,
+  },
+  submitBtn: {
+    backgroundColor: COLORS.primary,
+    borderRadius: RADIUS.md,
+    paddingVertical: 16,
+    alignItems: 'center',
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
-  registerBtnText: {
+  submitBtnDisabled: {
+    opacity: 0.5,
+  },
+  submitBtnText: {
     fontFamily: FONT.semiBold,
-    fontSize: 15,
+    fontSize: 16,
     color: COLORS.white,
   },
-  header: {
-    backgroundColor: COLORS.white,
-    paddingTop: Platform.OS === 'web' ? 20 : 56,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.md,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: SPACING.md,
-  },
-  headerGreeting: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginBottom: 4,
-  },
-  headerHallName: {
-    fontFamily: FONT.headingBold,
-    fontSize: 26,
-    color: COLORS.primary,
-  },
-  settingsBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: COLORS.primaryFaded,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  liveStatsBanner: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-  },
-  liveIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: SPACING.sm,
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#10B981',
-  },
-  liveText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 11,
-    color: '#10B981',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  miniStat: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  miniStatValue: {
-    fontFamily: FONT.bold,
-    fontSize: 20,
-    color: COLORS.textPrimary,
-  },
-  miniStatLabel: {
-    fontFamily: FONT.regular,
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: COLORS.border,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  quickActionsSection: {
-    padding: SPACING.md,
-  },
-  sectionTitle: {
-    fontFamily: FONT.semiBold,
-    fontSize: 17,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.md,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  quickActionCard: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    alignItems: 'center',
-    position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  quickActionValue: {
-    fontFamily: FONT.bold,
-    fontSize: 20,
-    color: COLORS.textPrimary,
-    marginBottom: 2,
-  },
-  quickActionLabel: {
-    fontFamily: FONT.medium,
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  badgeText: {
-    fontFamily: FONT.bold,
-    fontSize: 11,
-    color: COLORS.white,
-  },
-  mainCardsSection: {
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  mainCard: {
-    backgroundColor: COLORS.primary,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    marginBottom: SPACING.sm,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  mainCardPrimary: {
-    backgroundColor: COLORS.primary,
-  },
-  mainCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  mainCardIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  mainCardTitle: {
-    fontFamily: FONT.headingBold,
-    fontSize: 22,
-    color: COLORS.white,
-    marginBottom: 4,
-  },
-  mainCardSubtitle: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
-    marginBottom: SPACING.md,
-  },
-  mainCardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  mainCardFooterText: {
-    fontFamily: FONT.medium,
-    fontSize: 12,
-    color: COLORS.white,
-  },
-  mainCardsRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  mainCardSmall: {
-    flex: 1,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  mainCardSmallTitle: {
-    fontFamily: FONT.semiBold,
-    fontSize: 14,
-    color: COLORS.white,
-    marginTop: SPACING.sm,
-    marginBottom: 4,
-  },
-  mainCardSmallValue: {
-    fontFamily: FONT.medium,
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.9)',
-  },
-  activitySection: {
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  seeAllText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 13,
-    color: COLORS.primary,
-  },
-  emptyActivity: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.xl,
-    alignItems: 'center',
-  },
-  emptyActivityText: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.sm,
-  },
-  activityCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.xs,
-    gap: SPACING.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  activityIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontFamily: FONT.semiBold,
-    fontSize: 14,
-    color: COLORS.textPrimary,
-    marginBottom: 2,
-  },
-  activityTime: {
-    fontFamily: FONT.regular,
-    fontSize: 11,
-    color: COLORS.textTertiary,
-  },
-  urgentBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FEE2E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  infographicSection: {
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  infographicCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  infographicRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  infographicItem: {
-    alignItems: 'center',
-  },
-  infographicValue: {
-    fontFamily: FONT.bold,
-    fontSize: 24,
-    color: COLORS.textPrimary,
-    marginTop: SPACING.sm,
-    marginBottom: 4,
-  },
-  infographicLabel: {
-    fontFamily: FONT.regular,
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-});
+}); 
