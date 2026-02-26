@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, memo } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, Dimensions, Platform,
@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Hostel, HostelReview } from '@/lib/types';
-import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck, Wifi, Shield, Droplet, Zap, Wind, Car, BookOpen, Tv, UtensilsCrossed, WashingMachine, Dumbbell, Waves, Trash2, Eye, DoorOpen, Building2, BedDouble, CreditCard, Info, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck, Wifi, Shield, Droplet, Zap, Wind, Car, BookOpen, Tv, UtensilsCrossed, WashingMachine, Dumbbell, Waves, Trash2, Eye, DoorOpen, Building2, BedDouble, CreditCard, Info, ChevronDown, ChevronUp, FileText } from 'lucide-react-native';
 import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 
 const { width: SW } = Dimensions.get('window');
@@ -91,11 +91,12 @@ export default function DetailScreen() {
   const [reviews, setReviews] = useState<HostelReview[]>([]);
   const [isFavourite, setIsFavourite] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'details' | 'reviews' | 'facilities' | 'others'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'reviews' | 'facilities' | 'others' | 'about'>('details');
   const [activeImg, setActiveImg] = useState(0);
   const [roommateCount, setRoommateCount] = useState(0);
   const [autoSlide, setAutoSlide] = useState(true);
   const [expandedRoom, setExpandedRoom] = useState<string | null>(null);
+  const [utilityView, setUtilityView] = useState<'included' | 'not_included'>('included');
   const autoSlideInterval = useRef<NodeJS.Timeout | null>(null);
 
   const hostelId = params.id as string;
@@ -327,7 +328,7 @@ export default function DetailScreen() {
         </View>
 
         <View style={styles.tabsRow}>
-          {(['details', 'reviews', 'facilities', 'others'] as const).map((tab) => (
+          {(['details', 'reviews', 'facilities', 'others', 'about'] as const).map((tab) => (
             <TouchableOpacity
               key={tab}
               style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -335,7 +336,7 @@ export default function DetailScreen() {
               activeOpacity={0.8}
             >
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {tab === 'details' ? 'Details' : tab === 'reviews' ? 'Reviews' : tab === 'facilities' ? 'Facilities' : 'Others'}
+                {tab === 'details' ? 'Details' : tab === 'reviews' ? 'Reviews' : tab === 'facilities' ? 'Facilities' : tab === 'others' ? 'Others' : 'About'}
               </Text>
               {tab === 'reviews' && reviews.length > 0 && (
                 <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{reviews.length}</Text></View>
@@ -346,8 +347,6 @@ export default function DetailScreen() {
 
         {activeTab === 'details' && (
           <View style={styles.tabContent}>
-            <Text style={styles.description}>{hostel.description || 'No description available.'}</Text>
-
             <View style={styles.standardCard}>
               <View style={styles.standardCardHeader}>
                 <BedDouble size={18} color={COLORS.primary} />
@@ -355,13 +354,25 @@ export default function DetailScreen() {
               </View>
               <View style={styles.pricingNote}>
                 <Info size={12} color={COLORS.accent} />
-                <Text style={styles.pricingNoteText}>Prices shown per month. Tap any room to see the annual cost (12 months).</Text>
+                <Text style={styles.pricingNoteText}>Self-Contained = 1 person. Shared rooms split the annual rent equally among occupants.</Text>
               </View>
               {rooms.length > 0 ? (
                 rooms.map((room: any) => {
-                  const monthlyPrice = room.price_per_month || 0;
-                  const yearPrice = monthlyPrice * YEAR_MONTHS;
+                  const roomTypeLower = (room.room_type || '').toLowerCase();
+                  const isSelfContained = roomTypeLower.includes('self-contained') || roomTypeLower.includes('self contained') || roomTypeLower.includes('studio');
+                  let occupants = 1;
+                  if (!isSelfContained) {
+                    if (roomTypeLower.includes('4') || roomTypeLower.includes('quad')) occupants = 4;
+                    else if (roomTypeLower.includes('3') || roomTypeLower.includes('triple')) occupants = 3;
+                    else if (roomTypeLower.includes('chamber') || roomTypeLower.includes('single')) occupants = 1;
+                    else occupants = 2;
+                  }
+                  const totalYearPrice = (room.price_per_month || 0) * YEAR_MONTHS;
+                  const perPersonYear = occupants > 1 ? Math.round(totalYearPrice / occupants) : totalYearPrice;
                   const isExpanded = expandedRoom === room.id;
+                  const displayName = isSelfContained ? 'Self-Contained (1 Person)' :
+                    occupants === 1 ? `${room.room_type} (1 Person)` :
+                    `${occupants} in a Room`;
 
                   return (
                     <TouchableOpacity
@@ -372,7 +383,7 @@ export default function DetailScreen() {
                     >
                       <View style={styles.roomCardTop}>
                         <View style={styles.roomCardLeft}>
-                          <Text style={styles.roomType}>{room.room_type}</Text>
+                          <Text style={styles.roomType}>{displayName}</Text>
                           <Text style={styles.roomDesc}>{room.description || 'Standard room'}</Text>
                           {room.available_count > 0 && (
                             <View style={styles.roomAvailBadge}>
@@ -385,8 +396,8 @@ export default function DetailScreen() {
                           )}
                         </View>
                         <View style={styles.roomCardRight}>
-                          <Text style={styles.roomPriceMain}>GH₵{monthlyPrice.toLocaleString()}</Text>
-                          <Text style={styles.roomPriceSub}>/month</Text>
+                          <Text style={styles.roomPriceMain}>GH₵{perPersonYear.toLocaleString()}</Text>
+                          <Text style={styles.roomPriceSub}>/year{occupants > 1 ? ' per person' : ''}</Text>
                           {isExpanded ? (
                             <ChevronUp size={16} color={COLORS.textTertiary} style={{ marginTop: 4 }} />
                           ) : (
@@ -400,10 +411,19 @@ export default function DetailScreen() {
                           <View style={styles.pricingRowLast}>
                             <View style={styles.pricingLabelWrap}>
                               <Calendar size={12} color={COLORS.textSecondary} />
-                              <Text style={styles.pricingLabel}>Per Academic Year (12 months)</Text>
+                              <Text style={styles.pricingLabel}>Total Room Cost / Year</Text>
                             </View>
-                            <Text style={styles.pricingValue}>GH₵{yearPrice.toLocaleString()}</Text>
+                            <Text style={styles.pricingValue}>GH₵{totalYearPrice.toLocaleString()}</Text>
                           </View>
+                          {occupants > 1 && (
+                            <View style={styles.pricingRowLast}>
+                              <View style={styles.pricingLabelWrap}>
+                                <Users size={12} color={COLORS.textSecondary} />
+                                <Text style={styles.pricingLabel}>Split by {occupants} occupants</Text>
+                              </View>
+                              <Text style={[styles.pricingValue, { color: COLORS.primary }]}>GH₵{perPersonYear.toLocaleString()} each</Text>
+                            </View>
+                          )}
                         </View>
                       )}
                     </TouchableOpacity>
@@ -419,22 +439,40 @@ export default function DetailScreen() {
                 <CreditCard size={18} color={COLORS.primary} />
                 <Text style={styles.standardCardTitle}>Utilities & Cost Breakdown</Text>
               </View>
-              <Text style={styles.utilitySubtitle}>What's included in the rent</Text>
-              {utilityInclusions.included.length > 0 ? (
-                utilityInclusions.included.map((item, idx) => (
-                  <View key={idx} style={styles.utilityRow}>
-                    <View style={styles.utilityIncludedDot} />
-                    <Text style={styles.utilityIncludedText}>{item}</Text>
-                    <View style={styles.utilityIncludedBadge}>
-                      <Text style={styles.utilityIncludedBadgeText}>Included</Text>
+              <View style={styles.utilityToggleRow}>
+                <TouchableOpacity
+                  style={[styles.utilityToggleBtn, utilityView === 'included' && styles.utilityToggleBtnActive]}
+                  onPress={() => setUtilityView('included')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.utilityToggleBtnText, utilityView === 'included' && styles.utilityToggleBtnTextActive]}>Included</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.utilityToggleBtn, utilityView === 'not_included' && styles.utilityToggleBtnActiveRed]}
+                  onPress={() => setUtilityView('not_included')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.utilityToggleBtnText, utilityView === 'not_included' && styles.utilityToggleBtnTextActiveRed]}>Not Included</Text>
+                </TouchableOpacity>
+              </View>
+              {utilityView === 'included' && (
+                utilityInclusions.included.length > 0 ? (
+                  utilityInclusions.included.map((item, idx) => (
+                    <View key={idx} style={styles.utilityRow}>
+                      <View style={styles.utilityIncludedDot} />
+                      <Text style={styles.utilityIncludedText}>{item}</Text>
+                      <View style={styles.utilityIncludedBadge}>
+                        <Text style={styles.utilityIncludedBadgeText}>Included</Text>
+                      </View>
                     </View>
-                  </View>
-                ))
-              ) : null}
-              {utilityInclusions.notIncluded.length > 0 && (
-                <>
-                  <Text style={styles.utilitySubtitleMuted}>May require additional payment</Text>
-                  {utilityInclusions.notIncluded.map((item, idx) => (
+                  ))
+                ) : (
+                  <Text style={styles.noDataText}>No utilities confirmed as included</Text>
+                )
+              )}
+              {utilityView === 'not_included' && (
+                utilityInclusions.notIncluded.length > 0 ? (
+                  utilityInclusions.notIncluded.map((item, idx) => (
                     <View key={idx} style={styles.utilityRow}>
                       <View style={styles.utilityNotIncludedDot} />
                       <Text style={styles.utilityNotIncludedText}>{item}</Text>
@@ -442,8 +480,10 @@ export default function DetailScreen() {
                         <Text style={styles.utilityNotIncludedBadgeText}>Not included</Text>
                       </View>
                     </View>
-                  ))}
-                </>
+                  ))
+                ) : (
+                  <Text style={styles.noDataText}>All utilities are included in the rent</Text>
+                )
               )}
             </View>
 
@@ -624,6 +664,29 @@ export default function DetailScreen() {
             </View>
           </View>
         )}
+
+        {activeTab === 'about' && (
+          <View style={styles.tabContent}>
+            <View style={styles.standardCard}>
+              <View style={styles.standardCardHeader}>
+                <FileText size={18} color={COLORS.primary} />
+                <Text style={styles.standardCardTitle}>About This Hostel</Text>
+              </View>
+              <Text style={styles.aboutText}>{hostel.description || 'No description available.'}</Text>
+            </View>
+
+            <View style={styles.standardCard}>
+              <View style={styles.standardCardHeader}>
+                <MapPin size={18} color={COLORS.primary} />
+                <Text style={styles.standardCardTitle}>Address</Text>
+              </View>
+              <Text style={styles.aboutText}>{hostel.address || 'No address available'}</Text>
+              {hostel.campus_proximity ? (
+                <Text style={styles.aboutProximity}>{hostel.campus_proximity}</Text>
+              ) : null}
+            </View>
+          </View>
+        )}
       </ScrollView>
 
       <View style={styles.bottomBar}>
@@ -774,11 +837,11 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, 
     borderBottomColor: COLORS.borderLight,
     backgroundColor: COLORS.white,
-    gap: SPACING.lg,
+    gap: SPACING.md,
   },
   tab: { paddingBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
   tabActive: { borderBottomWidth: 2, borderBottomColor: COLORS.primary },
-  tabText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.textTertiary },
+  tabText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textTertiary },
   tabTextActive: { color: COLORS.primary },
   tabBadge: {
     backgroundColor: COLORS.primary,
@@ -898,18 +961,38 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
   },
 
-  utilitySubtitle: {
-    fontFamily: FONT.medium,
-    fontSize: 13,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
+  utilityToggleRow: {
+    flexDirection: 'row',
+    gap: 0,
+    marginBottom: SPACING.md,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    overflow: 'hidden',
   },
-  utilitySubtitleMuted: {
-    fontFamily: FONT.medium,
+  utilityToggleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.white,
+  },
+  utilityToggleBtnActive: {
+    backgroundColor: COLORS.success,
+  },
+  utilityToggleBtnActiveRed: {
+    backgroundColor: COLORS.error,
+  },
+  utilityToggleBtnText: {
+    fontFamily: FONT.semiBold,
     fontSize: 13,
-    color: COLORS.textTertiary,
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.sm,
+    color: COLORS.textSecondary,
+  },
+  utilityToggleBtnTextActive: {
+    color: COLORS.white,
+  },
+  utilityToggleBtnTextActiveRed: {
+    color: COLORS.white,
   },
   utilityRow: {
     flexDirection: 'row',
@@ -1100,4 +1183,17 @@ const styles = StyleSheet.create({
     shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
   bookBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
+
+  aboutText: {
+    fontFamily: FONT.regular,
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    lineHeight: 22,
+  },
+  aboutProximity: {
+    fontFamily: FONT.medium,
+    fontSize: 13,
+    color: COLORS.accent,
+    marginTop: SPACING.sm,
+  },
 });
