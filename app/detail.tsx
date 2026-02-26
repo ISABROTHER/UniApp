@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Hostel, HostelReview } from '@/lib/types';
-import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck, Wifi, Shield, Droplet, Zap, Wind, Car, BookOpen, Tv, UtensilsCrossed, WashingMachine, Dumbbell, Waves, Trash2, Eye, DoorOpen, Building2, BedDouble, CreditCard, Info, FileText } from 'lucide-react-native';
+import { ArrowLeft, Heart, MapPin, Star, Users, CheckCircle, Calendar, ShieldCheck, MessageCircle, UserCheck, Wifi, Shield, Droplet, Zap, Wind, Car, BookOpen, Tv, UtensilsCrossed, WashingMachine, Dumbbell, Waves, Trash2, Eye, DoorOpen, Building2, BedDouble, Info, FileText } from 'lucide-react-native';
 import ProtectedBookingBadge from '@/components/ProtectedBookingBadge';
 
 const { width: SW } = Dimensions.get('window');
@@ -95,7 +95,6 @@ export default function DetailScreen() {
   const [activeImg, setActiveImg] = useState(0);
   const [roommateCount, setRoommateCount] = useState(0);
   const [autoSlide, setAutoSlide] = useState(true);
-  const [utilityView, setUtilityView] = useState<'included' | 'not_included'>('included');
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const autoSlideInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -225,31 +224,6 @@ export default function DetailScreen() {
       return { ...cat, matched };
     }).filter(cat => cat.matched.length > 0);
   }, [amenities]);
-
-  const utilityInclusions = useMemo(() => {
-    const included: string[] = [];
-    const notIncluded: string[] = [];
-
-    const hasWater = amenityNames.some(a => a.includes('water'));
-    const hasElectricity = amenityNames.some(a => a.includes('electricity'));
-    const hasGenerator = amenityNames.some(a => a.includes('generator'));
-    const hasWifi = amenityNames.some(a => a.includes('wifi'));
-    const hasBorehole = amenityNames.some(a => a.includes('borehole'));
-
-    if (hasWater || hasBorehole) included.push('Water Supply');
-    else notIncluded.push('Water Supply');
-
-    if (hasElectricity) included.push('Electricity (24hr)');
-    else notIncluded.push('Electricity (24hr)');
-
-    if (hasGenerator) included.push('Generator Backup');
-    else notIncluded.push('Generator Backup');
-
-    if (hasWifi) included.push('Internet / WiFi');
-    else notIncluded.push('Internet / WiFi');
-
-    return { included, notIncluded };
-  }, [amenityNames]);
 
   if (loading || !hostel) {
     return (
@@ -412,59 +386,6 @@ export default function DetailScreen() {
                 })
               ) : (
                 <Text style={styles.noDataText}>No room types listed yet</Text>
-              )}
-            </View>
-
-            <View style={styles.standardCard}>
-              <View style={styles.standardCardHeader}>
-                <CreditCard size={18} color={COLORS.primary} />
-                <Text style={styles.standardCardTitle}>Utilities & Cost Breakdown</Text>
-              </View>
-              <View style={styles.utilityToggleRow}>
-                <TouchableOpacity
-                  style={[styles.utilityToggleBtn, utilityView === 'included' && styles.utilityToggleBtnActive]}
-                  onPress={() => setUtilityView('included')}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.utilityToggleBtnText, utilityView === 'included' && styles.utilityToggleBtnTextActive]}>Included</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.utilityToggleBtn, utilityView === 'not_included' && styles.utilityToggleBtnActiveRed]}
-                  onPress={() => setUtilityView('not_included')}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.utilityToggleBtnText, utilityView === 'not_included' && styles.utilityToggleBtnTextActiveRed]}>Not Included</Text>
-                </TouchableOpacity>
-              </View>
-              {utilityView === 'included' && (
-                utilityInclusions.included.length > 0 ? (
-                  utilityInclusions.included.map((item, idx) => (
-                    <View key={idx} style={styles.utilityRow}>
-                      <View style={styles.utilityIncludedDot} />
-                      <Text style={styles.utilityIncludedText}>{item}</Text>
-                      <View style={styles.utilityIncludedBadge}>
-                        <Text style={styles.utilityIncludedBadgeText}>Included</Text>
-                      </View>
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.noDataText}>No utilities confirmed as included</Text>
-                )
-              )}
-              {utilityView === 'not_included' && (
-                utilityInclusions.notIncluded.length > 0 ? (
-                  utilityInclusions.notIncluded.map((item, idx) => (
-                    <View key={idx} style={styles.utilityRow}>
-                      <View style={styles.utilityNotIncludedDot} />
-                      <Text style={styles.utilityNotIncludedText}>{item}</Text>
-                      <View style={styles.utilityNotIncludedBadge}>
-                        <Text style={styles.utilityNotIncludedBadgeText}>Not included</Text>
-                      </View>
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.noDataText}>All utilities are included in the rent</Text>
-                )
               )}
             </View>
 
@@ -945,88 +866,6 @@ const styles = StyleSheet.create({
   roomSoldOut: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.error },
   roomPriceMain: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.primary },
   roomPerPerson: { fontFamily: FONT.semiBold, fontSize: 11, color: COLORS.primary, marginTop: 2 },
-
-  utilityToggleRow: {
-    flexDirection: 'row',
-    gap: 0,
-    marginBottom: SPACING.md,
-    borderRadius: RADIUS.sm,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    overflow: 'hidden',
-  },
-  utilityToggleBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.white,
-  },
-  utilityToggleBtnActive: {
-    backgroundColor: COLORS.success,
-  },
-  utilityToggleBtnActiveRed: {
-    backgroundColor: COLORS.error,
-  },
-  utilityToggleBtnText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 13,
-    color: COLORS.textSecondary,
-  },
-  utilityToggleBtnTextActive: {
-    color: COLORS.white,
-  },
-  utilityToggleBtnTextActiveRed: {
-    color: COLORS.white,
-  },
-  utilityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
-    gap: 8,
-  },
-  utilityIncludedDot: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.success,
-  },
-  utilityIncludedText: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
-    color: COLORS.textPrimary,
-    flex: 1,
-  },
-  utilityIncludedBadge: {
-    backgroundColor: COLORS.successLight,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: RADIUS.full,
-  },
-  utilityIncludedBadgeText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 10,
-    color: COLORS.success,
-  },
-  utilityNotIncludedDot: {
-    width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.textTertiary,
-  },
-  utilityNotIncludedText: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
-    color: COLORS.textTertiary,
-    flex: 1,
-  },
-  utilityNotIncludedBadge: {
-    backgroundColor: COLORS.borderLight,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: RADIUS.full,
-  },
-  utilityNotIncludedBadgeText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 10,
-    color: COLORS.textTertiary,
-  },
 
   noDataText: {
     fontFamily: FONT.regular,
