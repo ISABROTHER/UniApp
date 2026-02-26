@@ -140,39 +140,54 @@ export default function HomeScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      const [bedsResult, statsResult] = await Promise.all([
+      const sixtyDaysOut = new Date();
+      sixtyDaysOut.setDate(sixtyDaysOut.getDate() + 60);
+
+      const [bedsResult, statsResult, bookingResult, msgResult, alertResult] = await Promise.all([
         supabase
           .from('hostels')
           .select('available_rooms')
           .eq('status', 'active'),
-        user ? ensureUserStats(user.id).then(() =>
-          supabase.from('user_stats').select('*').eq('user_id', user.id).maybeSingle()
-        ) : Promise.resolve({ data: null }),
+        user
+          ? ensureUserStats(user.id).then(() =>
+              supabase.from('user_stats').select('*').eq('user_id', user.id).maybeSingle()
+            )
+          : Promise.resolve({ data: null }),
+        user
+          ? supabase
+              .from('bookings')
+              .select('check_out_date, hostel_id, hostels(name)')
+              .eq('user_id', user.id)
+              .in('status', ['confirmed', 'checked_in'])
+              .lte('check_out_date', sixtyDaysOut.toISOString().slice(0, 10))
+              .order('check_out_date', { ascending: true })
+              .limit(1)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
+        user
+          ? supabase
+              .from('conversations')
+              .select('unread_count_a, unread_count_b, participant_a, participant_b')
+              .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
+          : Promise.resolve({ data: null }),
+        user
+          ? supabase
+              .from('notifications')
+              .select('id', { count: 'exact', head: true })
+              .eq('user_id', user.id)
+              .eq('read', false)
+          : Promise.resolve({ data: null, count: 0 }),
       ]);
 
-      if (user) {
-        const sixtyDaysOut = new Date();
-        sixtyDaysOut.setDate(sixtyDaysOut.getDate() + 60);
-        const { data: bookingData } = await supabase
-          .from('bookings')
-          .select('check_out_date, hostel_id, hostels(name)')
-          .eq('user_id', user.id)
-          .in('status', ['confirmed', 'checked_in'])
-          .lte('check_out_date', sixtyDaysOut.toISOString().slice(0, 10))
-          .order('check_out_date', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-
-        if (bookingData) {
-          const h = (bookingData as any).hostels;
-          setActiveBooking({
-            hostelId: bookingData.hostel_id,
-            hostelName: h?.name ?? 'Your Hostel',
-            checkOutDate: bookingData.check_out_date,
-          });
-        } else {
-          setActiveBooking(null);
-        }
+      if (user && bookingResult.data) {
+        const h = (bookingResult.data as any).hostels;
+        setActiveBooking({
+          hostelId: bookingResult.data.hostel_id,
+          hostelName: h?.name ?? 'Your Hostel',
+          checkOutDate: bookingResult.data.check_out_date,
+        });
+      } else {
+        setActiveBooking(null);
       }
 
       const totalBeds = (bedsResult.data || []).reduce(
@@ -180,18 +195,6 @@ export default function HomeScreen() {
       );
 
       if (user) {
-        const [msgResult, alertResult] = await Promise.all([
-          supabase
-            .from('conversations')
-            .select('unread_count_a, unread_count_b, participant_a, participant_b')
-            .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`),
-          supabase
-            .from('notifications')
-            .select('id', { count: 'exact', head: true })
-            .eq('user_id', user.id)
-            .eq('read', false),
-        ]);
-
         const unreadMessages = (msgResult.data || []).reduce((sum: number, c: {
           participant_a: string;
           participant_b: string;
@@ -205,7 +208,7 @@ export default function HomeScreen() {
         setLiveStats({
           availableBeds: totalBeds,
           unreadMessages,
-          unreadAlerts: alertResult.count || 0,
+          unreadAlerts: (alertResult as any).count || 0,
         });
 
         const { data: stats } = statsResult as { data: UserStats | null };

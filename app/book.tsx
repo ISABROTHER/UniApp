@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Platform, Modal } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS, GHANA_RENT_ACT, PAYSTACK_FEES } from '@/lib/constants';
@@ -130,12 +130,26 @@ export default function BookScreen() {
     setSuccess(true);
   };
 
-  const handlePaymentClose = async () => {
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+
+  const handlePaymentClose = () => {
     setPaymentVisible(false);
+    if (pendingBookingId) {
+      setShowCancelConfirm(true);
+    }
+  };
+
+  const confirmCancelBooking = async () => {
     if (pendingBookingId) {
       await supabase.from('bookings').update({ status: 'cancelled' }).eq('id', pendingBookingId);
       setPendingBookingId(null);
     }
+    setShowCancelConfirm(false);
+  };
+
+  const resumePayment = () => {
+    setShowCancelConfirm(false);
+    setPaymentVisible(true);
   };
 
   if (loading) {
@@ -258,6 +272,23 @@ export default function BookScreen() {
         onSuccess={handlePaymentSuccess}
         onClose={handlePaymentClose}
       />
+
+      <Modal transparent visible={showCancelConfirm} animationType="fade">
+        <View style={styles.confirmOverlay}>
+          <View style={styles.confirmCard}>
+            <Text style={styles.confirmTitle}>Cancel Booking?</Text>
+            <Text style={styles.confirmText}>
+              Your booking has not been paid yet. Would you like to resume payment or cancel the booking?
+            </Text>
+            <TouchableOpacity style={styles.confirmResumeBtn} onPress={resumePayment}>
+              <Text style={styles.confirmResumeBtnText}>Resume Payment</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.confirmCancelBtn} onPress={confirmCancelBooking}>
+              <Text style={styles.confirmCancelBtnText}>Cancel Booking</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -356,4 +387,13 @@ const styles = StyleSheet.create({
   successProtectedText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.success },
   successBtn: { backgroundColor: COLORS.primary, paddingHorizontal: SPACING.xl, paddingVertical: 14, borderRadius: RADIUS.md },
   successBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
+
+  confirmOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: SPACING.lg },
+  confirmCard: { backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.lg, width: '100%', maxWidth: 360 },
+  confirmTitle: { fontFamily: FONT.headingBold, fontSize: 20, color: COLORS.textPrimary, marginBottom: SPACING.sm },
+  confirmText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, lineHeight: 22, marginBottom: SPACING.lg },
+  confirmResumeBtn: { backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: 14, alignItems: 'center', marginBottom: SPACING.sm },
+  confirmResumeBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
+  confirmCancelBtn: { borderWidth: 1.5, borderColor: COLORS.error, borderRadius: RADIUS.md, paddingVertical: 14, alignItems: 'center' },
+  confirmCancelBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.error },
 }); 

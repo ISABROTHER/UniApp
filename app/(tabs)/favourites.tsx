@@ -54,7 +54,7 @@ export default function FavouritesScreen() {
     setFavourites((prev) => prev.filter((h) => h.id !== hostelId));
   };
 
-  const getImageUrl = (h: Hostel) => h.images?.[0]?.image_url || h.images?.[0]?.url || 'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?w=400';
+  const getImageUrl = (h: Hostel) => h.images?.[0]?.image_url || 'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?w=400';
 
   if (!loading && favourites.length === 0) {
     return (

@@ -53,7 +53,6 @@ export interface HostelImage {
   id: string;
   hostel_id: string;
   image_url: string;
-  url?: string;
   caption: string | null;
   display_order: number;
   created_at: string;
@@ -63,7 +62,6 @@ export interface HostelAmenity {
   id: string;
   hostel_id: string;
   amenity: string;
-  name?: string;
 }
 
 export interface HostelRoom {
@@ -412,46 +410,3 @@ export interface OnboardingSteps {
   updated_at: string;
 }
 
-// Legacy types kept for compatibility
-export interface Property {
-  id: string;
-  name: string;
-  address: string;
-  city: string;
-  university: string;
-  price_per_week: number;
-  rating: number;
-  review_count: number;
-  images: string[];
-  amenities: string[];
-  room_type: string;
-  distance_meters: number;
-  is_verified: boolean;
-  description: string;
-  available_rooms: number;
-  created_at: string;
-  updated_at: string;
-  is_favourite?: boolean;
-}
-
-export interface UserProfile {
-  id: string;
-  full_name: string;
-  university: string | null;
-  is_verified: boolean;
-  avatar_url: string | null;
-  viewings_count: number;
-  saved_count: number;
-  applications_count: number;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface PropertyReview {
-  id: string;
-  reviewer_name: string;
-  reviewer_avatar: string;
-  rating: number;
-  comment: string;
-  date: string;
-}

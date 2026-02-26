@@ -3,48 +3,6 @@ import { supabase } from '@/lib/supabase';
 import { Member } from '@/lib/types';
 import { Session } from '@supabase/supabase-js';
 
-const DEV_PHONE = '0576040160';
-const DEV_PASSWORD = '1234567890';
-
-const DEV_MEMBER: Member = {
-  id: 'dev-user-001',
-  student_id: 'STU-2025-001',
-  full_name: 'Dev User',
-  email: 'dev@test.com',
-  phone: DEV_PHONE,
-  date_of_birth: null,
-  gender: null,
-  faculty: null,
-  department: null,
-  level: null,
-  hall_of_residence: null,
-  avatar_url: null,
-  membership_status: 'active',
-  role: 'student',
-  ghana_card_number: null,
-  id_verified: false,
-  id_verified_at: null,
-  joined_at: new Date().toISOString(),
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-};
-
-const DEV_SESSION = {
-  access_token: 'dev-token',
-  refresh_token: 'dev-refresh',
-  expires_in: 999999,
-  token_type: 'bearer',
-  user: {
-    id: 'dev-user-001',
-    aud: 'authenticated',
-    role: 'authenticated',
-    email: 'dev@test.com',
-    app_metadata: {},
-    user_metadata: {},
-    created_at: new Date().toISOString(),
-  },
-} as unknown as Session;
-
 interface AuthContextType {
   session: Session | null;
   member: Member | null;
@@ -118,12 +76,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = async (phone: string, password: string) => {
-    if (phone.trim() === DEV_PHONE && password === DEV_PASSWORD) {
-      setSession(DEV_SESSION);
-      setMember(DEV_MEMBER);
-      return { error: null };
-    }
-
     const { data: memberData, error: lookupError } = await supabase
       .from('members')
       .select('email')

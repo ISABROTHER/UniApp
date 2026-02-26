@@ -43,7 +43,7 @@ export default function DetailScreen() {
       const hostelImages = hostel.images
         .slice()
         .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-        .map(i => i.image_url || i.url || '')
+        .map(i => i.image_url || '')
         .filter(url => url);
       
       if (hostelImages.length >= 7) {
@@ -68,7 +68,7 @@ export default function DetailScreen() {
     if (autoSlide && images.length > 1) {
       autoSlideInterval.current = setInterval(() => {
         setActiveImg((prev) => (prev + 1) % images.length);
-      }, 2000);
+      }, 5000);
     }
 
     return () => {
@@ -304,7 +304,7 @@ export default function DetailScreen() {
                     </View>
                   </View>
                   {review.comment && <Text style={styles.reviewComment}>"{review.comment}"</Text>}
-                  {review.verified_guest && (
+                  {review.is_verified_guest && (
                     <View style={styles.verifiedGuestTag}>
                       <CheckCircle size={12} color={COLORS.success} />
                       <Text style={styles.verifiedGuestText}>Verified Guest</Text>
@@ -325,7 +325,7 @@ export default function DetailScreen() {
                   {amenities.map((amenity: any, idx: number) => (
                     <View key={idx} style={styles.amenityPill}>
                       <View style={styles.amenityDot} />
-                      <Text style={styles.amenityText}>{amenity.amenity || amenity.name || amenity}</Text>
+                      <Text style={styles.amenityText}>{amenity.amenity}</Text>
                     </View>
                   ))}
                 </View>
@@ -338,19 +338,19 @@ export default function DetailScreen() {
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Basic Facilities</Text>
                 <View style={styles.facilitiesGrid}>
-                  {amenities.some((a: any) => (a.amenity || a.name || '').toLowerCase().includes('wifi')) && (
+                  {amenities.some((a: any) => (a.amenity || '').toLowerCase().includes('wifi')) && (
                     <View style={styles.facilityItem}>
                       <Wifi size={20} color={COLORS.primary} />
                       <Text style={styles.facilityText}>WiFi</Text>
                     </View>
                   )}
-                  {amenities.some((a: any) => (a.amenity || a.name || '').toLowerCase().includes('security')) && (
+                  {amenities.some((a: any) => (a.amenity || '').toLowerCase().includes('security')) && (
                     <View style={styles.facilityItem}>
                       <Shield size={20} color={COLORS.primary} />
                       <Text style={styles.facilityText}>Security</Text>
                     </View>
                   )}
-                  {amenities.some((a: any) => (a.amenity || a.name || '').toLowerCase().includes('water')) && (
+                  {amenities.some((a: any) => (a.amenity || '').toLowerCase().includes('water')) && (
                     <View style={styles.facilityItem}>
                       <Droplet size={20} color={COLORS.primary} />
                       <Text style={styles.facilityText}>24hr Water</Text>
