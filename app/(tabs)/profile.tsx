@@ -254,8 +254,9 @@ export default function ProfileScreen() {
         <MenuItem icon={<Wrench size={20} color={COLORS.error} />} title="Maintenance" subtitle="Report issues & track repairs" onPress={() => router.push('/maintenance' as any)} iconBg="#FEE2E2" />
 
         <SectionHeader title="Campus Services" />
-        <MenuItem icon={<ShoppingBag size={20} color='#7C3AED' />} title="Smart Wash" subtitle="On-demand laundry pickup & delivery" onPress={() => router.push('/(tabs)/laundry' as any)} iconBg="#EDE9FE" badge="New" />
-        <MenuItem icon={<Printer size={20} color={COLORS.success} />} title="Safe Print" subtitle="Cloud printing with pickup or delivery" onPress={() => router.push('/print' as any)} iconBg="#DCFCE7" badge="New" />
+        <MenuItem icon={<ShoppingBag size={20} color='#FF9900' />} title="StuMark" subtitle="Buy & sell on campus marketplace" onPress={() => router.push('/(tabs)/stumark' as any)} iconBg="#FFF3E6" badge="New" badgeColor="#FF9900" />
+        <MenuItem icon={<ShoppingBag size={20} color='#7C3AED' />} title="Smart Wash" subtitle="On-demand laundry pickup & delivery" onPress={() => router.push('/(tabs)/laundry' as any)} iconBg="#EDE9FE" />
+        <MenuItem icon={<Printer size={20} color={COLORS.success} />} title="Safe Print" subtitle="Cloud printing with pickup or delivery" onPress={() => router.push('/print' as any)} iconBg="#DCFCE7" />
         <MenuItem icon={<Users size={20} color={COLORS.success} />} title="Roommate Finder" subtitle="Find the perfect flatmate" onPress={() => router.push('/roommates' as any)} iconBg="#DCFCE7" />
 
         <SectionHeader title="Account" />
