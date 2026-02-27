@@ -16,18 +16,10 @@ import {
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import {
-  Search,
-  X,
-  MapPin,
-  ShoppingBag,
-  TrendingUp,
-  Heart,
-  ChevronRight,
-  Smartphone,
-  Briefcase,
-  UtensilsCrossed,
-  Package,
+import { 
+  Plus, Search, X, MapPin, ShoppingBag, Star, TrendingUp, Clock, Heart, ChevronRight, 
+  Phone, MessageCircle, Share2, Filter, SlidersHorizontal, ChevronLeft,
+  Smartphone, Laptop, Shirt, Briefcase, UtensilsCrossed, Package 
 } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
@@ -62,26 +54,16 @@ const CATEGORIES: { key: MarketCategory; label: string; icon: any }[] = [
 
 const CONDITIONS = ['new', 'good', 'fair', 'used'] as const;
 
-const stripBadgesFromTitle = (title: string) =>
-  title
-    .replace(/\s*-\s*like new\s*/gi, ' ')
-    .replace(/\s*-\s*gaming ready\s*/gi, ' ')
-    .replace(/\s*\(\s*like new\s*\)\s*/gi, ' ')
-    .replace(/\s*\(\s*gaming ready\s*\)\s*/gi, ' ')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-
 const DUMMY_PRODUCTS: MarketListing[] = [
   {
     id: '1',
     seller_id: 'dummy-user-1',
-    title: stripBadgesFromTitle('iPhone 13 Pro 256GB - Like New'),
-    description:
-      'Barely used iPhone 13 Pro in Sierra Blue. Comes with original box, charger, and case. No scratches, perfect condition. Battery health 98%.',
+    title: 'iPhone 13 Pro 256GB - Like New',
+    description: 'Barely used iPhone 13 Pro in Sierra Blue. Comes with original box, charger, and case. No scratches, perfect condition. Battery health 98%.',
     price: 2800,
     category: 'electronics',
     condition: 'new',
-    campus_location: 'BBF Apple Shop, UCC',
+    campus_location: 'Science Market, UCC',
     seller_phone: '0244123456',
     is_available: true,
     is_sold: false,
@@ -91,13 +73,12 @@ const DUMMY_PRODUCTS: MarketListing[] = [
   {
     id: '2',
     seller_id: 'dummy-user-2',
-    title: stripBadgesFromTitle('Dell XPS 15 Laptop - Gaming Ready'),
-    description:
-      'Powerful Dell XPS 15 with Intel i7, 16GB RAM, 512GB SSD, NVIDIA GTX 1650. Perfect for coding, gaming, and design work.',
+    title: 'Dell XPS 15 Laptop - Gaming Ready',
+    description: 'Powerful Dell XPS 15 with Intel i7, 16GB RAM, 512GB SSD, NVIDIA GTX 1650. Perfect for coding, gaming, and design work.',
     price: 4500,
     category: 'electronics',
     condition: 'good',
-    campus_location: 'UCC Repairs, UCC',
+    campus_location: 'Hall 3, Near Library',
     seller_phone: '0201234567',
     is_available: true,
     is_sold: false,
@@ -107,47 +88,47 @@ const DUMMY_PRODUCTS: MarketListing[] = [
   {
     id: '3',
     seller_id: 'dummy-user-3',
-    title: 'Naa Spicy Bite',
-    description: 'Meals available daily.',
-    price: 25,
-    category: 'food',
+    title: 'Adidas Campus 00s Sneakers - Size 42',
+    description: 'Brand new Adidas Campus 00s in Core Black/Cloud White. Never worn, still in box with tags.',
+    price: 450,
+    category: 'services',
     condition: 'new',
-    campus_location: 'Science Market, UCC',
+    campus_location: 'Central Market',
     seller_phone: '0557654321',
     is_available: true,
     is_sold: false,
     created_at: new Date().toISOString(),
-    image_url: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=500&q=80',
+    image_url: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=500&q=80',
   },
   {
     id: '4',
     seller_id: 'dummy-user-4',
-    title: 'Macoy',
-    description: 'Meals available at Science Market.',
-    price: 25,
-    category: 'food',
+    title: 'Mathematics Tutoring - All Levels',
+    description: 'Experienced math tutor offering personalized lessons for all levels. First lesson free!',
+    price: 50,
+    category: 'services',
     condition: 'new',
-    campus_location: 'Science Market, UCC',
+    campus_location: 'Main Campus',
     seller_phone: '0246789012',
     is_available: true,
     is_sold: false,
     created_at: new Date().toISOString(),
-    image_url: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=500&q=80',
+    image_url: 'https://images.unsplash.com/photo-1596495578065-6e0763fa1178?w=500&q=80',
   },
   {
     id: '5',
     seller_id: 'dummy-user-5',
-    title: 'Science Market',
-    description: 'Food vendors and items available.',
-    price: 10,
-    category: 'grocery',
+    title: 'Homemade Jollof & Chicken - Daily Special',
+    description: 'Delicious homemade Jollof rice with grilled chicken, coleslaw, and fried plantain.',
+    price: 25,
+    category: 'food',
     condition: 'new',
-    campus_location: 'Science Market, UCC',
+    campus_location: 'Hall 7 Kitchen',
     seller_phone: '0209876543',
     is_available: true,
     is_sold: false,
     created_at: new Date().toISOString(),
-    image_url: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80',
+    image_url: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=500&q=80',
   },
 ];
 
@@ -181,25 +162,18 @@ export default function StuMarkScreen() {
       try {
         let query = supabase
           .from('market_listings')
-          .select(
-            'id,seller_id,title,description,price,category,condition,campus_location,seller_phone,is_available,is_sold,created_at',
-          )
+          .select('id,seller_id,title,description,price,category,condition,campus_location,seller_phone,is_available,is_sold,created_at')
           .order('created_at', { ascending: false });
-
         if (category !== 'all') query = query.eq('category', category);
         const q = searchQuery.trim();
         if (q.length > 0) query = query.ilike('title', `%${q}%`);
         query = query.eq('is_sold', false).eq('is_available', true);
-
         const { data, error } = await query;
+       
         if (error) throw error;
-
+       
         if (data && data.length > 0) {
-          const cleaned = (data as MarketListing[]).map((item) => ({
-            ...item,
-            title: stripBadgesFromTitle(item.title),
-          }));
-          setListings(cleaned);
+          setListings(data as MarketListing[]);
         } else {
           setListings(DUMMY_PRODUCTS);
         }
@@ -242,7 +216,7 @@ export default function StuMarkScreen() {
 
   const submitPost = async () => {
     if (posting) return;
-    const title = stripBadgesFromTitle(postTitle.trim());
+    const title = postTitle.trim();
     const priceNumber = Number(postPrice);
     if (title.length === 0) {
       setPostError('Add a title.');
@@ -285,13 +259,34 @@ export default function StuMarkScreen() {
     }
   };
 
+  const openProductDetail = (product: MarketListing) => {
+    setSelectedProduct(product);
+    setDetailOpen(true);
+  };
+
+  const closeProductDetail = () => {
+    setDetailOpen(false);
+    setSelectedProduct(null);
+  };
+
   const toggleWishlist = (productId: string) => {
     setWishlist((prev) => {
       const newSet = new Set(prev);
-      if (newSet.has(productId)) newSet.delete(productId);
-      else newSet.add(productId);
+      if (newSet.has(productId)) {
+        newSet.delete(productId);
+      } else {
+        newSet.add(productId);
+      }
       return newSet;
     });
+  };
+
+  const handleCall = (phone: string | null) => {
+    if (phone) alert(`Call: ${phone}`);
+  };
+
+  const handleWhatsApp = (phone: string | null) => {
+    if (phone) alert(`WhatsApp: ${phone}`);
   };
 
   const formatPrice = (value: number | string) => {
@@ -301,7 +296,6 @@ export default function StuMarkScreen() {
   };
 
   const filteredListings = listings
-    .map((item) => ({ ...item, title: stripBadgesFromTitle(item.title) }))
     .filter((item) => {
       if (category !== 'all' && item.category !== category) return false;
       const q = searchQuery.trim().toLowerCase();
@@ -323,13 +317,10 @@ export default function StuMarkScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>StuMark</Text>
-
-          {/* PLUS SIGN REPLACED WITH POST AD / SELL */}
           <TouchableOpacity onPress={openPost} style={styles.sellButton} activeOpacity={0.8}>
-            <Text style={styles.sellButtonText}>Post Ad</Text>
+            <Text style={styles.sellButtonText}>Sell</Text>
           </TouchableOpacity>
         </View>
-
         <View style={styles.searchBox}>
           <Search size={18} color={COLORS.textTertiary} />
           <TextInput
@@ -351,10 +342,20 @@ export default function StuMarkScreen() {
       >
         <View style={styles.heroBanner}>
           <View style={styles.bannerContent}>
-            <Text style={styles.bannerTitle}>StuMark (Student Market </Text>
-            <Text style={styles.bannerSubtitle}>Created by students and for students, this is an open platform for anyone to post what they want to sell, buy or trade.</Text>
-        </View
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>
+            <Text style={styles.bannerTitle}>Campus Deals</Text>
+            <Text style={styles.bannerSubtitle}>Shop smart, save more</Text>
+          </View>
+          <View style={styles.bannerBadge}>
+            <TrendingUp size={16} color={COLORS.white} />
+            <Text style={styles.bannerBadgeText}>Hot</Text>
+          </View>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categories}
+        >
           {CATEGORIES.map((cat) => {
             const active = category === cat.key;
             const Icon = cat.icon;
@@ -368,13 +369,15 @@ export default function StuMarkScreen() {
                 <View style={[styles.categoryIcon, active && styles.categoryIconActive]}>
                   <Icon size={20} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
                 </View>
-                <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>{cat.label}</Text>
+                <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
+                  {cat.label}
+                </Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
 
-        {/* THIN LINE SEPARATING LOGO ICONS (CATEGORIES) FROM TODAY'S DEAL */}
+        {/* THIN HORIZONTAL DIVIDER */}
         <View style={styles.divider} />
 
         {recentListings.length > 0 && (
@@ -389,19 +392,27 @@ export default function StuMarkScreen() {
                 <ChevronRight size={16} color={COLORS.primary} />
               </TouchableOpacity>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dealsScroll}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dealsScroll}
+            >
               {recentListings.map((item) => (
                 <View key={item.id} style={styles.dealCard}>
                   <View style={styles.dealImage}>
                     {item.image_url ? (
-                      <Image source={{ uri: item.image_url }} style={styles.productImage} resizeMode="cover" />
+                      <Image
+                        source={{ uri: item.image_url }}
+                        style={styles.productImage}
+                        resizeMode="cover"
+                      />
                     ) : (
                       <ShoppingBag size={32} color={COLORS.textTertiary} strokeWidth={1.5} />
                     )}
                   </View>
                   <View style={styles.dealInfo}>
                     <Text style={styles.dealTitle} numberOfLines={2}>
-                      {stripBadgesFromTitle(item.title)}
+                      {item.title}
                     </Text>
                     <Text style={styles.dealPrice}>{formatPrice(item.price)}</Text>
                     {item.campus_location && (
@@ -432,21 +443,21 @@ export default function StuMarkScreen() {
                 <View key={item.id} style={styles.gridCard}>
                   <View style={styles.gridImage}>
                     {item.image_url ? (
-                      <Image source={{ uri: item.image_url }} style={styles.productImage} resizeMode="cover" />
+                      <Image
+                        source={{ uri: item.image_url }}
+                        style={styles.productImage}
+                        resizeMode="cover"
+                      />
                     ) : (
                       <ShoppingBag size={28} color={COLORS.textTertiary} strokeWidth={1.5} />
                     )}
-                    <TouchableOpacity style={styles.favoriteIcon} onPress={() => toggleWishlist(item.id)}>
-                      <Heart
-                        size={16}
-                        color={wishlist.has(item.id) ? COLORS.error : COLORS.textTertiary}
-                        strokeWidth={2}
-                      />
+                    <TouchableOpacity style={styles.favoriteIcon}>
+                      <Heart size={16} color={COLORS.error} strokeWidth={2} />
                     </TouchableOpacity>
                   </View>
                   <View style={styles.gridInfo}>
                     <Text style={styles.gridTitle} numberOfLines={2}>
-                      {stripBadgesFromTitle(item.title)}
+                      {item.title}
                     </Text>
                     <Text style={styles.gridPrice}>{formatPrice(item.price)}</Text>
                   </View>
@@ -461,20 +472,24 @@ export default function StuMarkScreen() {
             <ShoppingBag size={56} color={COLORS.textTertiary} strokeWidth={1.5} />
             <Text style={styles.emptyTitle}>No items found</Text>
             <Text style={styles.emptySubtitle}>
-              {searchQuery.trim().length > 0 ? 'Try a different search term' : 'Be the first to list something!'}
+              {searchQuery.trim().length > 0
+                ? 'Try a different search term'
+                : 'Be the first to list something!'}
             </Text>
             <TouchableOpacity style={styles.emptyBtn} onPress={openPost}>
-              <Text style={styles.emptyBtnText}>Post Ad</Text>
+              <Text style={styles.emptyBtnText}>List an Item</Text>
             </TouchableOpacity>
           </View>
         )}
-
         <View style={styles.footerSpace} />
       </ScrollView>
 
       <Modal visible={postOpen} transparent animationType="slide" onRequestClose={closePost}>
         <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalContainer}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalContainer}
+          >
             <View style={styles.modalCard}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>List an Item</Text>
@@ -482,21 +497,18 @@ export default function StuMarkScreen() {
                   <X size={24} color={COLORS.textSecondary} />
                 </TouchableOpacity>
               </View>
-
               {postError && <Text style={styles.modalError}>{postError}</Text>}
-
               <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
                 <View style={styles.field}>
                   <Text style={styles.label}>Item title</Text>
                   <TextInput
                     value={postTitle}
                     onChangeText={setPostTitle}
-                    placeholder="e.g., BBF Apple Shop, UCC Repairs..."
+                    placeholder="e.g., iPhone 13 Pro, Dell Laptop..."
                     placeholderTextColor={COLORS.textTertiary}
                     style={styles.input}
                   />
                 </View>
-
                 <View style={styles.field}>
                   <Text style={styles.label}>Description</Text>
                   <TextInput
@@ -509,7 +521,6 @@ export default function StuMarkScreen() {
                     numberOfLines={4}
                   />
                 </View>
-
                 <View style={styles.row}>
                   <View style={styles.rowItem}>
                     <Text style={styles.label}>Price (₵)</Text>
@@ -522,7 +533,6 @@ export default function StuMarkScreen() {
                       keyboardType="numeric"
                     />
                   </View>
-
                   <View style={styles.rowItem}>
                     <Text style={styles.label}>Condition</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inlineChips}>
@@ -534,14 +544,15 @@ export default function StuMarkScreen() {
                             style={[styles.smallChip, active && styles.smallChipActive]}
                             onPress={() => setPostCondition(cond)}
                           >
-                            <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>{cond}</Text>
+                            <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>
+                              {cond}
+                            </Text>
                           </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
                   </View>
                 </View>
-
                 <View style={styles.field}>
                   <Text style={styles.label}>Category</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inlineChips}>
@@ -554,24 +565,24 @@ export default function StuMarkScreen() {
                           style={[styles.smallChip, active && styles.smallChipActive]}
                           onPress={() => setPostCategory(key)}
                         >
-                          <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>{c.label}</Text>
+                          <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>
+                            {c.label}
+                          </Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
                 </View>
-
                 <View style={styles.field}>
                   <Text style={styles.label}>Campus location</Text>
                   <TextInput
                     value={postLocation}
                     onChangeText={setPostLocation}
-                    placeholder="e.g., Science Market, UCC..."
+                    placeholder="e.g., Science market, Hall 3..."
                     placeholderTextColor={COLORS.textTertiary}
                     style={styles.input}
                   />
                 </View>
-
                 <View style={styles.field}>
                   <Text style={styles.label}>Phone number</Text>
                   <TextInput
@@ -583,7 +594,6 @@ export default function StuMarkScreen() {
                     keyboardType="phone-pad"
                   />
                 </View>
-
                 <TouchableOpacity
                   style={[styles.submitBtn, posting && styles.submitBtnDisabled]}
                   onPress={submitPost}
@@ -619,7 +629,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   sellButtonText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.white },
-
   searchBox: {
     backgroundColor: '#F3F4F6',
     borderRadius: RADIUS.md,
@@ -630,10 +639,8 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textPrimary },
-
   content: { flex: 1 },
   contentContainer: { paddingBottom: SPACING.lg },
-
   heroBanner: {
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.md,
@@ -660,9 +667,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   bannerBadgeText: { fontFamily: FONT.bold, fontSize: 11, color: COLORS.white },
-
   categories: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: SPACING.sm, flexDirection: 'row' },
-
   divider: {
     height: 1,
     backgroundColor: '#E5E7EB',
@@ -670,8 +675,11 @@ const styles = StyleSheet.create({
     marginTop: SPACING.md,
     marginBottom: SPACING.md,
   },
-
-  categoryCard: { alignItems: 'center', gap: 6, paddingHorizontal: SPACING.sm },
+  categoryCard: {
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.sm,
+  },
   categoryCardActive: {},
   categoryIcon: {
     width: 56,
@@ -684,7 +692,6 @@ const styles = StyleSheet.create({
   categoryIconActive: { backgroundColor: COLORS.primary },
   categoryLabel: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary },
   categoryLabelActive: { color: COLORS.primary, fontFamily: FONT.semiBold },
-
   section: { marginTop: SPACING.md },
   sectionHeader: {
     flexDirection: 'row',
@@ -695,10 +702,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary },
   sectionSubtitle: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
-
   seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   seeAllText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
-
   dealsScroll: { paddingHorizontal: SPACING.lg, gap: SPACING.md },
   dealCard: {
     width: DEAL_CARD_WIDTH,
@@ -715,14 +720,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
-  productImage: { width: '100%', height: '100%' },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
   dealInfo: { padding: SPACING.sm, gap: 4 },
   dealTitle: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary, lineHeight: 18 },
   dealPrice: { fontFamily: FONT.bold, fontSize: 16, color: '#B12704', marginTop: 2 },
   dealLocation: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   dealLocationText: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary, flex: 1 },
-
-  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.lg, gap: SPACING.sm },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: SPACING.lg,
+    gap: SPACING.sm,
+  },
   gridCard: {
     width: GRID_CARD_WIDTH,
     backgroundColor: COLORS.white,
@@ -752,7 +764,6 @@ const styles = StyleSheet.create({
   gridInfo: { padding: SPACING.sm, gap: 3 },
   gridTitle: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textPrimary, lineHeight: 16 },
   gridPrice: { fontFamily: FONT.bold, fontSize: 14, color: '#B12704' },
-
   emptyBox: {
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.lg,
@@ -775,9 +786,7 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
   },
   emptyBtnText: { fontFamily: FONT.bold, fontSize: 14, color: COLORS.white },
-
   footerSpace: { height: 40 },
-
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContainer: { flex: 1, justifyContent: 'flex-end' },
   modalCard: {
@@ -793,7 +802,6 @@ const styles = StyleSheet.create({
   modalTitle: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary },
   modalError: { marginBottom: SPACING.sm, fontFamily: FONT.medium, fontSize: 13, color: COLORS.error },
   modalBody: { paddingTop: SPACING.xs },
-
   field: { gap: 6, marginBottom: SPACING.md },
   label: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textSecondary },
   input: {
@@ -808,10 +816,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
-
   row: { flexDirection: 'row', gap: SPACING.md },
   rowItem: { flex: 1 },
-
   inlineChips: { gap: SPACING.xs, paddingVertical: 2 },
   smallChip: {
     paddingVertical: 6,
@@ -824,7 +830,6 @@ const styles = StyleSheet.create({
   smallChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   smallChipText: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary, textTransform: 'capitalize' },
   smallChipTextActive: { color: COLORS.white },
-
   submitBtn: {
     backgroundColor: '#FF9900',
     borderRadius: RADIUS.md,
