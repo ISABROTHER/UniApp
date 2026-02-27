@@ -11,15 +11,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
-  Image,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { Plus, Search, X, MapPin, ShoppingBag, Star, Heart, Menu } from 'lucide-react-native';
+import { Plus, Search, X, MapPin, ShoppingBag, Star, TrendingUp, Clock, Heart, ChevronRight } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - SPACING.lg * 3) / 2;
+const DEAL_CARD_WIDTH = width * 0.45;
+const GRID_CARD_WIDTH = (width - SPACING.lg * 3) / 2;
 
 type MarketCategory = 'all' | 'phones' | 'laptops' | 'clothing' | 'services' | 'food' | 'other';
 
@@ -38,14 +38,14 @@ type MarketListing = {
   created_at: string;
 };
 
-const CATEGORIES: { key: MarketCategory; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'phones', label: 'Phones' },
-  { key: 'laptops', label: 'Laptops' },
-  { key: 'clothing', label: 'Fashion' },
-  { key: 'services', label: 'Services' },
-  { key: 'food', label: 'Food' },
-  { key: 'other', label: 'Others' },
+const CATEGORIES: { key: MarketCategory; label: string; icon: any }[] = [
+  { key: 'all', label: 'All', icon: ShoppingBag },
+  { key: 'phones', label: 'Phones', icon: ShoppingBag },
+  { key: 'laptops', label: 'Laptops', icon: ShoppingBag },
+  { key: 'clothing', label: 'Fashion', icon: ShoppingBag },
+  { key: 'services', label: 'Services', icon: ShoppingBag },
+  { key: 'food', label: 'Food', icon: ShoppingBag },
+  { key: 'other', label: 'Others', icon: ShoppingBag },
 ];
 
 const CONDITIONS = ['new', 'good', 'fair', 'used'] as const;
@@ -77,8 +77,7 @@ export default function StuMarkScreen() {
         let query = supabase
           .from('market_listings')
           .select('id,seller_id,title,description,price,category,condition,campus_location,seller_phone,is_available,is_sold,created_at')
-          .order('created_at', { ascending: false })
-          .limit(5);
+          .order('created_at', { ascending: false });
 
         if (category !== 'all') query = query.eq('category', category);
         const q = searchQuery.trim();
@@ -181,19 +180,16 @@ export default function StuMarkScreen() {
     return `₵${n.toLocaleString()}`;
   };
 
+  const recentListings = listings.slice(0, 6);
+  const trendingListings = listings.slice(0, 8);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <View style={styles.logoContainer}>
-            <View style={styles.logoBox}>
-              <ShoppingBag size={24} color={COLORS.white} strokeWidth={2.5} />
-            </View>
-            <Text style={styles.logoText}>StuMark</Text>
-          </View>
-          <TouchableOpacity onPress={openPost} style={styles.addBtn} activeOpacity={0.8}>
-            <Plus size={20} color={COLORS.white} strokeWidth={2.5} />
-            <Text style={styles.addBtnText}>Sell</Text>
+          <Text style={styles.headerTitle}>StuMark</Text>
+          <TouchableOpacity onPress={openPost} activeOpacity={0.8}>
+            <Plus size={24} color={COLORS.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
         </View>
         <View style={styles.searchBox}>
@@ -201,7 +197,7 @@ export default function StuMarkScreen() {
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search all categories"
+            placeholder="Search items on campus..."
             placeholderTextColor={COLORS.textTertiary}
             style={styles.searchInput}
             returnKeyType="search"
@@ -210,35 +206,135 @@ export default function StuMarkScreen() {
         </View>
       </View>
 
-      <View style={styles.categoryBar}>
-        {CATEGORIES.map((cat) => {
-          const active = category === cat.key;
-          return (
-            <TouchableOpacity
-              key={cat.key}
-              style={[styles.categoryTab, active && styles.categoryTabActive]}
-              onPress={() => setCategory(cat.key)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.categoryTabText, active && styles.categoryTabTextActive]}>
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        {loading && listings.length === 0 ? (
-          <View style={styles.loadingBox}>
-            <Text style={styles.loadingText}>Loading items...</Text>
+        <View style={styles.heroBanner}>
+          <View style={styles.bannerContent}>
+            <Text style={styles.bannerTitle}>Campus Deals</Text>
+            <Text style={styles.bannerSubtitle}>Shop smart, save more</Text>
           </View>
-        ) : listings.length === 0 ? (
+          <View style={styles.bannerBadge}>
+            <TrendingUp size={16} color={COLORS.white} />
+            <Text style={styles.bannerBadgeText}>Hot</Text>
+          </View>
+        </View>
+
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categories}
+        >
+          {CATEGORIES.map((cat) => {
+            const active = category === cat.key;
+            const Icon = cat.icon;
+            return (
+              <TouchableOpacity
+                key={cat.key}
+                style={[styles.categoryCard, active && styles.categoryCardActive]}
+                onPress={() => setCategory(cat.key)}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.categoryIcon, active && styles.categoryIconActive]}>
+                  <Icon size={20} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
+                </View>
+                <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {recentListings.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Today's Deals</Text>
+                <Text style={styles.sectionSubtitle}>Limited time offers</Text>
+              </View>
+              <TouchableOpacity style={styles.seeAllBtn}>
+                <Text style={styles.seeAllText}>See all</Text>
+                <ChevronRight size={16} color={COLORS.primary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dealsScroll}
+            >
+              {recentListings.map((item) => (
+                <View key={item.id} style={styles.dealCard}>
+                  <View style={styles.dealImage}>
+                    <ShoppingBag size={32} color={COLORS.textTertiary} strokeWidth={1.5} />
+                    {item.condition && (
+                      <View style={styles.dealBadge}>
+                        <Text style={styles.dealBadgeText}>{item.condition.toUpperCase()}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.dealInfo}>
+                    <Text style={styles.dealTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <View style={styles.dealRating}>
+                      <Star size={12} color="#F59E0B" fill="#F59E0B" />
+                      <Text style={styles.dealRatingText}>4.5</Text>
+                      <Text style={styles.dealReviews}>(120)</Text>
+                    </View>
+                    <Text style={styles.dealPrice}>{formatPrice(item.price)}</Text>
+                    {item.campus_location && (
+                      <View style={styles.dealLocation}>
+                        <MapPin size={11} color={COLORS.textTertiary} />
+                        <Text style={styles.dealLocationText} numberOfLines={1}>
+                          {item.campus_location}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {trendingListings.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Trending Now</Text>
+                <Text style={styles.sectionSubtitle}>Most popular items</Text>
+              </View>
+            </View>
+            <View style={styles.grid}>
+              {trendingListings.map((item) => (
+                <View key={item.id} style={styles.gridCard}>
+                  <View style={styles.gridImage}>
+                    <ShoppingBag size={28} color={COLORS.textTertiary} strokeWidth={1.5} />
+                    <TouchableOpacity style={styles.favoriteIcon}>
+                      <Heart size={16} color={COLORS.error} strokeWidth={2} />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.gridInfo}>
+                    <Text style={styles.gridTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <View style={styles.gridRating}>
+                      <Star size={11} color="#F59E0B" fill="#F59E0B" />
+                      <Text style={styles.gridRatingText}>4.5</Text>
+                    </View>
+                    <Text style={styles.gridPrice}>{formatPrice(item.price)}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {listings.length === 0 && !loading && (
           <View style={styles.emptyBox}>
             <ShoppingBag size={56} color={COLORS.textTertiary} strokeWidth={1.5} />
             <Text style={styles.emptyTitle}>No items found</Text>
@@ -251,72 +347,6 @@ export default function StuMarkScreen() {
               <Plus size={18} color={COLORS.white} strokeWidth={2.5} />
               <Text style={styles.emptyBtnText}>List an Item</Text>
             </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.productList}>
-            {listings.map((item) => (
-              <View key={item.id} style={styles.productCard}>
-                <View style={styles.productImage}>
-                  <ShoppingBag size={40} color={COLORS.textTertiary} strokeWidth={1.5} />
-                  <TouchableOpacity style={styles.favoriteIcon}>
-                    <Heart size={18} color={COLORS.error} strokeWidth={2} />
-                  </TouchableOpacity>
-                  {item.condition && (
-                    <View style={styles.conditionBadge}>
-                      <Text style={styles.conditionText}>{item.condition.toUpperCase()}</Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.productInfo}>
-                  <Text style={styles.productTitle} numberOfLines={2}>
-                    {item.title}
-                  </Text>
-                  
-                  <View style={styles.ratingRow}>
-                    <View style={styles.stars}>
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star
-                          key={star}
-                          size={13}
-                          color="#FFA41C"
-                          fill={star <= 4 ? '#FFA41C' : 'transparent'}
-                          strokeWidth={1.5}
-                        />
-                      ))}
-                    </View>
-                    <Text style={styles.ratingCount}>4.0</Text>
-                    <Text style={styles.reviewCount}>(245)</Text>
-                  </View>
-
-                  <View style={styles.priceRow}>
-                    <View style={styles.priceContainer}>
-                      <Text style={styles.currency}>₵</Text>
-                      <Text style={styles.price}>{typeof item.price === 'string' ? item.price : item.price.toLocaleString()}</Text>
-                    </View>
-                  </View>
-
-                  {item.description && (
-                    <Text style={styles.productDesc} numberOfLines={2}>
-                      {item.description}
-                    </Text>
-                  )}
-
-                  {item.campus_location && (
-                    <View style={styles.locationRow}>
-                      <MapPin size={12} color={COLORS.textTertiary} />
-                      <Text style={styles.locationText} numberOfLines={1}>
-                        {item.campus_location}
-                      </Text>
-                    </View>
-                  )}
-
-                  <View style={styles.deliveryInfo}>
-                    <Text style={styles.deliveryText}>FREE Campus Pickup</Text>
-                  </View>
-                </View>
-              </View>
-            ))}
           </View>
         )}
 
@@ -379,8 +409,8 @@ export default function StuMarkScreen() {
 
                   <View style={styles.rowItem}>
                     <Text style={styles.label}>Condition</Text>
-                    <View style={styles.chipRow}>
-                      {CONDITIONS.slice(0, 2).map((cond) => {
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inlineChips}>
+                      {CONDITIONS.map((cond) => {
                         const active = postCondition === cond;
                         return (
                           <TouchableOpacity
@@ -394,14 +424,14 @@ export default function StuMarkScreen() {
                           </TouchableOpacity>
                         );
                       })}
-                    </View>
+                    </ScrollView>
                   </View>
                 </View>
 
                 <View style={styles.field}>
                   <Text style={styles.label}>Category</Text>
-                  <View style={styles.chipGrid}>
-                    {CATEGORIES.filter((c) => c.key !== 'all').slice(0, 4).map((c) => {
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inlineChips}>
+                    {CATEGORIES.filter((c) => c.key !== 'all').map((c) => {
                       const key = c.key as Exclude<MarketCategory, 'all'>;
                       const active = postCategory === key;
                       return (
@@ -416,7 +446,7 @@ export default function StuMarkScreen() {
                         </TouchableOpacity>
                       );
                     })}
-                  </View>
+                  </ScrollView>
                 </View>
 
                 <View style={styles.field}>
@@ -459,42 +489,20 @@ export default function StuMarkScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  container: { flex: 1, backgroundColor: '#F0F2F5' },
 
   header: {
-    backgroundColor: '#131921',
-    paddingTop: Platform.OS === 'ios' ? 50 : 42,
-    paddingBottom: SPACING.sm,
+    backgroundColor: COLORS.white,
+    paddingTop: Platform.OS === 'ios' ? 52 : 44,
+    paddingBottom: SPACING.md,
     paddingHorizontal: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
-  headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  logoContainer: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
-  logoBox: {
-    width: 38,
-    height: 38,
-    borderRadius: RADIUS.md,
-    backgroundColor: '#FF9900',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoText: { fontFamily: FONT.headingBold, fontSize: 22, color: '#FFFFFF' },
-  addBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FF9900',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs + 2,
-    borderRadius: RADIUS.md,
-  },
-  addBtnText: { fontFamily: FONT.bold, fontSize: 13, color: '#FFFFFF' },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  headerTitle: { fontFamily: FONT.headingBold, fontSize: 24, color: COLORS.textPrimary },
   searchBox: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F3F4F6',
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: Platform.OS === 'ios' ? 10 : 8,
@@ -504,34 +512,140 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textPrimary },
 
-  categoryBar: {
-    flexDirection: 'row',
-    backgroundColor: '#F7F8FA',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    flexWrap: 'wrap',
-    gap: SPACING.xs,
-  },
-  categoryTab: {
-    paddingVertical: 6,
-    paddingHorizontal: SPACING.sm + 2,
-  },
-  categoryTabActive: { borderBottomWidth: 2, borderBottomColor: '#FF9900' },
-  categoryTabText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary },
-  categoryTabTextActive: { color: '#FF9900', fontFamily: FONT.semiBold },
+  content: { flex: 1 },
+  contentContainer: { paddingBottom: SPACING.lg },
 
-  content: { flex: 1, backgroundColor: '#F7F8FA' },
-  contentContainer: { padding: SPACING.lg },
-
-  loadingBox: {
-    backgroundColor: COLORS.white,
+  heroBanner: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    backgroundColor: '#FF9900',
     borderRadius: RADIUS.lg,
-    padding: SPACING.xl,
+    padding: SPACING.lg,
+    minHeight: 120,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  bannerContent: { gap: 4 },
+  bannerTitle: { fontFamily: FONT.headingBold, fontSize: 22, color: COLORS.white },
+  bannerSubtitle: { fontFamily: FONT.medium, fontSize: 14, color: 'rgba(255,255,255,0.9)' },
+  bannerBadge: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+  },
+  bannerBadgeText: { fontFamily: FONT.bold, fontSize: 11, color: COLORS.white },
+
+  categories: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: SPACING.sm },
+  categoryCard: {
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.sm,
+  },
+  categoryCardActive: {},
+  categoryIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.md,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingText: { fontFamily: FONT.medium, fontSize: 14, color: COLORS.textSecondary },
+  categoryIconActive: { backgroundColor: COLORS.primary },
+  categoryLabel: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary },
+  categoryLabelActive: { color: COLORS.primary, fontFamily: FONT.semiBold },
+
+  section: { marginTop: SPACING.md },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  sectionTitle: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary },
+  sectionSubtitle: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  seeAllText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
+
+  dealsScroll: { paddingHorizontal: SPACING.lg, gap: SPACING.md },
+  dealCard: {
+    width: DEAL_CARD_WIDTH,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  dealImage: {
+    height: DEAL_CARD_WIDTH * 0.9,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  dealBadge: {
+    position: 'absolute',
+    top: SPACING.xs,
+    left: SPACING.xs,
+    backgroundColor: '#10B981',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: RADIUS.xs,
+  },
+  dealBadgeText: { fontFamily: FONT.bold, fontSize: 9, color: COLORS.white, letterSpacing: 0.5 },
+  dealInfo: { padding: SPACING.sm, gap: 4 },
+  dealTitle: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary, lineHeight: 18 },
+  dealRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  dealRatingText: { fontFamily: FONT.semiBold, fontSize: 11, color: COLORS.textPrimary },
+  dealReviews: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
+  dealPrice: { fontFamily: FONT.bold, fontSize: 16, color: '#B12704', marginTop: 2 },
+  dealLocation: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  dealLocationText: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary, flex: 1 },
+
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  gridCard: {
+    width: GRID_CARD_WIDTH,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  gridImage: {
+    height: GRID_CARD_WIDTH * 0.9,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  favoriteIcon: {
+    position: 'absolute',
+    top: SPACING.xs,
+    right: SPACING.xs,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gridInfo: { padding: SPACING.sm, gap: 3 },
+  gridTitle: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textPrimary, lineHeight: 16 },
+  gridRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  gridRatingText: { fontFamily: FONT.semiBold, fontSize: 10, color: COLORS.textPrimary },
+  gridPrice: { fontFamily: FONT.bold, fontSize: 14, color: '#B12704' },
 
   emptyBox: {
     backgroundColor: COLORS.white,
@@ -539,6 +653,8 @@ const styles = StyleSheet.create({
     padding: SPACING.xl,
     alignItems: 'center',
     gap: SPACING.sm,
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.xl,
   },
   emptyTitle: { fontFamily: FONT.bold, fontSize: 17, color: COLORS.textPrimary },
   emptySubtitle: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
@@ -554,65 +670,7 @@ const styles = StyleSheet.create({
   },
   emptyBtnText: { fontFamily: FONT.bold, fontSize: 14, color: COLORS.white },
 
-  productList: { gap: SPACING.md },
-  productCard: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
-    padding: SPACING.md,
-    gap: SPACING.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  productImage: {
-    width: 140,
-    height: 140,
-    backgroundColor: '#F9FAFB',
-    borderRadius: RADIUS.md,
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  favoriteIcon: {
-    position: 'absolute',
-    top: SPACING.xs,
-    right: SPACING.xs,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  conditionBadge: {
-    position: 'absolute',
-    bottom: SPACING.xs,
-    left: SPACING.xs,
-    backgroundColor: '#067647',
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: RADIUS.xs,
-  },
-  conditionText: { fontFamily: FONT.bold, fontSize: 9, color: '#FFFFFF', letterSpacing: 0.5 },
-
-  productInfo: { flex: 1, gap: 6 },
-  productTitle: { fontFamily: FONT.medium, fontSize: 14, color: '#007185', lineHeight: 20 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  stars: { flexDirection: 'row', gap: 2 },
-  ratingCount: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary },
-  reviewCount: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary },
-  priceRow: { marginTop: 2 },
-  priceContainer: { flexDirection: 'row', alignItems: 'flex-start' },
-  currency: { fontFamily: FONT.regular, fontSize: 12, color: '#B12704', marginTop: 2 },
-  price: { fontFamily: FONT.bold, fontSize: 20, color: '#B12704' },
-  productDesc: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, lineHeight: 17 },
-  locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  locationText: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary, flex: 1 },
-  deliveryInfo: { marginTop: 4 },
-  deliveryText: { fontFamily: FONT.semiBold, fontSize: 12, color: '#067647' },
-
-  footerSpace: { height: 20 },
+  footerSpace: { height: 40 },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContainer: { flex: 1, justifyContent: 'flex-end' },
@@ -648,19 +706,18 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: SPACING.md },
   rowItem: { flex: 1 },
 
-  chipRow: { flexDirection: 'row', gap: SPACING.xs, flexWrap: 'wrap' },
-  chipGrid: { flexDirection: 'row', gap: SPACING.xs, flexWrap: 'wrap' },
+  inlineChips: { gap: SPACING.xs, paddingVertical: 2 },
   smallChip: {
-    paddingVertical: 7,
-    paddingHorizontal: SPACING.sm + 2,
-    borderRadius: RADIUS.md,
+    paddingVertical: 6,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.full,
     borderWidth: 1,
     borderColor: '#D1D5DB',
     backgroundColor: COLORS.white,
   },
-  smallChipActive: { backgroundColor: '#FF9900', borderColor: '#FF9900' },
+  smallChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   smallChipText: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary, textTransform: 'capitalize' },
-  smallChipTextActive: { color: COLORS.white, fontFamily: FONT.semiBold },
+  smallChipTextActive: { color: COLORS.white },
 
   submitBtn: {
     backgroundColor: '#FF9900',
