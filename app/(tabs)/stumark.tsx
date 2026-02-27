@@ -16,17 +16,16 @@ import {
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { 
-  Plus, Search, X, MapPin, ShoppingBag, Star, TrendingUp, Clock, Heart, ChevronRight, 
-  Phone, MessageCircle, Share2, Filter, SlidersHorizontal, ChevronLeft,
-  Smartphone, Laptop, Shirt, Briefcase, UtensilsCrossed, Package 
+import {
+  Plus, Search, X, MapPin, ShoppingBag, TrendingUp, Heart, ChevronRight,
+  Smartphone, Laptop, UtensilsCrossed, Briefcase, Package
 } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 const DEAL_CARD_WIDTH = width * 0.45;
 const GRID_CARD_WIDTH = (width - SPACING.lg * 3) / 2;
 
-type MarketCategory = 'all' | 'electronics' | 'food' | 'services' | 'grocery';
+type MarketCategory = 'all' | 'electronics' | 'food' | 'services';
 
 type MarketListing = {
   id: string;
@@ -49,7 +48,6 @@ const CATEGORIES: { key: MarketCategory; label: string; icon: any }[] = [
   { key: 'electronics', label: 'Electronics', icon: Smartphone },
   { key: 'food', label: 'Food', icon: UtensilsCrossed },
   { key: 'services', label: 'Services', icon: Briefcase },
-  { key: 'grocery', label: 'Grocery Shops', icon: Package },
 ];
 
 const CONDITIONS = ['new', 'good', 'fair', 'used'] as const;
@@ -58,8 +56,8 @@ const DUMMY_PRODUCTS: MarketListing[] = [
   {
     id: '1',
     seller_id: 'dummy-user-1',
-    title: 'iPhone 13 Pro 256GB - Like New',
-    description: 'Barely used iPhone 13 Pro in Sierra Blue. Comes with original box, charger, and case. No scratches, perfect condition. Battery health 98%.',
+    title: 'iPhone 13 Pro 256GB',
+    description: 'Barely used iPhone 13 Pro in Sierra Blue. Comes with original box, charger, and case. Battery health 98%.',
     price: 2800,
     category: 'electronics',
     condition: 'new',
@@ -73,8 +71,8 @@ const DUMMY_PRODUCTS: MarketListing[] = [
   {
     id: '2',
     seller_id: 'dummy-user-2',
-    title: 'Dell XPS 15 Laptop - Gaming Ready',
-    description: 'Powerful Dell XPS 15 with Intel i7, 16GB RAM, 512GB SSD, NVIDIA GTX 1650. Perfect for coding, gaming, and design work.',
+    title: 'Dell XPS 15 Laptop',
+    description: 'Powerful Dell XPS 15 with Intel i7, 16GB RAM, 512GB SSD, NVIDIA GTX 1650.',
     price: 4500,
     category: 'electronics',
     condition: 'good',
@@ -138,12 +136,6 @@ export default function StuMarkScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [category, setCategory] = useState<MarketCategory>('all');
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<MarketListing | null>(null);
-  const [wishlist, setWishlist] = useState<Set<string>>(new Set());
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high'>('newest');
-  const [filterCondition, setFilterCondition] = useState<string[]>([]);
   const [postOpen, setPostOpen] = useState(false);
   const [postTitle, setPostTitle] = useState('');
   const [postDescription, setPostDescription] = useState('');
@@ -259,36 +251,6 @@ export default function StuMarkScreen() {
     }
   };
 
-  const openProductDetail = (product: MarketListing) => {
-    setSelectedProduct(product);
-    setDetailOpen(true);
-  };
-
-  const closeProductDetail = () => {
-    setDetailOpen(false);
-    setSelectedProduct(null);
-  };
-
-  const toggleWishlist = (productId: string) => {
-    setWishlist((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(productId)) {
-        newSet.delete(productId);
-      } else {
-        newSet.add(productId);
-      }
-      return newSet;
-    });
-  };
-
-  const handleCall = (phone: string | null) => {
-    if (phone) alert(`Call: ${phone}`);
-  };
-
-  const handleWhatsApp = (phone: string | null) => {
-    if (phone) alert(`WhatsApp: ${phone}`);
-  };
-
   const formatPrice = (value: number | string) => {
     const n = typeof value === 'string' ? Number(value) : value;
     if (!Number.isFinite(n)) return '₵0';
@@ -300,17 +262,10 @@ export default function StuMarkScreen() {
       if (category !== 'all' && item.category !== category) return false;
       const q = searchQuery.trim().toLowerCase();
       if (q.length > 0 && !item.title.toLowerCase().includes(q)) return false;
-      if (filterCondition.length > 0 && item.condition && !filterCondition.includes(item.condition)) return false;
       return true;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'price-low') return Number(a.price) - Number(b.price);
-      if (sortBy === 'price-high') return Number(b.price) - Number(a.price);
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
   const recentListings = filteredListings.slice(0, 6);
-  const trendingListings = filteredListings.slice(0, 8);
 
   return (
     <View style={styles.container}>
@@ -321,6 +276,7 @@ export default function StuMarkScreen() {
             <Text style={styles.sellButtonText}>Sell</Text>
           </TouchableOpacity>
         </View>
+        <Text style={styles.subtitle}>Selling is just a few taps away</Text>
         <View style={styles.searchBox}>
           <Search size={18} color={COLORS.textTertiary} />
           <TextInput
@@ -334,23 +290,22 @@ export default function StuMarkScreen() {
         </View>
       </View>
 
+      {/* NEW BLUE STRIPED BANNER */}
+      <View style={styles.blueBanner}>
+        <View style={styles.stripe1} />
+        <View style={styles.stripe2} />
+        <View style={styles.stripe3} />
+        <Text style={styles.bannerText}>
+          Created by students and for students, this is an open platform for anyone to post what they want to sell, buy or trade.
+        </Text>
+      </View>
+
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.heroBanner}>
-          <View style={styles.bannerContent}>
-            <Text style={styles.bannerTitle}>Campus Deals</Text>
-            <Text style={styles.bannerSubtitle}>Shop smart, save more</Text>
-          </View>
-          <View style={styles.bannerBadge}>
-            <TrendingUp size={16} color={COLORS.white} />
-            <Text style={styles.bannerBadgeText}>Hot</Text>
-          </View>
-        </View>
-
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -377,7 +332,6 @@ export default function StuMarkScreen() {
           })}
         </ScrollView>
 
-        {/* THIN HORIZONTAL DIVIDER */}
         <View style={styles.divider} />
 
         {recentListings.length > 0 && (
@@ -430,16 +384,14 @@ export default function StuMarkScreen() {
           </View>
         )}
 
-        {trendingListings.length > 0 && (
+        {/* ALL PRODUCTS LISTED VERTICALLY AFTER TODAY'S DEALS */}
+        {filteredListings.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <View>
-                <Text style={styles.sectionTitle}>Trending Now</Text>
-                <Text style={styles.sectionSubtitle}>Most popular items</Text>
-              </View>
+              <Text style={styles.sectionTitle}>All Listings</Text>
             </View>
             <View style={styles.grid}>
-              {trendingListings.map((item) => (
+              {filteredListings.map((item) => (
                 <View key={item.id} style={styles.gridCard}>
                   <View style={styles.gridImage}>
                     {item.image_url ? (
@@ -451,9 +403,6 @@ export default function StuMarkScreen() {
                     ) : (
                       <ShoppingBag size={28} color={COLORS.textTertiary} strokeWidth={1.5} />
                     )}
-                    <TouchableOpacity style={styles.favoriteIcon}>
-                      <Heart size={16} color={COLORS.error} strokeWidth={2} />
-                    </TouchableOpacity>
                   </View>
                   <View style={styles.gridInfo}>
                     <Text style={styles.gridTitle} numberOfLines={2}>
@@ -620,8 +569,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xs },
   headerTitle: { fontFamily: FONT.headingBold, fontSize: 24, color: COLORS.textPrimary },
+  subtitle: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary, marginBottom: SPACING.sm },
   sellButton: {
     backgroundColor: '#FF9900',
     paddingHorizontal: SPACING.lg,
@@ -641,39 +591,59 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textPrimary },
   content: { flex: 1 },
   contentContainer: { paddingBottom: SPACING.lg },
-  heroBanner: {
+
+  /* NEW BLUE STRIPED BANNER */
+  blueBanner: {
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.md,
-    backgroundColor: '#FF9900',
+    marginBottom: SPACING.md,
+    backgroundColor: '#1E40AF',
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
-    minHeight: 120,
-    justifyContent: 'center',
+    minHeight: 110,
     position: 'relative',
+    overflow: 'hidden',
   },
-  bannerContent: { gap: 4 },
-  bannerTitle: { fontFamily: FONT.headingBold, fontSize: 22, color: COLORS.white },
-  bannerSubtitle: { fontFamily: FONT.medium, fontSize: 14, color: 'rgba(255,255,255,0.9)' },
-  bannerBadge: {
+  stripe1: {
     position: 'absolute',
-    top: SPACING.sm,
-    right: SPACING.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.2)',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: RADIUS.full,
+    top: -20,
+    left: -50,
+    width: 200,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    transform: [{ rotate: '-35deg' }],
   },
-  bannerBadgeText: { fontFamily: FONT.bold, fontSize: 11, color: COLORS.white },
+  stripe2: {
+    position: 'absolute',
+    top: 30,
+    left: -30,
+    width: 180,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    transform: [{ rotate: '-35deg' }],
+  },
+  stripe3: {
+    position: 'absolute',
+    bottom: -15,
+    right: -40,
+    width: 220,
+    height: 4,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    transform: [{ rotate: '-35deg' }],
+  },
+  bannerText: {
+    fontFamily: FONT.medium,
+    fontSize: 14,
+    color: COLORS.white,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+
   categories: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: SPACING.sm, flexDirection: 'row' },
   divider: {
     height: 1,
     backgroundColor: '#E5E7EB',
     marginHorizontal: SPACING.lg,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.md,
   },
   categoryCard: {
     alignItems: 'center',
@@ -749,17 +719,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-  },
-  favoriteIcon: {
-    position: 'absolute',
-    top: SPACING.xs,
-    right: SPACING.xs,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: COLORS.white,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   gridInfo: { padding: SPACING.sm, gap: 3 },
   gridTitle: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textPrimary, lineHeight: 16 },
