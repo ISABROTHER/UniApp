@@ -351,11 +351,12 @@ export default function StuMarkScreen() {
       >
         <View style={styles.heroBanner}>
           <View style={styles.bannerContent}>
-            <Text style={styles.bannerTitle}>StuMark (Student Market) </Text>
+            <Text style={styles.bannerTitle}>StuMark (Student Market </Text>
             <Text style={styles.bannerSubtitle}>Created by students and for students, this is an open platform for anyone to post what they want to sell, buy or trade.</Text>
           </View>
           <View style={styles.bannerBadge}>
             <TrendingUp size={16} color={COLORS.white} />
+          </View>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>
