@@ -44,6 +44,7 @@ type MarketListing = {
   is_sold: boolean | null;
   created_at: string;
   image_url?: string;
+  seller_name?: string;
 };
 
 const CATEGORIES: { key: MarketCategory; label: string; icon: any }[] = [
@@ -70,6 +71,7 @@ const DUMMY_PRODUCTS: MarketListing[] = [
     is_sold: false,
     created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
     image_url: 'https://images.unsplash.com/photo-1678652197831-2d180705cd2c?w=500&q=80',
+    seller_name: 'Sarah A.',
   },
   {
     id: '2',
@@ -85,6 +87,7 @@ const DUMMY_PRODUCTS: MarketListing[] = [
     is_sold: false,
     created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
     image_url: 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=500&q=80',
+    seller_name: 'Kwame O.',
   },
   {
     id: '3',
@@ -100,6 +103,7 @@ const DUMMY_PRODUCTS: MarketListing[] = [
     is_sold: false,
     created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
     image_url: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=500&q=80',
+    seller_name: 'Ama K.',
   },
   {
     id: '4',
@@ -115,6 +119,7 @@ const DUMMY_PRODUCTS: MarketListing[] = [
     is_sold: false,
     created_at: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
     image_url: 'https://images.unsplash.com/photo-1596495578065-6e0763fa1178?w=500&q=80',
+    seller_name: 'Dr. Mensah',
   },
   {
     id: '5',
@@ -130,6 +135,7 @@ const DUMMY_PRODUCTS: MarketListing[] = [
     is_sold: false,
     created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
     image_url: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=500&q=80',
+    seller_name: 'Mama Akos',
   },
 ];
 
@@ -271,6 +277,14 @@ export default function StuMarkScreen() {
     }
   };
 
+  const getTimeAgo = (dateString: string) => {
+    const minutes = Math.floor((Date.now() - new Date(dateString).getTime()) / 60000);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours}h ago`;
+  };
+
   const formatPrice = (value: number | string) => {
     const n = typeof value === 'string' ? Number(value) : value;
     if (!Number.isFinite(n)) return '₵0';
@@ -310,37 +324,49 @@ export default function StuMarkScreen() {
         </View>
       </View>
 
-      {/* VERTICAL STACKED CATEGORIES - MORE SPACIOUS */}
-      <View style={styles.verticalCategories}>
-        {CATEGORIES.map((cat) => {
-          const active = category === cat.key;
-          const Icon = cat.icon;
-          return (
-            <TouchableOpacity
-              key={cat.key}
-              style={[styles.verticalCategoryCard, active && styles.verticalCategoryCardActive]}
-              onPress={() => handleCategoryPress(cat.key)}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.verticalCategoryIcon, active && styles.verticalCategoryIconActive]}>
-                <Icon size={24} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
-              </View>
-              <Text style={[styles.verticalCategoryLabel, active && styles.verticalCategoryLabelActive]}>
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-
-      <View style={styles.divider} />
-
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.categorySection}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categories}
+          >
+            {CATEGORIES.map((cat) => {
+              const active = category === cat.key;
+              const Icon = cat.icon;
+              return (
+                <TouchableOpacity
+                  key={cat.key}
+                  onPress={() => handleCategoryPress(cat.key)}
+                  activeOpacity={0.8}
+                >
+                  <Animated.View
+                    style={[
+                      styles.categoryCard,
+                      active && styles.categoryCardActive,
+                      { transform: [{ scale: scaleAnim }] },
+                    ]}
+                  >
+                    <View style={[styles.categoryIcon, active && styles.categoryIconActive]}>
+                      <Icon size={20} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
+                    </View>
+                    <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
+                      {cat.label}
+                    </Text>
+                  </Animated.View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <View style={styles.divider} />
+
         {recentListings.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -380,6 +406,10 @@ export default function StuMarkScreen() {
                         <Text style={styles.dealLocationText} numberOfLines={1}>{item.campus_location}</Text>
                       </View>
                     )}
+                    <View style={styles.dealMeta}>
+                      <Text style={styles.sellerName}>by {item.seller_name}</Text>
+                      <Text style={styles.timeAgo}>{getTimeAgo(item.created_at)}</Text>
+                    </View>
                   </View>
                 </View>
               ))}
@@ -409,6 +439,10 @@ export default function StuMarkScreen() {
                   <View style={styles.gridInfo}>
                     <Text style={styles.gridTitle} numberOfLines={2}>{item.title}</Text>
                     <Text style={styles.gridPrice}>{formatPrice(item.price)}</Text>
+                    <View style={styles.dealMeta}>
+                      <Text style={styles.sellerNameSmall}>by {item.seller_name}</Text>
+                      <Text style={styles.timeAgoSmall}>{getTimeAgo(item.created_at)}</Text>
+                    </View>
                   </View>
                 </View>
               ))}
@@ -431,10 +465,12 @@ export default function StuMarkScreen() {
         <View style={styles.footerSpace} />
       </ScrollView>
 
+      {/* STICKY FLOATING SELL BUTTON */}
       <TouchableOpacity style={styles.floatingSell} onPress={openPost} activeOpacity={0.9}>
         <Text style={styles.floatingSellText}>+ Sell</Text>
       </TouchableOpacity>
 
+      {/* MODAL - RED BUTTON + STACKED BUTTONS */}
       <Modal visible={postOpen} transparent animationType="slide" onRequestClose={closePost}>
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView
@@ -591,51 +627,30 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textPrimary },
   content: { flex: 1 },
   contentContainer: { paddingBottom: SPACING.lg },
-
-  /* VERTICAL STACKED CATEGORIES - MORE SPACIOUS */
-  verticalCategories: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.lg,
-    gap: SPACING.lg,   // ← Increased gap
-  },
-  verticalCategoryCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    paddingVertical: 16,   // ← Taller buttons
-    paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.md,
-  },
-  verticalCategoryCardActive: {
-    backgroundColor: COLORS.primary,
-  },
-  verticalCategoryIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E5E7EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  verticalCategoryIconActive: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  verticalCategoryLabel: {
-    fontFamily: FONT.medium,
-    fontSize: 15,
-    color: COLORS.textSecondary,
-  },
-  verticalCategoryLabelActive: {
-    color: COLORS.white,
-    fontFamily: FONT.semiBold,
-  },
-
+  categorySection: { paddingTop: SPACING.lg, paddingBottom: SPACING.md },
+  categories: { paddingHorizontal: SPACING.lg, gap: SPACING.sm, flexDirection: 'row' },
   divider: {
     height: 1,
     backgroundColor: '#E5E7EB',
     marginHorizontal: SPACING.lg,
   },
+  categoryCard: {
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.sm,
+  },
+  categoryCardActive: {},
+  categoryIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.md,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryIconActive: { backgroundColor: COLORS.primary },
+  categoryLabel: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary },
+  categoryLabelActive: { color: COLORS.primary, fontFamily: FONT.semiBold },
   section: { marginTop: SPACING.md },
   sectionHeader: {
     flexDirection: 'row',
@@ -673,6 +688,9 @@ const styles = StyleSheet.create({
   dealPrice: { fontFamily: FONT.bold, fontSize: 16, color: '#B12704', marginTop: 2 },
   dealLocation: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   dealLocationText: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary, flex: 1 },
+  dealMeta: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  sellerName: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.textSecondary },
+  timeAgo: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -697,6 +715,8 @@ const styles = StyleSheet.create({
   gridInfo: { padding: SPACING.sm, gap: 3 },
   gridTitle: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textPrimary, lineHeight: 16 },
   gridPrice: { fontFamily: FONT.bold, fontSize: 14, color: '#B12704' },
+  sellerNameSmall: { fontFamily: FONT.medium, fontSize: 10, color: COLORS.textSecondary },
+  timeAgoSmall: { fontFamily: FONT.regular, fontSize: 10, color: COLORS.textTertiary },
   emptyBox: {
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.lg,
@@ -796,4 +816,4 @@ const styles = StyleSheet.create({
   },
   submitBtnDisabled: { opacity: 0.7 },
   submitBtnText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.white },
-});
+}); 
