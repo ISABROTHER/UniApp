@@ -15,13 +15,16 @@ import {
   Animated,
   LayoutAnimation,
   UIManager,
+  Linking,
+  Alert,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import {
   Search, X, MapPin, ShoppingBag, Heart, ChevronRight,
-  Smartphone, UtensilsCrossed, Briefcase
+  Smartphone, UtensilsCrossed, Briefcase, Plus, Phone,
+  MessageCircle, Share2, ChevronLeft, Star, Filter, TrendingUp
 } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
@@ -145,6 +148,20 @@ export default function StuMarkScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [category, setCategory] = useState<MarketCategory>('all');
+
+  // Product Detail Modal
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<MarketListing | null>(null);
+
+  // Wishlist
+  const [wishlist, setWishlist] = useState<Set<string>>(new Set());
+
+  // Filter Modal
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high'>('newest');
+  const [filterCondition, setFilterCondition] = useState<string[]>([]);
+
+  // Post Modal
   const [postOpen, setPostOpen] = useState(false);
   const [postTitle, setPostTitle] = useState('');
   const [postDescription, setPostDescription] = useState('');
