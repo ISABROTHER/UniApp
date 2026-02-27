@@ -19,7 +19,6 @@ import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { 
   Plus, Search, X, MapPin, ShoppingBag, Star, TrendingUp, Clock, Heart, ChevronRight, 
   Phone, MessageCircle, Share2, Filter, SlidersHorizontal, ChevronLeft,
-  // RIGHT LOGOS ADDED HERE ↓
   Smartphone, Laptop, Shirt, Briefcase, UtensilsCrossed, Package 
 } from 'lucide-react-native';
 
@@ -327,6 +326,7 @@ export default function StuMarkScreen() {
         const priceB = typeof b.price === 'string' ? Number(b.price) : b.price;
         return priceB - priceA;
       }
+      // Default: newest first
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
 
@@ -335,8 +335,6 @@ export default function StuMarkScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Your header, hero, categories, deals, trending, empty state, post modal — 100% unchanged */}
-      {/* (only category icons are now the correct ones) */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>StuMark</Text>
@@ -356,14 +354,12 @@ export default function StuMarkScreen() {
           />
         </View>
       </View>
-
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* HERO BANNER */}
         <View style={styles.heroBanner}>
           <View style={styles.bannerContent}>
             <Text style={styles.bannerTitle}>Campus Deals</Text>
@@ -374,9 +370,11 @@ export default function StuMarkScreen() {
             <Text style={styles.bannerBadgeText}>Hot</Text>
           </View>
         </View>
-
-        {/* CATEGORIES WITH RIGHT LOGOS */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categories}
+        >
           {CATEGORIES.map((cat) => {
             const active = category === cat.key;
             const Icon = cat.icon;
@@ -397,8 +395,6 @@ export default function StuMarkScreen() {
             );
           })}
         </ScrollView>
-
-        {/* TODAY'S DEALS & TRENDING (unchanged) */}
         {recentListings.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -411,46 +407,53 @@ export default function StuMarkScreen() {
                 <ChevronRight size={16} color={COLORS.primary} />
               </TouchableOpacity>
             </View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dealsScroll}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.dealsScroll}
+            >
               {recentListings.map((item) => (
-                <TouchableOpacity key={item.id} onPress={() => openProductDetail(item)} activeOpacity={0.9}>
-                  <View style={styles.dealCard}>
-                    <View style={styles.dealImage}>
-                      {item.image_url ? (
-                        <Image source={{ uri: item.image_url }} style={styles.productImage} resizeMode="cover" />
-                      ) : (
-                        <ShoppingBag size={32} color={COLORS.textTertiary} strokeWidth={1.5} />
-                      )}
-                      {item.condition && (
-                        <View style={styles.dealBadge}>
-                          <Text style={styles.dealBadgeText}>{item.condition.toUpperCase()}</Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.dealInfo}>
-                      <Text style={styles.dealTitle} numberOfLines={2}>{item.title}</Text>
-                      <View style={styles.dealRating}>
-                        <Star size={12} color="#F59E0B" fill="#F59E0B" />
-                        <Text style={styles.dealRatingText}>4.5</Text>
-                        <Text style={styles.dealReviews}>(120)</Text>
+                <View key={item.id} style={styles.dealCard}>
+                  <View style={styles.dealImage}>
+                    {item.image_url ? (
+                      <Image
+                        source={{ uri: item.image_url }}
+                        style={styles.productImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <ShoppingBag size={32} color={COLORS.textTertiary} strokeWidth={1.5} />
+                    )}
+                    {item.condition && (
+                      <View style={styles.dealBadge}>
+                        <Text style={styles.dealBadgeText}>{item.condition.toUpperCase()}</Text>
                       </View>
-                      <Text style={styles.dealPrice}>{formatPrice(item.price)}</Text>
-                      {item.campus_location && (
-                        <View style={styles.dealLocation}>
-                          <MapPin size={11} color={COLORS.textTertiary} />
-                          <Text style={styles.dealLocationText} numberOfLines={1}>{item.campus_location}</Text>
-                        </View>
-                      )}
-                    </View>
+                    )}
                   </View>
-                </TouchableOpacity>
+                  <View style={styles.dealInfo}>
+                    <Text style={styles.dealTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <View style={styles.dealRating}>
+                      <Star size={12} color="#F59E0B" fill="#F59E0B" />
+                      <Text style={styles.dealRatingText}>4.5</Text>
+                      <Text style={styles.dealReviews}>(120)</Text>
+                    </View>
+                    <Text style={styles.dealPrice}>{formatPrice(item.price)}</Text>
+                    {item.campus_location && (
+                      <View style={styles.dealLocation}>
+                        <MapPin size={11} color={COLORS.textTertiary} />
+                        <Text style={styles.dealLocationText} numberOfLines={1}>
+                          {item.campus_location}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
               ))}
             </ScrollView>
           </View>
         )}
-
-        {/* Trending section remains exactly as you had it */}
-
         {trendingListings.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -461,39 +464,44 @@ export default function StuMarkScreen() {
             </View>
             <View style={styles.grid}>
               {trendingListings.map((item) => (
-                <TouchableOpacity key={item.id} onPress={() => openProductDetail(item)} activeOpacity={0.9}>
-                  <View style={styles.gridCard}>
-                    <View style={styles.gridImage}>
-                      {item.image_url ? (
-                        <Image source={{ uri: item.image_url }} style={styles.productImage} resizeMode="cover" />
-                      ) : (
-                        <ShoppingBag size={28} color={COLORS.textTertiary} strokeWidth={1.5} />
-                      )}
-                      <TouchableOpacity style={styles.favoriteIcon} onPress={(e) => { e.stopPropagation(); toggleWishlist(item.id); }}>
-                        <Heart size={16} color={wishlist.has(item.id) ? COLORS.error : COLORS.textTertiary} strokeWidth={2} fill={wishlist.has(item.id) ? COLORS.error : 'transparent'} />
-                      </TouchableOpacity>
-                    </View>
-                    <View style={styles.gridInfo}>
-                      <Text style={styles.gridTitle} numberOfLines={2}>{item.title}</Text>
-                      <View style={styles.gridRating}>
-                        <Star size={11} color="#F59E0B" fill="#F59E0B" />
-                        <Text style={styles.gridRatingText}>4.5</Text>
-                      </View>
-                      <Text style={styles.gridPrice}>{formatPrice(item.price)}</Text>
-                    </View>
+                <View key={item.id} style={styles.gridCard}>
+                  <View style={styles.gridImage}>
+                    {item.image_url ? (
+                      <Image
+                        source={{ uri: item.image_url }}
+                        style={styles.productImage}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <ShoppingBag size={28} color={COLORS.textTertiary} strokeWidth={1.5} />
+                    )}
+                    <TouchableOpacity style={styles.favoriteIcon}>
+                      <Heart size={16} color={COLORS.error} strokeWidth={2} />
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
+                  <View style={styles.gridInfo}>
+                    <Text style={styles.gridTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+                    <View style={styles.gridRating}>
+                      <Star size={11} color="#F59E0B" fill="#F59E0B" />
+                      <Text style={styles.gridRatingText}>4.5</Text>
+                    </View>
+                    <Text style={styles.gridPrice}>{formatPrice(item.price)}</Text>
+                  </View>
+                </View>
               ))}
             </View>
           </View>
         )}
-
         {filteredListings.length === 0 && !loading && (
           <View style={styles.emptyBox}>
             <ShoppingBag size={56} color={COLORS.textTertiary} strokeWidth={1.5} />
             <Text style={styles.emptyTitle}>No items found</Text>
             <Text style={styles.emptySubtitle}>
-              {searchQuery.trim().length > 0 ? 'Try a different search term' : 'Be the first to list something!'}
+              {searchQuery.trim().length > 0
+                ? 'Try a different search term'
+                : 'Be the first to list something!'}
             </Text>
             <TouchableOpacity style={styles.emptyBtn} onPress={openPost}>
               <Plus size={18} color={COLORS.white} strokeWidth={2.5} />
@@ -503,22 +511,189 @@ export default function StuMarkScreen() {
         )}
         <View style={styles.footerSpace} />
       </ScrollView>
-
-      {/* Your existing Post Modal (unchanged) */}
       <Modal visible={postOpen} transparent animationType="slide" onRequestClose={closePost}>
-        {/* ... your full post modal JSX exactly as before ... */}
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>List an Item</Text>
+                <TouchableOpacity onPress={closePost} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <X size={24} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              {postError && <Text style={styles.modalError}>{postError}</Text>}
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Item title</Text>
+                  <TextInput
+                    value={postTitle}
+                    onChangeText={setPostTitle}
+                    placeholder="e.g., iPhone 13 Pro, Dell Laptop..."
+                    placeholderTextColor={COLORS.textTertiary}
+                    style={styles.input}
+                  />
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Description</Text>
+                  <TextInput
+                    value={postDescription}
+                    onChangeText={setPostDescription}
+                    placeholder="Describe your item..."
+                    placeholderTextColor={COLORS.textTertiary}
+                    style={[styles.input, styles.textArea]}
+                    multiline
+                    numberOfLines={4}
+                  />
+                </View>
+                <View style={styles.row}>
+                  <View style={styles.rowItem}>
+                    <Text style={styles.label}>Price (₵)</Text>
+                    <TextInput
+                      value={postPrice}
+                      onChangeText={setPostPrice}
+                      placeholder="0.00"
+                      placeholderTextColor={COLORS.textTertiary}
+                      style={styles.input}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={styles.rowItem}>
+                    <Text style={styles.label}>Condition</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inlineChips}>
+                      {CONDITIONS.map((cond) => {
+                        const active = postCondition === cond;
+                        return (
+                          <TouchableOpacity
+                            key={cond}
+                            style={[styles.smallChip, active && styles.smallChipActive]}
+                            onPress={() => setPostCondition(cond)}
+                          >
+                            <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>
+                              {cond}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Category</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inlineChips}>
+                    {CATEGORIES.filter((c) => c.key !== 'all').map((c) => {
+                      const key = c.key as Exclude<MarketCategory, 'all'>;
+                      const active = postCategory === key;
+                      return (
+                        <TouchableOpacity
+                          key={c.key}
+                          style={[styles.smallChip, active && styles.smallChipActive]}
+                          onPress={() => setPostCategory(key)}
+                        >
+                          <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>
+                            {c.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Campus location</Text>
+                  <TextInput
+                    value={postLocation}
+                    onChangeText={setPostLocation}
+                    placeholder="e.g., Science market, Hall 3..."
+                    placeholderTextColor={COLORS.textTertiary}
+                    style={styles.input}
+                  />
+                </View>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Phone number</Text>
+                  <TextInput
+                    value={postPhone}
+                    onChangeText={setPostPhone}
+                    placeholder="Optional"
+                    placeholderTextColor={COLORS.textTertiary}
+                    style={styles.input}
+                    keyboardType="phone-pad"
+                  />
+                </View>
+                <TouchableOpacity
+                  style={[styles.submitBtn, posting && styles.submitBtnDisabled]}
+                  onPress={submitPost}
+                  disabled={posting}
+                >
+                  <Text style={styles.submitBtnText}>{posting ? 'Posting…' : 'List Item'}</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
-
-      {/* NOTE: Your detailOpen & filterOpen modals are declared but not rendered yet.
-           Add them when you're ready — the rest of the app is now perfect with right logos. */}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // ALL YOUR ORIGINAL STYLES (unchanged)
   container: { flex: 1, backgroundColor: '#F0F2F5' },
-  // ... (everything else exactly as you had it) ...
+  header: {
+    backgroundColor: COLORS.white,
+    paddingTop: Platform.OS === 'ios' ? 52 : 44,
+    paddingBottom: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  headerTitle: { fontFamily: FONT.headingBold, fontSize: 24, color: COLORS.textPrimary },
+  searchBox: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textPrimary },
+  content: { flex: 1 },
+  contentContainer: { paddingBottom: SPACING.lg },
+  heroBanner: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    backgroundColor: '#FF9900',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    minHeight: 120,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  bannerContent: { gap: 4 },
+  bannerTitle: { fontFamily: FONT.headingBold, fontSize: 22, color: COLORS.white },
+  bannerSubtitle: { fontFamily: FONT.medium, fontSize: 14, color: 'rgba(255,255,255,0.9)' },
+  bannerBadge: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+  },
+  bannerBadgeText: { fontFamily: FONT.bold, fontSize: 11, color: COLORS.white },
+  categories: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: SPACING.sm },
+  categoryCard: {
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: SPACING.sm,
+  },
+  categoryCardActive: {},
   categoryIcon: {
     width: 56,
     height: 56,
@@ -528,5 +703,168 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   categoryIconActive: { backgroundColor: COLORS.primary },
-  // ... rest unchanged
+  categoryLabel: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary },
+  categoryLabelActive: { color: COLORS.primary, fontFamily: FONT.semiBold },
+  section: { marginTop: SPACING.md },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  sectionTitle: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary },
+  sectionSubtitle: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  seeAllText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
+  dealsScroll: { paddingHorizontal: SPACING.lg, gap: SPACING.md },
+  dealCard: {
+    width: DEAL_CARD_WIDTH,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  dealImage: {
+    height: DEAL_CARD_WIDTH * 0.9,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  productImage: {
+    width: '100%',
+    height: '100%',
+  },
+  dealBadge: {
+    position: 'absolute',
+    top: SPACING.xs,
+    left: SPACING.xs,
+    backgroundColor: '#10B981',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: RADIUS.xs,
+  },
+  dealBadgeText: { fontFamily: FONT.bold, fontSize: 9, color: COLORS.white, letterSpacing: 0.5 },
+  dealInfo: { padding: SPACING.sm, gap: 4 },
+  dealTitle: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary, lineHeight: 18 },
+  dealRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  dealRatingText: { fontFamily: FONT.semiBold, fontSize: 11, color: COLORS.textPrimary },
+  dealReviews: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
+  dealPrice: { fontFamily: FONT.bold, fontSize: 16, color: '#B12704', marginTop: 2 },
+  dealLocation: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  dealLocationText: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary, flex: 1 },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: SPACING.lg,
+    gap: SPACING.sm,
+  },
+  gridCard: {
+    width: GRID_CARD_WIDTH,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  gridImage: {
+    height: GRID_CARD_WIDTH * 0.9,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  favoriteIcon: {
+    position: 'absolute',
+    top: SPACING.xs,
+    right: SPACING.xs,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gridInfo: { padding: SPACING.sm, gap: 3 },
+  gridTitle: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textPrimary, lineHeight: 16 },
+  gridRating: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  gridRatingText: { fontFamily: FONT.semiBold, fontSize: 10, color: COLORS.textPrimary },
+  gridPrice: { fontFamily: FONT.bold, fontSize: 14, color: '#B12704' },
+  emptyBox: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.xl,
+  },
+  emptyTitle: { fontFamily: FONT.bold, fontSize: 17, color: COLORS.textPrimary },
+  emptySubtitle: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
+  emptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FF9900',
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.xs,
+  },
+  emptyBtnText: { fontFamily: FONT.bold, fontSize: 14, color: COLORS.white },
+  footerSpace: { height: 40 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContainer: { flex: 1, justifyContent: 'flex-end' },
+  modalCard: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.xl,
+    maxHeight: '92%',
+  },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
+  modalTitle: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary },
+  modalError: { marginBottom: SPACING.sm, fontFamily: FONT.medium, fontSize: 13, color: COLORS.error },
+  modalBody: { paddingTop: SPACING.xs },
+  field: { gap: 6, marginBottom: SPACING.md },
+  label: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textSecondary },
+  input: {
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    fontFamily: FONT.regular,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    backgroundColor: COLORS.white,
+  },
+  textArea: { minHeight: 80, textAlignVertical: 'top' },
+  row: { flexDirection: 'row', gap: SPACING.md },
+  rowItem: { flex: 1 },
+  inlineChips: { gap: SPACING.xs, paddingVertical: 2 },
+  smallChip: {
+    paddingVertical: 6,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    backgroundColor: COLORS.white,
+  },
+  smallChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  smallChipText: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary, textTransform: 'capitalize' },
+  smallChipTextActive: { color: COLORS.white },
+  submitBtn: {
+    backgroundColor: '#FF9900',
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+  },
+  submitBtnDisabled: { opacity: 0.7 },
+  submitBtnText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.white },
 });
