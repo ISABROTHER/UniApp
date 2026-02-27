@@ -50,8 +50,81 @@ const CATEGORIES: { key: MarketCategory; label: string; icon: any }[] = [
 
 const CONDITIONS = ['new', 'good', 'fair', 'used'] as const;
 
+const DUMMY_PRODUCTS: MarketListing[] = [
+  {
+    id: '1',
+    seller_id: 'dummy-user-1',
+    title: 'iPhone 13 Pro 256GB - Like New',
+    description: 'Barely used iPhone 13 Pro in Sierra Blue. Comes with original box, charger, and case. No scratches, perfect condition. Battery health 98%.',
+    price: 2800,
+    category: 'phones',
+    condition: 'new',
+    campus_location: 'Science Market, UCC',
+    seller_phone: '0244123456',
+    is_available: true,
+    is_sold: false,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: '2',
+    seller_id: 'dummy-user-2',
+    title: 'Dell XPS 15 Laptop - Gaming Ready',
+    description: 'Powerful Dell XPS 15 with Intel i7, 16GB RAM, 512GB SSD, NVIDIA GTX 1650. Perfect for coding, gaming, and design work. Comes with charger and sleeve.',
+    price: 4500,
+    category: 'laptops',
+    condition: 'good',
+    campus_location: 'Hall 3, Near Library',
+    seller_phone: '0201234567',
+    is_available: true,
+    is_sold: false,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: '3',
+    seller_id: 'dummy-user-3',
+    title: 'Adidas Campus 00s Sneakers - Size 42',
+    description: 'Brand new Adidas Campus 00s in Core Black/Cloud White. Never worn, still in box with tags. Got as gift but wrong size. Original receipt available.',
+    price: 450,
+    category: 'clothing',
+    condition: 'new',
+    campus_location: 'Central Market',
+    seller_phone: '0557654321',
+    is_available: true,
+    is_sold: false,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: '4',
+    seller_id: 'dummy-user-4',
+    title: 'Mathematics Tutoring - All Levels',
+    description: 'Experienced math tutor offering personalized lessons for all levels. BSc Mathematics graduate with 3 years teaching experience. First lesson free!',
+    price: 50,
+    category: 'services',
+    condition: 'new',
+    campus_location: 'Main Campus',
+    seller_phone: '0246789012',
+    is_available: true,
+    is_sold: false,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: '5',
+    seller_id: 'dummy-user-5',
+    title: 'Homemade Jollof & Chicken - Daily Special',
+    description: 'Delicious homemade Jollof rice with grilled chicken, coleslaw, and fried plantain. Fresh ingredients, generous portions. Order before 2pm for same-day delivery!',
+    price: 25,
+    category: 'food',
+    condition: 'new',
+    campus_location: 'Hall 7 Kitchen',
+    seller_phone: '0209876543',
+    is_available: true,
+    is_sold: false,
+    created_at: new Date().toISOString(),
+  },
+];
+
 export default function StuMarkScreen() {
-  const [listings, setListings] = useState<MarketListing[]>([]);
+  const [listings, setListings] = useState<MarketListing[]>(DUMMY_PRODUCTS);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,10 +158,16 @@ export default function StuMarkScreen() {
         query = query.eq('is_sold', false).eq('is_available', true);
 
         const { data, error } = await query;
+        
         if (error) throw error;
-        setListings((data ?? []) as MarketListing[]);
+        
+        if (data && data.length > 0) {
+          setListings(data as MarketListing[]);
+        } else {
+          setListings(DUMMY_PRODUCTS);
+        }
       } catch {
-        setListings([]);
+        setListings(DUMMY_PRODUCTS);
       } finally {
         if (!silent) setLoading(false);
       }
@@ -180,8 +259,15 @@ export default function StuMarkScreen() {
     return `₵${n.toLocaleString()}`;
   };
 
-  const recentListings = listings.slice(0, 6);
-  const trendingListings = listings.slice(0, 8);
+  const filteredListings = listings.filter((item) => {
+    if (category !== 'all' && item.category !== category) return false;
+    const q = searchQuery.trim().toLowerCase();
+    if (q.length > 0 && !item.title.toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  const recentListings = filteredListings.slice(0, 6);
+  const trendingListings = filteredListings.slice(0, 8);
 
   return (
     <View style={styles.container}>
@@ -201,7 +287,6 @@ export default function StuMarkScreen() {
             placeholderTextColor={COLORS.textTertiary}
             style={styles.searchInput}
             returnKeyType="search"
-            onSubmitEditing={() => void fetchListings()}
           />
         </View>
       </View>
@@ -334,7 +419,7 @@ export default function StuMarkScreen() {
           </View>
         )}
 
-        {listings.length === 0 && !loading && (
+        {filteredListings.length === 0 && !loading && (
           <View style={styles.emptyBox}>
             <ShoppingBag size={56} color={COLORS.textTertiary} strokeWidth={1.5} />
             <Text style={styles.emptyTitle}>No items found</Text>
