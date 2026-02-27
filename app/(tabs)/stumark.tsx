@@ -310,7 +310,7 @@ export default function StuMarkScreen() {
         </View>
       </View>
 
-      {/* VERTICAL STACKED CATEGORIES - FIXED & NOT MOVABLE */}
+      {/* VERTICAL STACKED CATEGORIES - MORE SPACIOUS */}
       <View style={styles.verticalCategories}>
         {CATEGORIES.map((cat) => {
           const active = category === cat.key;
@@ -323,7 +323,7 @@ export default function StuMarkScreen() {
               activeOpacity={0.8}
             >
               <View style={[styles.verticalCategoryIcon, active && styles.verticalCategoryIconActive]}>
-                <Icon size={22} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
+                <Icon size={24} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
               </View>
               <Text style={[styles.verticalCategoryLabel, active && styles.verticalCategoryLabelActive]}>
                 {cat.label}
@@ -431,7 +431,6 @@ export default function StuMarkScreen() {
         <View style={styles.footerSpace} />
       </ScrollView>
 
-      {/* STICKY FLOATING SELL BUTTON */}
       <TouchableOpacity style={styles.floatingSell} onPress={openPost} activeOpacity={0.9}>
         <Text style={styles.floatingSellText}>+ Sell</Text>
       </TouchableOpacity>
@@ -593,17 +592,17 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   contentContainer: { paddingBottom: SPACING.lg },
 
-  /* VERTICAL STACKED CATEGORIES */
+  /* VERTICAL STACKED CATEGORIES - MORE SPACIOUS */
   verticalCategories: {
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.md,
-    gap: SPACING.sm,
+    paddingVertical: SPACING.lg,
+    gap: SPACING.lg,   // ← Increased gap
   },
   verticalCategoryCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F3F4F6',
-    paddingVertical: 12,
+    paddingVertical: 16,   // ← Taller buttons
     paddingHorizontal: SPACING.md,
     borderRadius: RADIUS.md,
   },
@@ -611,13 +610,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   verticalCategoryIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SPACING.sm,
+    marginRight: SPACING.md,
   },
   verticalCategoryIconActive: {
     backgroundColor: 'rgba(255,255,255,0.3)',
