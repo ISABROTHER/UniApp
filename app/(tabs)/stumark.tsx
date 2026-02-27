@@ -12,11 +12,26 @@ import {
   Platform,
   Dimensions,
   Image,
+  Linking,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { Plus, Search, X, MapPin, ShoppingBag, Star, TrendingUp, Clock, Heart, ChevronRight } from 'lucide-react-native';
+import {
+  Plus,
+  Search,
+  X,
+  MapPin,
+  ShoppingBag,
+  Star,
+  TrendingUp,
+  Heart,
+  ChevronRight,
+  Phone,
+  MessageCircle,
+  Filter,
+  ChevronLeft,
+} from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
 const DEAL_CARD_WIDTH = width * 0.45;
@@ -137,6 +152,19 @@ export default function StuMarkScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [category, setCategory] = useState<MarketCategory>('all');
 
+  // Detail Page Modal
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<MarketListing | null>(null);
+
+  // Wishlist
+  const [wishlist, setWishlist] = useState<Set<string>>(new Set());
+
+  // Filter Modal
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high'>('newest');
+  const [filterCondition, setFilterCondition] = useState<string[]>([]);
+
+  // Post Modal
   const [postOpen, setPostOpen] = useState(false);
   const [postTitle, setPostTitle] = useState('');
   const [postDescription, setPostDescription] = useState('');
@@ -165,9 +193,8 @@ export default function StuMarkScreen() {
         query = query.eq('is_sold', false).eq('is_available', true);
 
         const { data, error } = await query;
-        
         if (error) throw error;
-        
+
         if (data && data.length > 0) {
           setListings(data as MarketListing[]);
         } else {
@@ -260,18 +287,76 @@ export default function StuMarkScreen() {
     }
   };
 
+  // Product Detail handlers
+  const openProductDetail = (product: MarketListing) => {
+    setSelectedProduct(product);
+    setDetailOpen(true);
+  };
+
+  const closeProductDetail = () => {
+    setDetailOpen(false);
+    setTimeout(() => setSelectedProduct(null), 300);
+  };
+
+  // Wishlist handlers
+  const toggleWishlist = (productId: string) => {
+    setWishlist((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(productId)) {
+        newSet.delete(productId);
+      } else {
+        newSet.add(productId);
+      }
+      return newSet;
+    });
+  };
+
+  // Contact handlers
+  const handleCall = (phone: string | null) => {
+    if (phone) {
+      Linking.openURL(`tel:${phone}`).catch(() =>
+        alert(`Call: ${phone}\n\nCould not open phone dialer.`),
+      );
+    }
+  };
+
+  const handleWhatsApp = (phone: string | null) => {
+    if (phone) {
+      const cleanPhone = phone.replace(/[^0-9]/g, '');
+      Linking.openURL(`whatsapp://send?phone=233${cleanPhone}`).catch(() =>
+        alert(`WhatsApp: ${phone}\n\nPlease install WhatsApp to use this feature.`),
+      );
+    }
+  };
+
   const formatPrice = (value: number | string) => {
     const n = typeof value === 'string' ? Number(value) : value;
     if (!Number.isFinite(n)) return '₵0';
     return `₵${n.toLocaleString()}`;
   };
 
-  const filteredListings = listings.filter((item) => {
-    if (category !== 'all' && item.category !== category) return false;
-    const q = searchQuery.trim().toLowerCase();
-    if (q.length > 0 && !item.title.toLowerCase().includes(q)) return false;
-    return true;
-  });
+  const filteredListings = listings
+    .filter((item) => {
+      if (category !== 'all' && item.category !== category) return false;
+      const q = searchQuery.trim().toLowerCase();
+      if (q.length > 0 && !item.title.toLowerCase().includes(q)) return false;
+      if (filterCondition.length > 0 && item.condition && !filterCondition.includes(item.condition))
+        return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'price-low') {
+        const priceA = typeof a.price === 'string' ? Number(a.price) : a.price;
+        const priceB = typeof b.price === 'string' ? Number(b.price) : b.price;
+        return priceA - priceB;
+      }
+      if (sortBy === 'price-high') {
+        const priceA = typeof a.price === 'string' ? Number(a.price) : a.price;
+        const priceB = typeof b.price === 'string' ? Number(b.price) : b.price;
+        return priceB - priceA;
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   const recentListings = filteredListings.slice(0, 6);
   const trendingListings = filteredListings.slice(0, 8);
@@ -281,9 +366,14 @@ export default function StuMarkScreen() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>StuMark</Text>
-          <TouchableOpacity onPress={openPost} activeOpacity={0.8}>
-            <Plus size={24} color={COLORS.textPrimary} strokeWidth={2} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={() => setFilterOpen(true)} activeOpacity={0.8} style={styles.headerBtn}>
+              <Filter size={22} color={COLORS.textPrimary} strokeWidth={2} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={openPost} activeOpacity={0.8} style={styles.headerBtn}>
+              <Plus size={22} color={COLORS.textPrimary} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
         </View>
         <View style={styles.searchBox}>
           <Search size={18} color={COLORS.textTertiary} />
@@ -297,6 +387,26 @@ export default function StuMarkScreen() {
           />
         </View>
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>
+        {CATEGORIES.map((cat) => {
+          const active = category === cat.key;
+          const Icon = cat.icon;
+          return (
+            <TouchableOpacity
+              key={cat.key}
+              style={[styles.categoryCard, active && styles.categoryCardActive]}
+              onPress={() => setCategory(cat.key)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.categoryIcon, active && styles.categoryIconActive]}>
+                <Icon size={20} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
+              </View>
+              <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>{cat.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
 
       <ScrollView
         style={styles.content}
@@ -315,32 +425,6 @@ export default function StuMarkScreen() {
           </View>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categories}
-        >
-          {CATEGORIES.map((cat) => {
-            const active = category === cat.key;
-            const Icon = cat.icon;
-            return (
-              <TouchableOpacity
-                key={cat.key}
-                style={[styles.categoryCard, active && styles.categoryCardActive]}
-                onPress={() => setCategory(cat.key)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.categoryIcon, active && styles.categoryIconActive]}>
-                  <Icon size={20} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
-                </View>
-                <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
         {recentListings.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -353,20 +437,17 @@ export default function StuMarkScreen() {
                 <ChevronRight size={16} color={COLORS.primary} />
               </TouchableOpacity>
             </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.dealsScroll}
-            >
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dealsScroll}>
               {recentListings.map((item) => (
-                <View key={item.id} style={styles.dealCard}>
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.dealCard}
+                  onPress={() => openProductDetail(item)}
+                  activeOpacity={0.9}
+                >
                   <View style={styles.dealImage}>
                     {item.image_url ? (
-                      <Image
-                        source={{ uri: item.image_url }}
-                        style={styles.productImage}
-                        resizeMode="cover"
-                      />
+                      <Image source={{ uri: item.image_url }} style={styles.productImage} resizeMode="cover" />
                     ) : (
                       <ShoppingBag size={32} color={COLORS.textTertiary} strokeWidth={1.5} />
                     )}
@@ -395,7 +476,7 @@ export default function StuMarkScreen() {
                       </View>
                     )}
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
@@ -411,19 +492,32 @@ export default function StuMarkScreen() {
             </View>
             <View style={styles.grid}>
               {trendingListings.map((item) => (
-                <View key={item.id} style={styles.gridCard}>
+                <TouchableOpacity
+                  key={item.id}
+                  style={styles.gridCard}
+                  onPress={() => openProductDetail(item)}
+                  activeOpacity={0.9}
+                >
                   <View style={styles.gridImage}>
                     {item.image_url ? (
-                      <Image
-                        source={{ uri: item.image_url }}
-                        style={styles.productImage}
-                        resizeMode="cover"
-                      />
+                      <Image source={{ uri: item.image_url }} style={styles.productImage} resizeMode="cover" />
                     ) : (
                       <ShoppingBag size={28} color={COLORS.textTertiary} strokeWidth={1.5} />
                     )}
-                    <TouchableOpacity style={styles.favoriteIcon}>
-                      <Heart size={16} color={COLORS.error} strokeWidth={2} />
+                    <TouchableOpacity
+                      style={styles.favoriteIcon}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        toggleWishlist(item.id);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Heart
+                        size={16}
+                        color={COLORS.error}
+                        fill={wishlist.has(item.id) ? COLORS.error : 'transparent'}
+                        strokeWidth={2}
+                      />
                     </TouchableOpacity>
                   </View>
                   <View style={styles.gridInfo}>
@@ -436,7 +530,7 @@ export default function StuMarkScreen() {
                     </View>
                     <Text style={styles.gridPrice}>{formatPrice(item.price)}</Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           </View>
@@ -447,9 +541,7 @@ export default function StuMarkScreen() {
             <ShoppingBag size={56} color={COLORS.textTertiary} strokeWidth={1.5} />
             <Text style={styles.emptyTitle}>No items found</Text>
             <Text style={styles.emptySubtitle}>
-              {searchQuery.trim().length > 0
-                ? 'Try a different search term'
-                : 'Be the first to list something!'}
+              {searchQuery.trim().length > 0 ? 'Try a different search term' : 'Be the first to list something!'}
             </Text>
             <TouchableOpacity style={styles.emptyBtn} onPress={openPost}>
               <Plus size={18} color={COLORS.white} strokeWidth={2.5} />
@@ -461,12 +553,186 @@ export default function StuMarkScreen() {
         <View style={styles.footerSpace} />
       </ScrollView>
 
+      {/* Product Detail Modal */}
+      <Modal visible={detailOpen} transparent animationType="slide" onRequestClose={closeProductDetail}>
+        <View style={styles.detailOverlay}>
+          <View style={styles.detailContainer}>
+            <View style={styles.detailHeader}>
+              <TouchableOpacity onPress={closeProductDetail} style={styles.backButton}>
+                <ChevronLeft size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => selectedProduct && toggleWishlist(selectedProduct.id)}
+                style={styles.backButton}
+              >
+                <Heart
+                  size={24}
+                  color={COLORS.error}
+                  fill={selectedProduct && wishlist.has(selectedProduct.id) ? COLORS.error : 'transparent'}
+                  strokeWidth={2}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.detailScroll} showsVerticalScrollIndicator={false}>
+              {selectedProduct?.image_url ? (
+                <Image source={{ uri: selectedProduct.image_url }} style={styles.detailImage} resizeMode="cover" />
+              ) : (
+                <View style={styles.detailImagePlaceholder}>
+                  <ShoppingBag size={80} color={COLORS.textTertiary} strokeWidth={1.5} />
+                </View>
+              )}
+
+              <View style={styles.detailInfo}>
+                {selectedProduct?.condition && (
+                  <View style={styles.detailBadge}>
+                    <Text style={styles.detailBadgeText}>{selectedProduct.condition.toUpperCase()}</Text>
+                  </View>
+                )}
+
+                <Text style={styles.detailTitle}>{selectedProduct?.title}</Text>
+
+                <View style={styles.detailPriceRow}>
+                  <Text style={styles.detailPrice}>{selectedProduct && formatPrice(selectedProduct.price)}</Text>
+                </View>
+
+                <View style={styles.detailRating}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <Star
+                      key={star}
+                      size={16}
+                      color="#F59E0B"
+                      fill={star <= 4 ? '#F59E0B' : 'transparent'}
+                      strokeWidth={1.5}
+                    />
+                  ))}
+                  <Text style={styles.detailRatingText}>4.0 (245 reviews)</Text>
+                </View>
+
+                {selectedProduct?.campus_location && (
+                  <View style={styles.detailLocationRow}>
+                    <MapPin size={16} color={COLORS.textTertiary} />
+                    <Text style={styles.detailLocationText}>{selectedProduct.campus_location}</Text>
+                  </View>
+                )}
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>Description</Text>
+                  <Text style={styles.detailDescription}>{selectedProduct?.description}</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailSectionTitle}>Seller Information</Text>
+                  <View style={styles.sellerInfo}>
+                    <View style={styles.sellerAvatar}>
+                      <Text style={styles.sellerAvatarText}>S</Text>
+                    </View>
+                    <View style={styles.sellerDetails}>
+                      <Text style={styles.sellerName}>Student Seller</Text>
+                      <Text style={styles.sellerStats}>⭐ 4.5 · 12 items sold</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={styles.detailActions}>
+              <TouchableOpacity
+                style={styles.detailActionCall}
+                onPress={() => handleCall(selectedProduct?.seller_phone)}
+              >
+                <Phone size={20} color={COLORS.white} />
+                <Text style={styles.detailActionText}>Call</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.detailActionWhatsApp}
+                onPress={() => handleWhatsApp(selectedProduct?.seller_phone)}
+              >
+                <MessageCircle size={20} color={COLORS.white} />
+                <Text style={styles.detailActionText}>WhatsApp</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Filter Modal */}
+      <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalContainer}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Filter & Sort</Text>
+                <TouchableOpacity onPress={() => setFilterOpen(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <X size={24} color={COLORS.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                <View style={styles.field}>
+                  <Text style={styles.label}>Sort By</Text>
+                  <View style={styles.chipRow}>
+                    {[
+                      { key: 'newest', label: 'Newest' },
+                      { key: 'price-low', label: 'Price: Low to High' },
+                      { key: 'price-high', label: 'Price: High to Low' },
+                    ].map((option) => (
+                      <TouchableOpacity
+                        key={option.key}
+                        style={[styles.smallChip, sortBy === option.key && styles.smallChipActive]}
+                        onPress={() => setSortBy(option.key as any)}
+                      >
+                        <Text style={[styles.smallChipText, sortBy === option.key && styles.smallChipTextActive]}>
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.field}>
+                  <Text style={styles.label}>Condition</Text>
+                  <View style={styles.chipRow}>
+                    {CONDITIONS.map((cond) => {
+                      const active = filterCondition.includes(cond);
+                      return (
+                        <TouchableOpacity
+                          key={cond}
+                          style={[styles.smallChip, active && styles.smallChipActive]}
+                          onPress={() => {
+                            setFilterCondition((prev) => (active ? prev.filter((c) => c !== cond) : [...prev, cond]));
+                          }}
+                        >
+                          <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>{cond}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                <TouchableOpacity style={styles.submitBtn} onPress={() => setFilterOpen(false)}>
+                  <Text style={styles.submitBtnText}>Apply Filters</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.clearBtn}
+                  onPress={() => {
+                    setSortBy('newest');
+                    setFilterCondition([]);
+                  }}
+                >
+                  <Text style={styles.clearBtnText}>Clear All</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Post Modal */}
       <Modal visible={postOpen} transparent animationType="slide" onRequestClose={closePost}>
         <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.modalContainer}
-          >
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalContainer}>
             <View style={styles.modalCard}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>List an Item</Text>
@@ -526,9 +792,7 @@ export default function StuMarkScreen() {
                             style={[styles.smallChip, active && styles.smallChipActive]}
                             onPress={() => setPostCondition(cond)}
                           >
-                            <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>
-                              {cond}
-                            </Text>
+                            <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>{cond}</Text>
                           </TouchableOpacity>
                         );
                       })}
@@ -548,9 +812,7 @@ export default function StuMarkScreen() {
                           style={[styles.smallChip, active && styles.smallChipActive]}
                           onPress={() => setPostCategory(key)}
                         >
-                          <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>
-                            {c.label}
-                          </Text>
+                          <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>{c.label}</Text>
                         </TouchableOpacity>
                       );
                     })}
@@ -580,11 +842,7 @@ export default function StuMarkScreen() {
                   />
                 </View>
 
-                <TouchableOpacity
-                  style={[styles.submitBtn, posting && styles.submitBtnDisabled]}
-                  onPress={submitPost}
-                  disabled={posting}
-                >
+                <TouchableOpacity style={[styles.submitBtn, posting && styles.submitBtnDisabled]} onPress={submitPost} disabled={posting}>
                   <Text style={styles.submitBtnText}>{posting ? 'Posting…' : 'List Item'}</Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -609,6 +867,8 @@ const styles = StyleSheet.create({
   },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
   headerTitle: { fontFamily: FONT.headingBold, fontSize: 24, color: COLORS.textPrimary },
+  headerActions: { flexDirection: 'row', gap: 12 },
+  headerBtn: { padding: 4 },
   searchBox: {
     backgroundColor: '#F3F4F6',
     borderRadius: RADIUS.md,
@@ -651,11 +911,7 @@ const styles = StyleSheet.create({
   bannerBadgeText: { fontFamily: FONT.bold, fontSize: 11, color: COLORS.white },
 
   categories: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: SPACING.sm },
-  categoryCard: {
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: SPACING.sm,
-  },
+  categoryCard: { alignItems: 'center', gap: 6, paddingHorizontal: SPACING.sm },
   categoryCardActive: {},
   categoryIcon: {
     width: 56,
@@ -698,10 +954,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     position: 'relative',
   },
-  productImage: {
-    width: '100%',
-    height: '100%',
-  },
+  productImage: { width: '100%', height: '100%' },
   dealBadge: {
     position: 'absolute',
     top: SPACING.xs,
@@ -721,12 +974,7 @@ const styles = StyleSheet.create({
   dealLocation: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
   dealLocationText: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary, flex: 1 },
 
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    paddingHorizontal: SPACING.lg,
-    gap: SPACING.sm,
-  },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.lg, gap: SPACING.sm },
   gridCard: {
     width: GRID_CARD_WIDTH,
     backgroundColor: COLORS.white,
@@ -784,6 +1032,92 @@ const styles = StyleSheet.create({
 
   footerSpace: { height: 40 },
 
+  // Detail Modal
+  detailOverlay: { flex: 1, backgroundColor: COLORS.white },
+  detailContainer: { flex: 1 },
+  detailHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: Platform.OS === 'ios' ? 52 : 44,
+    paddingBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  backButton: { padding: 4 },
+  detailScroll: { flex: 1 },
+  detailImage: { width: '100%', height: width, backgroundColor: '#F9FAFB' },
+  detailImagePlaceholder: {
+    width: '100%',
+    height: width,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detailInfo: { padding: SPACING.lg },
+  detailBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#10B981',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.xs,
+    marginBottom: SPACING.sm,
+  },
+  detailBadgeText: { fontFamily: FONT.bold, fontSize: 11, color: COLORS.white, letterSpacing: 0.5 },
+  detailTitle: { fontFamily: FONT.bold, fontSize: 22, color: COLORS.textPrimary, marginBottom: SPACING.xs },
+  detailPriceRow: { marginBottom: SPACING.md },
+  detailPrice: { fontFamily: FONT.bold, fontSize: 28, color: '#B12704' },
+  detailRating: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: SPACING.md },
+  detailRatingText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary, marginLeft: 4 },
+  detailLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: SPACING.lg },
+  detailLocationText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary },
+  detailSection: { marginTop: SPACING.lg },
+  detailSectionTitle: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.textPrimary, marginBottom: SPACING.sm },
+  detailDescription: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, lineHeight: 22 },
+  sellerInfo: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
+  sellerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sellerAvatarText: { fontFamily: FONT.bold, fontSize: 20, color: COLORS.white },
+  sellerDetails: { flex: 1 },
+  sellerName: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary },
+  sellerStats: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textTertiary, marginTop: 2 },
+  detailActions: {
+    flexDirection: 'row',
+    padding: SPACING.lg,
+    gap: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  detailActionCall: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  detailActionWhatsApp: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#25D366',
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+  },
+  detailActionText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.white },
+
+  // Modals
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContainer: { flex: 1, justifyContent: 'flex-end' },
   modalCard: {
@@ -818,6 +1152,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: SPACING.md },
   rowItem: { flex: 1 },
 
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
   inlineChips: { gap: SPACING.xs, paddingVertical: 2 },
   smallChip: {
     paddingVertical: 6,
@@ -840,4 +1175,15 @@ const styles = StyleSheet.create({
   },
   submitBtnDisabled: { opacity: 0.7 },
   submitBtnText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.white },
+
+  clearBtn: {
+    backgroundColor: COLORS.white,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.md,
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+  },
+  clearBtnText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.textSecondary },
 });
