@@ -816,4 +816,4 @@ const styles = StyleSheet.create({
   },
   submitBtnDisabled: { opacity: 0.7 },
   submitBtnText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.white },
-}); 
+});
