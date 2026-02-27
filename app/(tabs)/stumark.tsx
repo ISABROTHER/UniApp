@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,13 +12,16 @@ import {
   Platform,
   Dimensions,
   Image,
+  Animated,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import {
-  Plus, Search, X, MapPin, ShoppingBag, TrendingUp, Heart, ChevronRight,
-  Smartphone, Laptop, UtensilsCrossed, Briefcase, Package
+  Search, X, MapPin, ShoppingBag, TrendingUp, Heart, ChevronRight,
+  Smartphone, UtensilsCrossed, Briefcase, Package
 } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
@@ -146,6 +149,28 @@ export default function StuMarkScreen() {
   const [postPhone, setPostPhone] = useState('');
   const [postError, setPostError] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
+
+  // Animation setup
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Enable LayoutAnimation on Android
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  const handleCategoryPress = (newCategory: MarketCategory) => {
+    // Smooth scale animation on tap
+    Animated.sequence([
+      Animated.timing(scaleAnim, { toValue: 0.95, duration: 100, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 1, duration: 150, useNativeDriver: true }),
+    ]).start();
+
+    // Smooth layout change for listings
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setCategory(newCategory);
+  };
 
   const fetchListings = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -290,47 +315,47 @@ export default function StuMarkScreen() {
         </View>
       </View>
 
-      {/* NEW BLUE STRIPED BANNER */}
-      <View style={styles.blueBanner}>
-        <View style={styles.stripe1} />
-        <View style={styles.stripe2} />
-        <View style={styles.stripe3} />
-        <Text style={styles.bannerText}>
-          Created by students and for students, this is an open platform for anyone to post what they want to sell, buy or trade.
-        </Text>
-      </View>
-
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categories}
-        >
-          {CATEGORIES.map((cat) => {
-            const active = category === cat.key;
-            const Icon = cat.icon;
-            return (
-              <TouchableOpacity
-                key={cat.key}
-                style={[styles.categoryCard, active && styles.categoryCardActive]}
-                onPress={() => setCategory(cat.key)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.categoryIcon, active && styles.categoryIconActive]}>
-                  <Icon size={20} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
-                </View>
-                <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
-                  {cat.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        {/* Category row with extra top padding for breathing room */}
+        <View style={styles.categorySection}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categories}
+          >
+            {CATEGORIES.map((cat) => {
+              const active = category === cat.key;
+              const Icon = cat.icon;
+              return (
+                <TouchableOpacity
+                  key={cat.key}
+                  onPress={() => handleCategoryPress(cat.key)}
+                  activeOpacity={0.8}
+                >
+                  <Animated.View
+                    style={[
+                      styles.categoryCard,
+                      active && styles.categoryCardActive,
+                      { transform: [{ scale: scaleAnim }] },
+                    ]}
+                  >
+                    <View style={[styles.categoryIcon, active && styles.categoryIconActive]}>
+                      <Icon size={20} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
+                    </View>
+                    <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
+                      {cat.label}
+                    </Text>
+                  </Animated.View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         <View style={styles.divider} />
 
@@ -384,7 +409,7 @@ export default function StuMarkScreen() {
           </View>
         )}
 
-        {/* ALL PRODUCTS LISTED VERTICALLY AFTER TODAY'S DEALS */}
+        {/* All listings */}
         {filteredListings.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -592,54 +617,8 @@ const styles = StyleSheet.create({
   content: { flex: 1 },
   contentContainer: { paddingBottom: SPACING.lg },
 
-  /* NEW BLUE STRIPED BANNER */
-  blueBanner: {
-    marginHorizontal: SPACING.lg,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.md,
-    backgroundColor: '#1E40AF',
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    minHeight: 110,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  stripe1: {
-    position: 'absolute',
-    top: -20,
-    left: -50,
-    width: 200,
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    transform: [{ rotate: '-35deg' }],
-  },
-  stripe2: {
-    position: 'absolute',
-    top: 30,
-    left: -30,
-    width: 180,
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    transform: [{ rotate: '-35deg' }],
-  },
-  stripe3: {
-    position: 'absolute',
-    bottom: -15,
-    right: -40,
-    width: 220,
-    height: 4,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    transform: [{ rotate: '-35deg' }],
-  },
-  bannerText: {
-    fontFamily: FONT.medium,
-    fontSize: 14,
-    color: COLORS.white,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-
-  categories: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: SPACING.sm, flexDirection: 'row' },
+  categorySection: { paddingTop: SPACING.lg, paddingBottom: SPACING.md },
+  categories: { paddingHorizontal: SPACING.lg, gap: SPACING.sm, flexDirection: 'row' },
   divider: {
     height: 1,
     backgroundColor: '#E5E7EB',
