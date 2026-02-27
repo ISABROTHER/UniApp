@@ -355,9 +355,6 @@ export default function StuMarkScreen() {
             <Text style={styles.bannerSubtitle}>Created by students and for students, this is an open platform for anyone to post what they want to sell, buy or trade.</Text>
           </View>
           <View style={styles.bannerBadge}>
-            <TrendingUp size={16} color={COLORS.white} />
-            <Text style={styles.bannerBadgeText}>Hot</Text>
-          </View>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>
