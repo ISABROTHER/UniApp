@@ -15,7 +15,6 @@ import {
   Animated,
   LayoutAnimation,
   UIManager,
-  Linking,
   Alert,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
@@ -32,7 +31,6 @@ import {
   UtensilsCrossed,
   Briefcase,
   Plus,
-  Phone,
   MessageCircle,
   Share2,
   ChevronLeft,
@@ -354,22 +352,25 @@ export default function StuMarkScreen() {
     });
   }, []);
 
-  // NEW: Contact Handlers
-  const handleCall = useCallback((phone: string | null) => {
-    if (!phone) return;
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
-    Linking.openURL(`tel:${cleanPhone}`).catch(() => {
-      Alert.alert('Error', `Unable to open phone dialer for ${phone}`);
-    });
-  }, []);
-
-  const handleWhatsApp = useCallback((phone: string | null) => {
-    if (!phone) return;
-    const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const whatsappNumber = cleanPhone.startsWith('0') ? `233${cleanPhone.slice(1)}` : cleanPhone;
-    Linking.openURL(`whatsapp://send?phone=${whatsappNumber}`).catch(() => {
-      Alert.alert('WhatsApp Not Installed', 'Please install WhatsApp to use this feature.');
-    });
+  // NEW: Contact Handler - In-App Chat
+  const handleMessage = useCallback((product: MarketListing | null) => {
+    if (!product) return;
+    // TODO: Navigate to chat screen with seller
+    Alert.alert(
+      'Start Chat',
+      `Chat with ${product.seller_name || 'seller'} about "${product.title}"`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Start Chat',
+          onPress: () => {
+            // TODO: Navigate to chat screen
+            // navigation.navigate('Chat', { productId: product.id, sellerId: product.seller_id })
+            console.log('Opening chat for product:', product.id);
+          },
+        },
+      ],
+    );
   }, []);
 
   // NEW: Helper Functions
@@ -714,18 +715,11 @@ export default function StuMarkScreen() {
 
           <View style={styles.detailActions}>
             <TouchableOpacity
-              style={styles.detailActionCall}
-              onPress={() => handleCall(selectedProduct?.seller_phone)}
-            >
-              <Phone size={20} color={COLORS.white} />
-              <Text style={styles.detailActionText}>Call</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.detailActionWhatsApp}
-              onPress={() => handleWhatsApp(selectedProduct?.seller_phone)}
+              style={styles.detailActionMessage}
+              onPress={() => handleMessage(selectedProduct)}
             >
               <MessageCircle size={20} color={COLORS.white} />
-              <Text style={styles.detailActionText}>WhatsApp</Text>
+              <Text style={styles.detailActionText}>Message Seller</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1193,31 +1187,18 @@ const styles = StyleSheet.create({
   sellerName: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary },
   sellerStats: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textTertiary, marginTop: 2 },
   detailActions: {
-    flexDirection: 'row',
     padding: SPACING.lg,
-    gap: SPACING.md,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
     backgroundColor: COLORS.white,
   },
-  detailActionCall: {
-    flex: 1,
+  detailActionMessage: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     backgroundColor: COLORS.primary,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-  },
-  detailActionWhatsApp: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#25D366',
-    paddingVertical: SPACING.md,
+    paddingVertical: SPACING.md + 2,
     borderRadius: RADIUS.md,
   },
   detailActionText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.white },
