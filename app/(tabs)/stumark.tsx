@@ -61,6 +61,7 @@ type MarketListing = {
   is_sold: boolean | null;
   created_at: string;
   image_url?: string;
+  seller_name?: string;
 };
 
 const CATEGORIES: { key: MarketCategory; label: string; icon: any }[] = [
@@ -77,7 +78,8 @@ const DUMMY_PRODUCTS: MarketListing[] = [
     id: '1',
     seller_id: 'dummy-user-1',
     title: 'iPhone 13 Pro 256GB',
-    description: 'Barely used iPhone 13 Pro in Sierra Blue. Comes with original box, charger, and case. Battery health 98%.',
+    description:
+      'Barely used iPhone 13 Pro in Sierra Blue. Comes with original box, charger, and case. Battery health 98%.',
     price: 2800,
     category: 'electronics',
     condition: 'new',
@@ -87,6 +89,7 @@ const DUMMY_PRODUCTS: MarketListing[] = [
     is_sold: false,
     created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
     image_url: 'https://images.unsplash.com/photo-1678652197831-2d180705cd2c?w=500&q=80',
+    seller_name: 'Sarah A.',
   },
   {
     id: '2',
@@ -102,6 +105,7 @@ const DUMMY_PRODUCTS: MarketListing[] = [
     is_sold: false,
     created_at: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
     image_url: 'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=500&q=80',
+    seller_name: 'Kwame O.',
   },
   {
     id: '3',
@@ -117,6 +121,7 @@ const DUMMY_PRODUCTS: MarketListing[] = [
     is_sold: false,
     created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
     image_url: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?w=500&q=80',
+    seller_name: 'Ama K.',
   },
   {
     id: '4',
@@ -132,6 +137,7 @@ const DUMMY_PRODUCTS: MarketListing[] = [
     is_sold: false,
     created_at: new Date(Date.now() - 1000 * 60 * 180).toISOString(),
     image_url: 'https://images.unsplash.com/photo-1596495578065-6e0763fa1178?w=500&q=80',
+    seller_name: 'Dr. Mensah',
   },
   {
     id: '5',
@@ -147,6 +153,7 @@ const DUMMY_PRODUCTS: MarketListing[] = [
     is_sold: false,
     created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
     image_url: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=500&q=80',
+    seller_name: 'Mama Akos',
   },
 ];
 
@@ -322,6 +329,7 @@ export default function StuMarkScreen() {
     posting,
   ]);
 
+  // NEW: Product Detail Handlers
   const openProductDetail = useCallback((product: MarketListing) => {
     setSelectedProduct(product);
     setDetailOpen(true);
@@ -332,6 +340,7 @@ export default function StuMarkScreen() {
     setTimeout(() => setSelectedProduct(null), 300);
   }, []);
 
+  // NEW: Wishlist Handlers
   const toggleWishlist = useCallback((productId: string, e?: any) => {
     if (e) e.stopPropagation();
     setWishlist((prev) => {
@@ -345,6 +354,7 @@ export default function StuMarkScreen() {
     });
   }, []);
 
+  // NEW: Contact Handlers
   const handleCall = useCallback((phone: string | null) => {
     if (!phone) return;
     const cleanPhone = phone.replace(/[^0-9]/g, '');
@@ -362,6 +372,7 @@ export default function StuMarkScreen() {
     });
   }, []);
 
+  // NEW: Helper Functions
   const formatPrice = useCallback((value: number | string) => {
     const n = typeof value === 'string' ? Number(value) : value;
     if (!Number.isFinite(n)) return '₵0';
@@ -383,6 +394,7 @@ export default function StuMarkScreen() {
     return `${Math.floor(diffDays / 7)}w ago`;
   }, []);
 
+  // UPDATED: Filter and Sort Logic
   const filteredListings = listings
     .filter((item) => {
       if (category !== 'all' && item.category !== category) return false;
@@ -410,6 +422,7 @@ export default function StuMarkScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Header - Fixed */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>StuMark</Text>
@@ -435,35 +448,46 @@ export default function StuMarkScreen() {
         </View>
       </View>
 
-      {/* VERTICAL STACKED CATEGORIES - FIXED & SPACIOUS */}
-      <View style={styles.verticalCategories}>
-        {CATEGORIES.map((cat) => {
-          const active = category === cat.key;
-          const Icon = cat.icon;
-          return (
-            <TouchableOpacity
-              key={cat.key}
-              style={[styles.verticalCategoryCard, active && styles.verticalCategoryCardActive]}
-              onPress={() => handleCategoryPress(cat.key)}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.verticalCategoryIcon, active && styles.verticalCategoryIconActive]}>
-                <Icon size={24} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
-              </View>
-              <Text style={[styles.verticalCategoryLabel, active && styles.verticalCategoryLabelActive]}>
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+      {/* NEW: Sticky Categories */}
+      <View style={styles.stickyCategories}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesScroll}>
+          {CATEGORIES.map((cat) => {
+            const active = category === cat.key;
+            const Icon = cat.icon;
+            return (
+              <TouchableOpacity
+                key={cat.key}
+                style={[styles.categoryChip, active && styles.categoryChipActive]}
+                onPress={() => handleCategoryPress(cat.key)}
+                activeOpacity={0.8}
+              >
+                <Icon size={16} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
+                <Text style={[styles.categoryChipText, active && styles.categoryChipTextActive]}>{cat.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
       </View>
 
+      {/* Scrollable Content */}
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
+        {/* Banner */}
+        <View style={styles.heroBanner}>
+          <View style={styles.bannerContent}>
+            <Text style={styles.bannerTitle}>Campus Deals</Text>
+            <Text style={styles.bannerSubtitle}>Shop smart, save more</Text>
+          </View>
+          <View style={styles.bannerBadge}>
+            <TrendingUp size={16} color={COLORS.white} />
+            <Text style={styles.bannerBadgeText}>Hot</Text>
+          </View>
+        </View>
+
         {/* Today's Deals */}
         {recentListings.length > 0 && (
           <View style={styles.section}>
@@ -522,6 +546,7 @@ export default function StuMarkScreen() {
                       <Text style={styles.dealReviews}>(120)</Text>
                     </View>
                     <Text style={styles.dealPrice}>{formatPrice(item.price)}</Text>
+                    <Text style={styles.dealTime}>{getTimeAgo(item.created_at)}</Text>
                   </View>
                 </TouchableOpacity>
               ))}
@@ -602,7 +627,7 @@ export default function StuMarkScreen() {
         <View style={styles.footerSpace} />
       </ScrollView>
 
-      {/* Product Detail Modal */}
+      {/* NEW: Product Detail Modal */}
       <Modal visible={detailOpen} animationType="slide" onRequestClose={closeProductDetail}>
         <View style={styles.detailContainer}>
           <View style={styles.detailHeader}>
@@ -674,10 +699,10 @@ export default function StuMarkScreen() {
                 <Text style={styles.detailSectionTitle}>Seller Information</Text>
                 <View style={styles.sellerInfo}>
                   <View style={styles.sellerAvatar}>
-                    <Text style={styles.sellerAvatarText}>S</Text>
+                    <Text style={styles.sellerAvatarText}>{selectedProduct?.seller_name?.charAt(0) || 'S'}</Text>
                   </View>
                   <View style={styles.sellerDetails}>
-                    <Text style={styles.sellerName}>Student Seller</Text>
+                    <Text style={styles.sellerName}>{selectedProduct?.seller_name || 'Student Seller'}</Text>
                     <Text style={styles.sellerStats}>⭐ 4.5 · 12 items sold</Text>
                   </View>
                 </View>
@@ -706,7 +731,7 @@ export default function StuMarkScreen() {
         </View>
       </Modal>
 
-      {/* Filter Modal */}
+      {/* NEW: Filter Modal */}
       <Modal visible={filterOpen} transparent animationType="slide" onRequestClose={() => setFilterOpen(false)}>
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalContainer}>
@@ -933,47 +958,56 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textPrimary },
 
-  /* VERTICAL STACKED CATEGORIES */
-  verticalCategories: {
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.lg,
-    gap: SPACING.lg,
+  // NEW: Sticky Categories
+  stickyCategories: {
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+    paddingVertical: SPACING.sm,
   },
-  verticalCategoryCard: {
+  categoriesScroll: { paddingHorizontal: SPACING.lg, gap: SPACING.xs },
+  categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    paddingVertical: 16,
+    gap: 6,
     paddingHorizontal: SPACING.md,
-    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.full,
+    backgroundColor: '#F3F4F6',
   },
-  verticalCategoryCardActive: {
-    backgroundColor: COLORS.primary,
-  },
-  verticalCategoryIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E5E7EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: SPACING.md,
-  },
-  verticalCategoryIconActive: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  verticalCategoryLabel: {
-    fontFamily: FONT.medium,
-    fontSize: 15,
-    color: COLORS.textSecondary,
-  },
-  verticalCategoryLabelActive: {
-    color: COLORS.white,
-    fontFamily: FONT.semiBold,
-  },
+  categoryChipActive: { backgroundColor: COLORS.primary },
+  categoryChipText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary },
+  categoryChipTextActive: { color: COLORS.white },
 
   content: { flex: 1 },
   contentContainer: { paddingBottom: SPACING.lg },
+
+  heroBanner: {
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    backgroundColor: '#FF9900',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    minHeight: 120,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  bannerContent: { gap: 4 },
+  bannerTitle: { fontFamily: FONT.headingBold, fontSize: 22, color: COLORS.white },
+  bannerSubtitle: { fontFamily: FONT.medium, fontSize: 14, color: 'rgba(255,255,255,0.9)' },
+  bannerBadge: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+  },
+  bannerBadgeText: { fontFamily: FONT.bold, fontSize: 11, color: COLORS.white },
 
   section: { marginTop: SPACING.md },
   sectionHeader: {
@@ -1015,6 +1049,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.xs,
   },
   dealBadgeText: { fontFamily: FONT.bold, fontSize: 9, color: COLORS.white, letterSpacing: 0.5 },
+  // NEW: Wishlist Button
   wishlistBtn: {
     position: 'absolute',
     top: SPACING.xs,
@@ -1037,6 +1072,7 @@ const styles = StyleSheet.create({
   dealRatingText: { fontFamily: FONT.semiBold, fontSize: 11, color: COLORS.textPrimary },
   dealReviews: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary },
   dealPrice: { fontFamily: FONT.bold, fontSize: 16, color: '#B12704', marginTop: 2 },
+  dealTime: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary, marginTop: 2 },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.lg, gap: SPACING.sm },
   gridCard: {
@@ -1096,7 +1132,7 @@ const styles = StyleSheet.create({
 
   footerSpace: { height: 40 },
 
-  // Detail Modal
+  // NEW: Product Detail Modal Styles
   detailContainer: { flex: 1, backgroundColor: COLORS.white },
   detailHeader: {
     flexDirection: 'row',
@@ -1186,6 +1222,7 @@ const styles = StyleSheet.create({
   },
   detailActionText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.white },
 
+  // Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContainer: { flex: 1, justifyContent: 'flex-end' },
   modalCard: {
@@ -1200,6 +1237,7 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
   modalTitle: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary },
   modalError: { marginBottom: SPACING.sm, fontFamily: FONT.medium, fontSize: 13, color: COLORS.error },
+
   modalBody: { paddingTop: SPACING.xs },
   field: { gap: 6, marginBottom: SPACING.md },
   label: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textSecondary },
@@ -1215,8 +1253,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
+
   row: { flexDirection: 'row', gap: SPACING.md },
   rowItem: { flex: 1 },
+
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.xs },
   inlineChips: { gap: SPACING.xs, paddingVertical: 2 },
   smallChip: {
@@ -1230,6 +1270,7 @@ const styles = StyleSheet.create({
   smallChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   smallChipText: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary, textTransform: 'capitalize' },
   smallChipTextActive: { color: COLORS.white },
+
   fullChip: {
     paddingVertical: SPACING.xs,
     paddingHorizontal: SPACING.md,
@@ -1241,6 +1282,7 @@ const styles = StyleSheet.create({
   fullChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
   fullChipText: { fontFamily: FONT.medium, fontSize: 14, color: COLORS.textSecondary },
   fullChipTextActive: { color: COLORS.white },
+
   submitBtn: {
     backgroundColor: '#EF4444',
     borderRadius: RADIUS.md,
@@ -1250,6 +1292,7 @@ const styles = StyleSheet.create({
   },
   submitBtnDisabled: { opacity: 0.7 },
   submitBtnText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.white },
+
   clearBtn: {
     backgroundColor: COLORS.white,
     borderWidth: 1,
