@@ -1284,4 +1284,4 @@ const styles = StyleSheet.create({
     marginTop: SPACING.sm,
   },
   clearBtnText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.textSecondary },
-});
+}); 
