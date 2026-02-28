@@ -44,19 +44,46 @@ export default function BookingsScreen() {
 
   const fetchBookings = async () => {
     try {
+      setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase
+      if (!user) {
+        console.log('No user found');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Fetching bookings for user:', user.id);
+      
+      const { data, error } = await supabase
         .from('bookings')
         .select('*, hostels(name, address, campus_proximity, hostel_images(url))')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Booking fetch error:', error);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+      
+      console.log('Fetched bookings:', data?.length || 0, 'bookings');
       setBookings((data || []) as (Booking & { hostel?: any })[]);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); setRefreshing(false); }
+    } catch (e) { 
+      console.error('Exception fetching bookings:', e); 
+    } finally { 
+      setLoading(false); 
+      setRefreshing(false); 
+    }
   };
 
-  useFocusEffect(useCallback(() => { fetchBookings(); }, []));
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Bookings screen focused - fetching data...');
+      setLoading(true);
+      fetchBookings();
+    }, [])
+  );
 
   const openQR = (booking: Booking & { hostel?: any }) => {
     setQrModal({ visible: true, booking });
@@ -488,4 +515,4 @@ const styles = StyleSheet.create({
   qrScanBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
 
   qrTip: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary, textAlign: 'center' },
-}); 
+});
