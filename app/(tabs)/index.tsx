@@ -27,6 +27,7 @@ import {
   Home,
   Shield,
   Heart,
+  Calendar,
 } from 'lucide-react-native';
 import LeaseRenewalCard from '@/components/LeaseRenewalCard';
 
@@ -185,7 +186,7 @@ export default function HomeScreen() {
         setActiveBooking({
           hostelId: bookingResult.data.hostel_id,
           hostelName: h?.name ?? 'Your Hostel',
-          checkOutDate: bookingResult.data.check_out_date,
+          checkOutDate: bookingResult.data.checkOutDate,
         });
       } else {
         setActiveBooking(null);
@@ -322,6 +323,7 @@ export default function HomeScreen() {
       <View style={styles.quickActionsSection}>
         <View style={styles.quickActionsGrid}>
 
+          {/* Row 1 */}
           <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/(tabs)/bookings' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
               <Home size={28} color={COLORS.accent} />
@@ -343,26 +345,39 @@ export default function HomeScreen() {
             <Text style={styles.qaLabel}>StuMark</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/print' as any)}>
+          {/* Row 2 */}
+          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/print' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
               <Printer size={28} color={COLORS.success} />
             </View>
             <Text style={styles.qaLabel}>DigiPrint</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/roommates' as any)}>
+          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/roommates' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
               <Users size={28} color={COLORS.error} />
             </View>
             <Text style={styles.qaLabel}>Roommates</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/hall' as any)}>
+          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/hall' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#DBEAFE' }]}>
               <Shield size={28} color={COLORS.info} />
             </View>
             <Text style={styles.qaLabel}>My Hall</Text>
           </TouchableOpacity>
+          
+          {/* Row 3 */}
+          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/calendar' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#F3E8FF' }]}>
+              <Calendar size={28} color='#9333EA' />
+            </View>
+            <Text style={styles.qaLabel}>Calendar</Text>
+          </TouchableOpacity>
+          
+          {/* Empty Placeholders to keep grid aligned */}
+          <View style={[styles.qa, styles.borderR]} />
+          <View style={styles.qa} />
 
         </View>
       </View>
@@ -471,10 +486,10 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.borderLight,
   },
   qaIcon: {
-    width: 90, height: 90, borderRadius: RADIUS.xl,
+    width: 60, height: 60, borderRadius: RADIUS.xl,
     justifyContent: 'center', alignItems: 'center',
   },
-  qaLabel: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
+  qaLabel: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' },
 
   bannersSection: {
     paddingTop: SPACING.md,
