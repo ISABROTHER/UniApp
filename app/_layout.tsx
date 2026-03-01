@@ -83,6 +83,7 @@ export default function RootLayout() {
         <Stack.Screen name="utilities" />
         <Stack.Screen name="roommates" />
         <Stack.Screen name="maintenance" />
+        <Stack.Screen name="compare" />
         <Stack.Screen name="transactions" />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="owner" />
