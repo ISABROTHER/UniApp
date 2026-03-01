@@ -111,6 +111,14 @@ export default function RootLayout() {
         <Stack.Screen name="sos-contacts" />
         <Stack.Screen name="reviews" />
         <Stack.Screen name="planner" />
+        <Stack.Screen name="organizations" />
+        <Stack.Screen name="organization-profile" />
+        <Stack.Screen name="organization-admin" />
+        <Stack.Screen name="organization-create" />
+        <Stack.Screen name="my-orgs" />
+        <Stack.Screen name="organization-dues" />
+        <Stack.Screen name="organization-elections" />
+        <Stack.Screen name="organization-roster" />
         <Stack.Screen name="auth/sign-in" />
         <Stack.Screen name="auth/sign-up" />
         <Stack.Screen name="auth/forgot-password" />

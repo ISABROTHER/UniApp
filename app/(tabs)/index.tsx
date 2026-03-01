@@ -450,25 +450,46 @@ export default function HomeScreen() {
             <Text style={styles.qaLabel}>Study Rooms</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/shuttle' as any)}>
+          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/shuttle' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
               <Bus size={28} color={COLORS.success} />
             </View>
             <Text style={styles.qaLabel}>Shuttle</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/bulletin' as any)}>
+          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/bulletin' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
               <Megaphone size={28} color='#D97706' />
             </View>
             <Text style={styles.qaLabel}>Bulletin</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.qa} onPress={() => router.push('/lost-found' as any)}>
+          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/lost-found' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#F3E8FF' }]}>
               <SearchIcon size={28} color='#9333EA' />
             </View>
             <Text style={styles.qaLabel}>Lost & Found</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/organizations' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#DBEAFE' }]}>
+              <Users size={28} color={COLORS.info} />
+            </View>
+            <Text style={styles.qaLabel}>Orgs Hub</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/alumni' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
+              <GraduationCap size={28} color={COLORS.success} />
+            </View>
+            <Text style={styles.qaLabel}>Alumni</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.qa} onPress={() => router.push('/elections' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
+              <Vote size={28} color={COLORS.primary} />
+            </View>
+            <Text style={styles.qaLabel}>Elections</Text>
           </TouchableOpacity>
         </View>
       </View>
