@@ -13,6 +13,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Search, Edit, Menu, MessageSquare } from 'lucide-react-native';
+import { setCache, getCache } from '@/lib/cache';
 
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -68,7 +69,16 @@ export default function MessagesScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); setRefreshing(false); return; }
       setCurrentUserId(user.id);
+      
+      const cacheKey = `CACHE_MESSAGES_${user.id}`;
+      
+      // 1. Instantly load from offline cache
+      const cached = await getCache<Thread[]>(cacheKey);
+      if (cached && threads.length === 0) {
+        setThreads(cached);
+      }
 
+      // 2. Fetch fresh network data
       const { data: rawThreads } = await supabase
         .from('conversations')
         .select('id, participant_a, participant_b, last_message_at, last_message_preview, unread_count_a, unread_count_b')
@@ -107,8 +117,9 @@ export default function MessagesScreen() {
       });
 
       setThreads(enriched);
+      setCache(cacheKey, enriched); // 3. Save offline cache
     } catch (e) {
-      console.error(e);
+      console.warn('Network error, relying on cache', e);
     } finally {
       setLoading(false);
       setRefreshing(false);
