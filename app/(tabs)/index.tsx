@@ -26,6 +26,7 @@ import {
   ChevronRight,
   Home,
   Shield,
+  Heart,
 } from 'lucide-react-native';
 import LeaseRenewalCard from '@/components/LeaseRenewalCard';
 
@@ -249,6 +250,12 @@ export default function HomeScreen() {
           <Text style={styles.greetingText}>{getGreeting()},</Text>
           <Text style={styles.headerTitle}>{member?.full_name?.split(' ')[0] || 'Student'}</Text>
         </View>
+        <TouchableOpacity
+          onPress={() => router.push('/(tabs)/favourites' as any)}
+          activeOpacity={0.7}
+        >
+          <Heart size={24} color={COLORS.textPrimary} />
+        </TouchableOpacity>
         <NotificationBell size={22} color={COLORS.textPrimary} />
         <TouchableOpacity
           style={styles.avatar}
