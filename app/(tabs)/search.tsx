@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING } from '@/lib/constants';
 import { Hostel } from '@/lib/types';
-import { Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { Search, SlidersHorizontal, X, Heart } from 'lucide-react-native';
 import HostelCard from '@/components/HostelCard';
 import FilterSheet, { Filters, DEFAULT_FILTERS } from '@/components/FilterSheet';
 
@@ -153,7 +153,13 @@ export default function SearchScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>Search</Text>
+        <View style={styles.headerTopRow}>
+          <Text style={styles.pageTitle}>Search</Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/favourites' as any)} activeOpacity={0.7}>
+            <Heart size={24} color={COLORS.textPrimary} />
+          </TouchableOpacity>
+        </View>
+
         <Animated.View
           style={[
             styles.searchRow,
@@ -280,11 +286,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderLight,
   },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
   pageTitle: {
     fontFamily: FONT.headingBold,
     fontSize: 28,
     color: COLORS.textPrimary,
-    marginBottom: SPACING.md,
   },
   searchRow: {
     flexDirection: 'row',
