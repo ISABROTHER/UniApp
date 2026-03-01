@@ -21,6 +21,9 @@ export interface Member {
   joined_at: string;
   created_at: string;
   updated_at: string;
+  bio: string | null;
+  university: string | null;
+  traditional_hall: string | null;
 }
 
 export interface Hostel {
