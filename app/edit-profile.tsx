@@ -20,7 +20,6 @@ import HallPicker from '@/components/HallPicker';
 export default function EditProfileScreen() {
   const router = useRouter();
 
-  // Form state
   const [fullName, setFullName] = useState('');
   const [studentId, setStudentId] = useState('');
   const [university, setUniversity] = useState<string | null>(null);
@@ -28,14 +27,12 @@ export default function EditProfileScreen() {
   const [phone, setPhone] = useState('');
   const [bio, setBio] = useState('');
 
-  // UI state
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [universityPickerVisible, setUniversityPickerVisible] = useState(false);
   const [hallPickerVisible, setHallPickerVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load existing profile data
   useEffect(() => {
     loadProfile();
   }, []);
@@ -75,7 +72,6 @@ export default function EditProfileScreen() {
 
   const handleUniversitySelect = (universityName: string) => {
     setUniversity(universityName);
-    // CRITICAL: Reset hall when university changes (requirement)
     setTraditionalHall(null);
     setError(null);
   };
@@ -87,13 +83,11 @@ export default function EditProfileScreen() {
   const validateForm = (): boolean => {
     setError(null);
 
-    // University is REQUIRED
     if (!university) {
       setError('Please select your university or institution');
       return false;
     }
 
-    // Full name recommended but not strictly required
     if (fullName.trim().length === 0) {
       Alert.alert(
         'Missing Information',
@@ -120,12 +114,11 @@ export default function EditProfileScreen() {
         return;
       }
 
-      // Prepare data - store canonical names only
       const updates = {
         full_name: fullName.trim() || null,
         student_id: studentId.trim() || null,
-        university: university, // Canonical name (REQUIRED)
-        traditional_hall: traditionalHall || null, // Nullable
+        university: university,
+        traditional_hall: traditionalHall || null,
         phone: phone.trim() || null,
         bio: bio.trim() || null,
         updated_at: new Date().toISOString(),
@@ -169,7 +162,6 @@ export default function EditProfileScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <ArrowLeft size={24} color={COLORS.textPrimary} />
@@ -193,14 +185,12 @@ export default function EditProfileScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Error Message */}
           {error && (
             <View style={styles.errorBox}>
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
 
-          {/* Full Name */}
           <View style={styles.field}>
             <Text style={styles.label}>
               Full Name <Text style={styles.optional}>(Recommended)</Text>
@@ -218,7 +208,6 @@ export default function EditProfileScreen() {
             </View>
           </View>
 
-          {/* Student ID */}
           <View style={styles.field}>
             <Text style={styles.label}>Student ID</Text>
             <View style={styles.inputContainer}>
@@ -234,7 +223,6 @@ export default function EditProfileScreen() {
             </View>
           </View>
 
-          {/* University - REQUIRED */}
           <View style={styles.field}>
             <Text style={styles.label}>
               University or Institution <Text style={styles.required}>*</Text>
@@ -255,7 +243,6 @@ export default function EditProfileScreen() {
             </Text>
           </View>
 
-          {/* Traditional Hall - Conditional (only shown when university is selected) */}
           {university && (
             <View style={styles.field}>
               <Text style={styles.label}>Traditional Hall</Text>
@@ -276,7 +263,6 @@ export default function EditProfileScreen() {
             </View>
           )}
 
-          {/* Phone Number */}
           <View style={styles.field}>
             <Text style={styles.label}>Phone Number</Text>
             <View style={styles.inputContainer}>
@@ -292,7 +278,6 @@ export default function EditProfileScreen() {
             </View>
           </View>
 
-          {/* Bio */}
           <View style={styles.field}>
             <Text style={styles.label}>Bio</Text>
             <View style={[styles.inputContainer, styles.textAreaContainer]}>
@@ -310,7 +295,6 @@ export default function EditProfileScreen() {
             </View>
           </View>
 
-          {/* Info Box */}
           <View style={styles.infoBox}>
             <Text style={styles.infoTitle}>Profile Information</Text>
             <Text style={styles.infoText}>
@@ -325,7 +309,6 @@ export default function EditProfileScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* University Picker Modal */}
       <UniversityPicker
         visible={universityPickerVisible}
         selectedUniversity={university}
@@ -333,7 +316,6 @@ export default function EditProfileScreen() {
         onClose={() => setUniversityPickerVisible(false)}
       />
 
-      {/* Hall Picker Modal - Only works when university is selected */}
       <HallPicker
         visible={hallPickerVisible}
         universityName={university}
