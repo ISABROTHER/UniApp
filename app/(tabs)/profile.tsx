@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
-  Modal, TextInput, KeyboardAvoidingView, ActivityIndicator, Animated, Image, Alert
+  Modal, TextInput, KeyboardAvoidingView, ActivityIndicator, Animated
 } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,12 +11,11 @@ import { Member, LoyaltyBalance, UserStats } from '@/lib/types';
 import { GHANAIAN_INSTITUTIONS, getHallsForInstitution } from '@/lib/institutions';
 import OnboardingProgress from '@/components/OnboardingProgress';
 import LoyaltyCard from '@/components/LoyaltyCard';
-import * as ImagePicker from 'expo-image-picker';
 import {
   ChevronRight, LogOut, Bell, FileText, HelpCircle,
   User, MessageSquare, Wrench, Building2, Shield,
   CreditCard, Users, Zap, GraduationCap, ShoppingBag, Printer,
-  Home, Star, Edit3, X, Check, Phone, ChevronDown, Camera
+  Home, Star, Edit3, X, Check, Phone, ChevronDown
 } from 'lucide-react-native';
 
 const ONBOARDING_FEATURES = [
@@ -100,7 +99,6 @@ export default function ProfileScreen() {
   const [universityPickerVisible, setUniversityPickerVisible] = useState(false);
   const [hallPickerVisible, setHallPickerVisible] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const successScale = useRef(new Animated.Value(0)).current;
 
   const availableHalls = editForm.university ? getHallsForInstitution(editForm.university) : [];
@@ -126,52 +124,6 @@ export default function ProfileScreen() {
       if (stats) setUserStats(stats as UserStats);
     })();
   }, []));
-
-  const handleAvatarUpload = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
-      });
-
-      if (result.canceled || !result.assets[0] || !member) return;
-
-      setUploadingAvatar(true);
-      const img = result.assets[0];
-      
-      const response = await fetch(img.uri);
-      const blob = await response.blob();
-      const fileExt = img.uri.split('.').pop() || 'jpg';
-      const fileName = `user_${member.id}_${Date.now()}.${fileExt}`;
-      const filePath = `${member.id}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, blob, { contentType: `image/${fileExt}`, upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      const { error: updateError } = await supabase
-        .from('members')
-        .update({ avatar_url: publicUrl })
-        .eq('id', member.id);
-
-      if (updateError) throw updateError;
-
-      setMember(prev => prev ? { ...prev, avatar_url: publicUrl } : prev);
-      
-    } catch (error: any) {
-      Alert.alert('Upload Failed', error.message || 'Could not upload image.');
-    } finally {
-      setUploadingAvatar(false);
-    }
-  };
 
   const handleSaveProfile = async () => {
     if (!member) return;
@@ -247,22 +199,9 @@ export default function ProfileScreen() {
         <Text style={styles.pageTitle}>Profile</Text>
 
         <View style={styles.profileCard}>
-          <TouchableOpacity 
-            style={styles.avatarCircle} 
-            onPress={handleAvatarUpload}
-            disabled={uploadingAvatar}
-          >
-            {uploadingAvatar ? (
-              <ActivityIndicator color={COLORS.white} size="small" />
-            ) : member?.avatar_url ? (
-              <Image source={{ uri: member.avatar_url }} style={styles.avatarImage} />
-            ) : (
-              <Text style={styles.avatarInitial}>{(member?.full_name || 'S')[0].toUpperCase()}</Text>
-            )}
-            <View style={styles.cameraBadge}>
-              <Camera size={12} color={COLORS.white} />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.avatarCircle}>
+            <Text style={styles.avatarInitial}>{(member?.full_name || 'S')[0].toUpperCase()}</Text>
+          </View>
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{member?.full_name || 'Student User'}</Text>
             <Text style={styles.profileUniversity}>
@@ -381,11 +320,7 @@ export default function ProfileScreen() {
           <ScrollView style={styles.sheetBody} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
             <View style={styles.sheetAvatarRow}>
               <View style={styles.sheetAvatar}>
-                {member?.avatar_url ? (
-                  <Image source={{ uri: member.avatar_url }} style={styles.sheetAvatarImage} />
-                ) : (
-                  <Text style={styles.sheetAvatarText}>{(member?.full_name || 'S')[0].toUpperCase()}</Text>
-                )}
+                <Text style={styles.sheetAvatarText}>{(member?.full_name || 'S')[0].toUpperCase()}</Text>
               </View>
               <View>
                 <Text style={styles.sheetAvatarName}>{member?.full_name || 'Student'}</Text>
@@ -559,15 +494,8 @@ const styles = StyleSheet.create({
   avatarCircle: {
     width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.primary,
     justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.25)',
-    position: 'relative', overflow: 'hidden'
   },
-  avatarImage: { width: '100%', height: '100%', borderRadius: 36, resizeMode: 'cover' },
   avatarInitial: { fontFamily: FONT.headingBold, fontSize: 28, color: COLORS.white },
-  cameraBadge: {
-    position: 'absolute', bottom: 0, width: '100%', backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingVertical: 2, alignItems: 'center', justifyContent: 'center'
-  },
-  
   profileInfo: { flex: 1 },
   profileName: { fontFamily: FONT.headingBold, fontSize: 20, color: COLORS.white, marginBottom: 4 },
   profileUniversity: { fontFamily: FONT.regular, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 10 },
@@ -698,9 +626,8 @@ const styles = StyleSheet.create({
   },
   sheetAvatar: {
     width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.primary,
-    justifyContent: 'center', alignItems: 'center', overflow: 'hidden'
+    justifyContent: 'center', alignItems: 'center',
   },
-  sheetAvatarImage: { width: '100%', height: '100%', borderRadius: 28, resizeMode: 'cover' },
   sheetAvatarText: { fontFamily: FONT.headingBold, fontSize: 22, color: COLORS.white },
   sheetAvatarName: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.textPrimary },
   sheetAvatarEmail: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
