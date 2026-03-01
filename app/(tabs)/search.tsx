@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, Platform, RefreshControl, ScrollView, Animated,
+  TextInput, Platform, RefreshControl, ScrollView, Animated, Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { COLORS, FONT, SPACING } from '@/lib/constants';
+import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Hostel } from '@/lib/types';
-import { Search, SlidersHorizontal, X, Heart } from 'lucide-react-native';
+import { Search, SlidersHorizontal, X, Heart, TrendingUp } from 'lucide-react-native';
 import HostelCard from '@/components/HostelCard';
 import FilterSheet, { Filters, DEFAULT_FILTERS } from '@/components/FilterSheet';
+import { setCache, getCache } from '@/lib/cache';
 
 type QuickFilter = 'verified' | 'wifi' | 'security' | 'near_campus' | 'water_247' | 'power_backup';
 
@@ -31,7 +32,8 @@ export default function SearchScreen() {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [quickFilters, setQuickFilters] = useState<QuickFilter[]>([]);
-
+  
+  const [compareIds, setCompareIds] = useState<string[]>([]);
   const searchBarAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -45,8 +47,15 @@ export default function SearchScreen() {
   const fetchHostels = async () => {
     setLoading(true);
     try {
+      // 1. Instantly load from offline cache first
+      const cached = await getCache<Hostel[]>('CACHE_HOSTELS');
+      if (cached && hostels.length === 0) {
+        setHostels(cached);
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
 
+      // 2. Fetch fresh from network
       const dbQuery = supabase
         .from('hostels')
         .select(user ? '*, hostel_images(*), hostel_rooms(*), hostel_amenities(*), favourites!left(id,user_id)' : '*, hostel_images(*), hostel_rooms(*), hostel_amenities(*)')
@@ -56,18 +65,23 @@ export default function SearchScreen() {
 
       const { data } = await dbQuery;
 
-      const processed = (data || []).map((h: any) => ({
-        ...h,
-        images: h.hostel_images || [],
-        rooms: h.hostel_rooms || [],
-        amenities: h.hostel_amenities || [],
-        is_favourite: user ? h.favourites?.some((w: any) => w.user_id === user.id) : false,
-        favourites: undefined,
-      })) as Hostel[];
+      if (data) {
+        const processed = data.map((h: any) => ({
+          ...h,
+          images: h.hostel_images || [],
+          rooms: h.hostel_rooms || [],
+          amenities: h.hostel_amenities || [],
+          is_favourite: user ? h.favourites?.some((w: any) => w.user_id === user.id) : false,
+          favourites: undefined,
+        })) as Hostel[];
 
-      setHostels(processed);
+        setHostels(processed);
+        
+        // 3. Save fresh data to offline cache
+        setCache('CACHE_HOSTELS', processed);
+      }
     } catch (e) {
-      console.error(e);
+      console.warn('Network error, relying on cache', e);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -87,6 +101,19 @@ export default function SearchScreen() {
       await supabase.from('favourites').insert({ user_id: user.id, hostel_id: hostelId });
     }
     setHostels((prev) => prev.map((h) => h.id === hostelId ? { ...h, is_favourite: !isFav } : h));
+  };
+
+  const toggleCompare = (hostelId: string) => {
+    setCompareIds(prev => {
+      if (prev.includes(hostelId)) {
+        return prev.filter(id => id !== hostelId);
+      }
+      if (prev.length >= 3) {
+        Alert.alert("Limit Reached", "You can compare up to 3 hostels side-by-side.");
+        return prev;
+      }
+      return [...prev, hostelId];
+    });
   };
 
   const toggleQuickFilter = (filter: QuickFilter) => {
@@ -224,9 +251,12 @@ export default function SearchScreen() {
             hostel={item}
             onPress={() => router.push(`/detail?id=${item.id}` as any)}
             onToggleFav={() => toggleFavourite(item.id, !!item.is_favourite)}
+            showCompare={true}
+            isCompareSelected={compareIds.includes(item.id)}
+            onToggleCompare={() => toggleCompare(item.id)}
           />
         )}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: compareIds.length > 0 ? 120 : SPACING.md }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -262,6 +292,29 @@ export default function SearchScreen() {
           ) : null
         }
       />
+
+      {compareIds.length > 0 && (
+        <View style={styles.floatingCompareWrapper}>
+          <View style={styles.floatingCompareBar}>
+            <View style={styles.compareMeta}>
+              <Text style={styles.compareMetaTitle}>{compareIds.length}/3 Selected</Text>
+              <TouchableOpacity onPress={() => setCompareIds([])} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={styles.compareMetaClear}>Clear</Text>
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.compareActionBtn, compareIds.length < 2 && styles.compareActionBtnDisabled]}
+              disabled={compareIds.length < 2}
+              onPress={() => router.push(`/compare?ids=${compareIds.join(',')}` as any)}
+              activeOpacity={0.8}
+            >
+              <TrendingUp size={16} color={COLORS.white} />
+              <Text style={styles.compareActionText}>Compare</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
       <FilterSheet
         visible={filterSheetOpen}
@@ -368,6 +421,62 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginBottom: SPACING.sm,
   },
+  
+  floatingCompareWrapper: {
+    position: 'absolute',
+    bottom: Platform.OS === 'ios' ? 24 : 16,
+    left: SPACING.md,
+    right: SPACING.md,
+    alignItems: 'center',
+  },
+  floatingCompareBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.navy,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 12,
+    borderRadius: RADIUS.full,
+    width: '100%',
+    shadowColor: COLORS.navy,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  compareMeta: {
+    flex: 1,
+  },
+  compareMetaTitle: {
+    fontFamily: FONT.semiBold,
+    fontSize: 14,
+    color: COLORS.white,
+    marginBottom: 2,
+  },
+  compareMetaClear: {
+    fontFamily: FONT.regular,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    textDecorationLine: 'underline',
+  },
+  compareActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: RADIUS.full,
+  },
+  compareActionBtnDisabled: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  compareActionText: {
+    fontFamily: FONT.bold,
+    fontSize: 14,
+    color: COLORS.white,
+  },
+
   empty: {
     alignItems: 'center',
     paddingVertical: 60,
