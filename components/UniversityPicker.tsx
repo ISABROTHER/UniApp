@@ -30,7 +30,6 @@ export default function UniversityPicker({
 
   const groupedUniversities = getGroupedUniversities();
 
-  // Filter universities based on search
   const filteredGroups = Object.entries(groupedUniversities).reduce(
     (acc, [groupName, universities]) => {
       const filtered = universities.filter((uni) =>
@@ -59,7 +58,6 @@ export default function UniversityPicker({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={styles.container}>
-          {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <GraduationCap size={24} color={COLORS.primary} strokeWidth={2} />
@@ -70,7 +68,6 @@ export default function UniversityPicker({
             </TouchableOpacity>
           </View>
 
-          {/* Search Bar */}
           <View style={styles.searchContainer}>
             <Search size={18} color={COLORS.textTertiary} />
             <TextInput
@@ -88,14 +85,12 @@ export default function UniversityPicker({
             )}
           </View>
 
-          {/* Results Count */}
           {searchQuery.length > 0 && (
             <Text style={styles.resultsCount}>
               {Object.values(filteredGroups).reduce((sum, unis) => sum + unis.length, 0)} results
             </Text>
           )}
 
-          {/* University List */}
           <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
             {Object.keys(filteredGroups).length === 0 ? (
               <View style={styles.emptyState}>
