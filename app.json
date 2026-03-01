@@ -44,7 +44,13 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-notifications",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos for profile pictures and listings.",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to take photos for listings and maintenance."
+        }
+      ],
       [
         "expo-local-authentication",
         {
