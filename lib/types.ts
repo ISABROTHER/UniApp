@@ -8,9 +8,9 @@ export interface Member {
   phone: string | null;
   date_of_birth: string | null;
   gender: 'male' | 'female' | 'other' | null;
-  faculty: string | null;
-  department: string | null;
   level: string | null;
+  university: string | null;
+  traditional_hall: string | null;
   hall_of_residence: string | null;
   avatar_url: string | null;
   membership_status: string;

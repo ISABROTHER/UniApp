@@ -8,13 +8,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Member, LoyaltyBalance, UserStats } from '@/lib/types';
+import { GHANAIAN_INSTITUTIONS, getHallsForInstitution } from '@/lib/institutions';
 import OnboardingProgress from '@/components/OnboardingProgress';
 import LoyaltyCard from '@/components/LoyaltyCard';
 import {
   ChevronRight, LogOut, Bell, FileText, HelpCircle,
   User, MessageSquare, Wrench, Building2, Shield,
   CreditCard, Users, Zap, GraduationCap, ShoppingBag, Printer,
-  Home, Star, Edit3, X, Check, Phone, Mail,
+  Home, Star, Edit3, X, Check, Phone, ChevronDown,
 } from 'lucide-react-native';
 
 const ONBOARDING_FEATURES = [
@@ -83,10 +84,7 @@ interface EditField {
 const EDIT_FIELDS: EditField[] = [
   { label: 'Full Name', key: 'full_name', icon: <User size={18} color={COLORS.textSecondary} />, placeholder: 'Your full name' },
   { label: 'Phone', key: 'phone', icon: <Phone size={18} color={COLORS.textSecondary} />, placeholder: '+233 XX XXX XXXX', keyboardType: 'phone-pad' },
-  { label: 'Faculty', key: 'faculty', icon: <GraduationCap size={18} color={COLORS.textSecondary} />, placeholder: 'e.g. Science & Technology' },
-  { label: 'Department', key: 'department', icon: <GraduationCap size={18} color={COLORS.textSecondary} />, placeholder: 'e.g. Computer Science' },
   { label: 'Level', key: 'level', icon: <Star size={18} color={COLORS.textSecondary} />, placeholder: 'e.g. 300' },
-  { label: 'Hall of Residence', key: 'hall_of_residence', icon: <Home size={18} color={COLORS.textSecondary} />, placeholder: 'e.g. Oguaa Hall' },
 ];
 
 export default function ProfileScreen() {
@@ -98,7 +96,23 @@ export default function ProfileScreen() {
   const [editForm, setEditForm] = useState<Partial<Member>>({});
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [universityPickerVisible, setUniversityPickerVisible] = useState(false);
+  const [hallPickerVisible, setHallPickerVisible] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const successScale = useRef(new Animated.Value(0)).current;
+
+  const availableHalls = editForm.university ? getHallsForInstitution(editForm.university) : [];
+
+  const handleUniversityChange = (university: string) => {
+    setEditForm(prev => ({ ...prev, university, traditional_hall: null }));
+    setUniversityPickerVisible(false);
+    setValidationError(null);
+  };
+
+  const handleHallChange = (hall: string) => {
+    setEditForm(prev => ({ ...prev, traditional_hall: hall }));
+    setHallPickerVisible(false);
+  };
 
   useFocusEffect(useCallback(() => {
     (async () => {
@@ -113,14 +127,18 @@ export default function ProfileScreen() {
 
   const handleSaveProfile = async () => {
     if (!member) return;
+    if (!editForm.university) {
+      setValidationError('University is required');
+      return;
+    }
+    setValidationError(null);
     setSaving(true);
     const { error } = await supabase.from('members').update({
       full_name: editForm.full_name,
       phone: editForm.phone,
-      faculty: editForm.faculty,
-      department: editForm.department,
       level: editForm.level,
-      hall_of_residence: editForm.hall_of_residence,
+      university: editForm.university,
+      traditional_hall: editForm.traditional_hall,
     }).eq('id', member.id);
     setSaving(false);
     if (!error) {
@@ -187,7 +205,7 @@ export default function ProfileScreen() {
           <View style={styles.profileInfo}>
             <Text style={styles.profileName}>{member?.full_name || 'Student User'}</Text>
             <Text style={styles.profileUniversity}>
-              {member?.hall_of_residence || 'University of Cape Coast'}
+              {member?.university || 'Select your university'}
             </Text>
             <View style={styles.profileBottom}>
               <View style={[styles.rolePill, { backgroundColor: `${roleColor}35`, borderColor: `${roleColor}55` }]}>
@@ -262,7 +280,7 @@ export default function ProfileScreen() {
         <SectionHeader title="Account" />
         <MenuItem icon={<MessageSquare size={20} color={COLORS.accent} />} title="Messages" subtitle="Chat with owners & students" onPress={() => router.push('/(tabs)/messages' as any)} iconBg="#E0F2FE" />
         <MenuItem icon={<Bell size={20} color={COLORS.textPrimary} />} title="Notifications" subtitle="Manage your alerts" onPress={() => router.push('/notifications' as any)} />
-        <MenuItem icon={<GraduationCap size={20} color={COLORS.textPrimary} />} title="My University" subtitle={member?.hall_of_residence || 'University of Cape Coast'} onPress={() => setEditVisible(true)} />
+        <MenuItem icon={<GraduationCap size={20} color={COLORS.textPrimary} />} title="My University" subtitle={member?.university || 'Select your university'} onPress={() => setEditVisible(true)} />
         <MenuItem icon={<Shield size={20} color={COLORS.textPrimary} />} title="Privacy & Security" subtitle="Manage your data" onPress={() => {}} />
         <MenuItem icon={<HelpCircle size={20} color={COLORS.textPrimary} />} title="Support" subtitle="Get help from our team" onPress={() => {}} />
 
@@ -325,6 +343,44 @@ export default function ProfileScreen() {
                 </View>
               </View>
             ))}
+
+            <View style={styles.sheetField}>
+              <Text style={styles.sheetFieldLabel}>University *</Text>
+              <TouchableOpacity
+                style={[styles.sheetInputRow, validationError && !editForm.university && styles.inputError]}
+                onPress={() => setUniversityPickerVisible(true)}
+                activeOpacity={0.7}
+              >
+                <GraduationCap size={18} color={COLORS.textSecondary} />
+                <Text style={[styles.sheetInput, !editForm.university && styles.placeholderText]}>
+                  {editForm.university || 'Select your university'}
+                </Text>
+                <ChevronDown size={18} color={COLORS.textTertiary} />
+              </TouchableOpacity>
+              {validationError && !editForm.university && (
+                <Text style={styles.errorText}>{validationError}</Text>
+              )}
+            </View>
+
+            <View style={styles.sheetField}>
+              <Text style={[styles.sheetFieldLabel, !editForm.university && styles.disabledLabel]}>
+                Traditional Hall
+              </Text>
+              <TouchableOpacity
+                style={[styles.sheetInputRow, !editForm.university && styles.disabledInput]}
+                onPress={() => editForm.university && setHallPickerVisible(true)}
+                activeOpacity={editForm.university ? 0.7 : 1}
+                disabled={!editForm.university}
+              >
+                <Home size={18} color={editForm.university ? COLORS.textSecondary : COLORS.textTertiary} />
+                <Text style={[styles.sheetInput, (!editForm.traditional_hall || !editForm.university) && styles.placeholderText]}>
+                  {editForm.university
+                    ? editForm.traditional_hall || 'Select your hall'
+                    : 'Select university first'}
+                </Text>
+                <ChevronDown size={18} color={COLORS.textTertiary} />
+              </TouchableOpacity>
+            </View>
           </ScrollView>
 
           {saveSuccess && (
@@ -333,6 +389,82 @@ export default function ProfileScreen() {
               <Text style={styles.successToastText}>Profile Updated!</Text>
             </Animated.View>
           )}
+
+          <Modal
+            visible={universityPickerVisible}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={() => setUniversityPickerVisible(false)}
+          >
+            <View style={styles.pickerModal}>
+              <View style={styles.pickerHeader}>
+                <TouchableOpacity onPress={() => setUniversityPickerVisible(false)} style={styles.sheetClose}>
+                  <X size={20} color={COLORS.textPrimary} />
+                </TouchableOpacity>
+                <Text style={styles.pickerTitle}>Select University</Text>
+                <View style={{ width: 36 }} />
+              </View>
+              <ScrollView style={styles.pickerList} showsVerticalScrollIndicator={false}>
+                {GHANAIAN_INSTITUTIONS.map((inst) => (
+                  <TouchableOpacity
+                    key={inst.name}
+                    style={[styles.pickerItem, editForm.university === inst.name && styles.pickerItemSelected]}
+                    onPress={() => handleUniversityChange(inst.name)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.pickerItemText, editForm.university === inst.name && styles.pickerItemTextSelected]}>
+                      {inst.name}
+                    </Text>
+                    {editForm.university === inst.name && (
+                      <Check size={18} color={COLORS.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+                <View style={{ height: 40 }} />
+              </ScrollView>
+            </View>
+          </Modal>
+
+          <Modal
+            visible={hallPickerVisible}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={() => setHallPickerVisible(false)}
+          >
+            <View style={styles.pickerModal}>
+              <View style={styles.pickerHeader}>
+                <TouchableOpacity onPress={() => setHallPickerVisible(false)} style={styles.sheetClose}>
+                  <X size={20} color={COLORS.textPrimary} />
+                </TouchableOpacity>
+                <Text style={styles.pickerTitle}>Select Hall</Text>
+                <View style={{ width: 36 }} />
+              </View>
+              <ScrollView style={styles.pickerList} showsVerticalScrollIndicator={false}>
+                {availableHalls.length === 0 ? (
+                  <View style={styles.emptyPicker}>
+                    <Text style={styles.emptyPickerText}>No halls available for this institution</Text>
+                  </View>
+                ) : (
+                  availableHalls.map((hall) => (
+                    <TouchableOpacity
+                      key={hall}
+                      style={[styles.pickerItem, editForm.traditional_hall === hall && styles.pickerItemSelected]}
+                      onPress={() => handleHallChange(hall)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.pickerItemText, editForm.traditional_hall === hall && styles.pickerItemTextSelected]}>
+                        {hall}
+                      </Text>
+                      {editForm.traditional_hall === hall && (
+                        <Check size={18} color={COLORS.primary} />
+                      )}
+                    </TouchableOpacity>
+                  ))
+                )}
+                <View style={{ height: 40 }} />
+              </ScrollView>
+            </View>
+          </Modal>
         </KeyboardAvoidingView>
       </Modal>
     </>
@@ -510,4 +642,29 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 12,
   },
   successToastText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
+
+  placeholderText: { color: COLORS.textTertiary },
+  inputError: { borderColor: COLORS.error, borderWidth: 1.5 },
+  errorText: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.error, marginTop: 4 },
+  disabledLabel: { opacity: 0.5 },
+  disabledInput: { backgroundColor: COLORS.borderLight, opacity: 0.6 },
+
+  pickerModal: { flex: 1, backgroundColor: COLORS.white },
+  pickerHeader: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: SPACING.md, paddingTop: SPACING.lg, paddingBottom: SPACING.md,
+    borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+  },
+  pickerTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
+  pickerList: { flex: 1, paddingHorizontal: SPACING.md, paddingTop: SPACING.sm },
+  pickerItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 14, paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.md, marginBottom: 4,
+  },
+  pickerItemSelected: { backgroundColor: `${COLORS.primary}12` },
+  pickerItemText: { fontFamily: FONT.regular, fontSize: 15, color: COLORS.textPrimary, flex: 1 },
+  pickerItemTextSelected: { fontFamily: FONT.semiBold, color: COLORS.primary },
+  emptyPicker: { paddingVertical: 40, alignItems: 'center' },
+  emptyPickerText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textTertiary },
 });
