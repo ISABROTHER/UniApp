@@ -13,15 +13,17 @@ export default function TabLayout() {
         tabBarInactiveTintColor: COLORS.textTertiary,
         tabBarLabelStyle: {
           fontFamily: FONT.medium,
-          fontSize: 10,
-          marginTop: 4,
+          fontSize: 11,
+          marginBottom: Platform.OS === 'ios' ? 0 : 4,
         },
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopWidth: 1,
           borderTopColor: COLORS.borderLight,
-          height: Platform.OS === 'ios' ? 85 : 65,
-          paddingBottom: Platform.OS === 'ios' ? 25 : 8,
+          // Increased height so the icon and text don't overlap
+          height: Platform.OS === 'ios' ? 88 : 72, 
+          // Adjusted padding to center them perfectly
+          paddingBottom: Platform.OS === 'ios' ? 28 : 12, 
           paddingTop: 8,
         },
       }}>
