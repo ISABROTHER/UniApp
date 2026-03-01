@@ -380,6 +380,12 @@ export default function ProfileScreen() {
                 </Text>
                 <ChevronDown size={18} color={COLORS.textTertiary} />
               </TouchableOpacity>
+              <View style={styles.hallInfoBanner}>
+                <Home size={14} color={COLORS.primary} />
+                <Text style={styles.hallInfoText}>
+                  Selecting your hall unlocks "My Hall" with announcements, events, and connecting with hallmates.
+                </Text>
+              </View>
             </View>
           </ScrollView>
 
@@ -667,4 +673,14 @@ const styles = StyleSheet.create({
   pickerItemTextSelected: { fontFamily: FONT.semiBold, color: COLORS.primary },
   emptyPicker: { paddingVertical: 40, alignItems: 'center' },
   emptyPickerText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textTertiary },
+
+  hallInfoBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: `${COLORS.primary}10`, borderRadius: RADIUS.sm,
+    padding: SPACING.sm, marginTop: SPACING.xs,
+    borderLeftWidth: 3, borderLeftColor: COLORS.primary,
+  },
+  hallInfoText: {
+    flex: 1, fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, lineHeight: 18,
+  },
 });
