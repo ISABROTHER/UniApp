@@ -8,9 +8,11 @@ import {
   ActivityIndicator,
   ScrollView,
   Dimensions,
+  TextInput,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Shield, Check, Calendar } from 'lucide-react-native';
+import { ArrowLeft, Shield, Check, Calendar, CreditCard, Link2 } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -352,6 +354,35 @@ export default function StudentIDScreen() {
               <Text style={styles.activeStatusText}>Active</Text>
             </View>
           </View>
+        </View>
+
+        <View style={styles.ghanaCardSection}>
+          <View style={styles.ghanaCardHeader}>
+            <CreditCard size={20} color={COLORS.navy} />
+            <Text style={styles.ghanaCardTitle}>Ghana Card Linking</Text>
+          </View>
+          <Text style={styles.ghanaCardDesc}>
+            Link your Ghana Card number for national ID verification. This enables future integrations with government services.
+          </Text>
+          {member?.ghana_card_number ? (
+            <View style={styles.ghanaCardLinked}>
+              <Link2 size={16} color={COLORS.success} />
+              <Text style={styles.ghanaCardLinkedText}>
+                Ghana Card linked: {member.ghana_card_number.slice(0, 6)}****
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.ghanaCardInput}>
+              <TextInput
+                style={styles.ghanaCardTextInput}
+                placeholder="GHA-XXXXXXXXX-X"
+                placeholderTextColor={COLORS.textTertiary}
+              />
+              <TouchableOpacity style={styles.ghanaCardLinkBtn}>
+                <Text style={styles.ghanaCardLinkBtnText}>Link</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -731,5 +762,70 @@ const styles = StyleSheet.create({
     fontFamily: FONT.semiBold,
     color: COLORS.success,
     marginLeft: SPACING.xs / 2,
+  },
+  ghanaCardSection: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    padding: SPACING.md,
+    marginTop: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  ghanaCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginBottom: SPACING.sm,
+  },
+  ghanaCardTitle: {
+    fontSize: 16,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
+  },
+  ghanaCardDesc: {
+    fontSize: 13,
+    fontFamily: FONT.regular,
+    color: COLORS.textSecondary,
+    lineHeight: 19,
+    marginBottom: SPACING.md,
+  },
+  ghanaCardLinked: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.successLight,
+    padding: SPACING.sm,
+    borderRadius: RADIUS.sm,
+  },
+  ghanaCardLinkedText: {
+    fontSize: 14,
+    fontFamily: FONT.medium,
+    color: COLORS.success,
+  },
+  ghanaCardInput: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
+  ghanaCardTextInput: {
+    flex: 1,
+    height: 44,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.sm,
+    paddingHorizontal: SPACING.sm,
+    fontFamily: FONT.medium,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+  },
+  ghanaCardLinkBtn: {
+    backgroundColor: COLORS.navy,
+    paddingHorizontal: SPACING.md,
+    borderRadius: RADIUS.sm,
+    justifyContent: 'center',
+  },
+  ghanaCardLinkBtnText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 14,
+    color: COLORS.white,
   },
 });

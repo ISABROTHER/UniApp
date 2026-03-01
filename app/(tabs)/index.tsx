@@ -39,6 +39,7 @@ import {
   CreditCard,
   Search as SearchIcon,
   Vote,
+  CalendarDays,
 } from 'lucide-react-native';
 import LeaseRenewalCard from '@/components/LeaseRenewalCard';
 import SOSButton from '@/components/SOSButton';
@@ -365,16 +366,16 @@ export default function HomeScreen() {
 
       <View style={styles.quickActionsSection}>
         <View style={styles.quickActionsGrid}>
-          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/(tabs)/bookings' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
-              <Home size={28} color={COLORS.accent} />
+          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/planner' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#DBEAFE' }]}>
+              <CalendarDays size={28} color={COLORS.info} />
             </View>
-            <Text style={styles.qaLabel}>Housing</Text>
+            <Text style={styles.qaLabel}>Planner</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/wallet' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#DBEAFE' }]}>
-              <Wallet size={28} color={COLORS.info} />
+            <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
+              <Wallet size={28} color={COLORS.accent} />
             </View>
             <Text style={styles.qaLabel}>Wallet</Text>
           </TouchableOpacity>
@@ -509,6 +510,11 @@ export default function HomeScreen() {
       <View style={styles.moreSection}>
         <Text style={styles.sectionTitle}>More Services</Text>
         <View style={styles.moreGrid}>
+          <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/(tabs)/bookings' as any)}>
+            <Home size={20} color={COLORS.accent} />
+            <Text style={styles.moreItemText}>My Housing</Text>
+            <ChevronRight size={16} color={COLORS.textTertiary} />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/student-id' as any)}>
             <CreditCard size={20} color={COLORS.navy} />
             <Text style={styles.moreItemText}>Student ID</Text>

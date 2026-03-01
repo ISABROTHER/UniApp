@@ -110,6 +110,7 @@ export default function RootLayout() {
         <Stack.Screen name="ai-assistant" />
         <Stack.Screen name="sos-contacts" />
         <Stack.Screen name="reviews" />
+        <Stack.Screen name="planner" />
         <Stack.Screen name="auth/sign-in" />
         <Stack.Screen name="auth/sign-up" />
         <Stack.Screen name="auth/forgot-password" />

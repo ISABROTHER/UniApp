@@ -20,6 +20,9 @@ import {
   Tag,
   MessageCircle,
   X,
+  Camera,
+  Info,
+  DollarSign,
 } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
@@ -41,6 +44,8 @@ interface LostFoundItem {
   contact_method: 'in_app' | 'phone';
   status: Status;
   created_at: string;
+  reward_offered?: boolean;
+  reward_amount?: number;
 }
 
 export default function LostFoundScreen() {
@@ -61,6 +66,8 @@ export default function LostFoundScreen() {
     category: 'Electronics',
     location: '',
     contact_method: 'in_app' as 'in_app' | 'phone',
+    reward_offered: false,
+    reward_amount: '',
   });
 
   const categories: Category[] = ['All', 'Electronics', 'Clothing', 'Documents', 'Keys', 'Bags', 'Other'];
@@ -123,6 +130,11 @@ export default function LostFoundScreen() {
       return;
     }
 
+    if (formData.reward_offered && (!formData.reward_amount || parseFloat(formData.reward_amount) <= 0)) {
+      Alert.alert('Error', 'Please enter a valid reward amount');
+      return;
+    }
+
     try {
       const { error } = await supabase.from('lost_found_items').insert({
         user_id: user.id,
@@ -133,6 +145,8 @@ export default function LostFoundScreen() {
         location: formData.location.trim(),
         contact_method: formData.contact_method,
         status: 'active',
+        reward_offered: formData.reward_offered,
+        reward_amount: formData.reward_offered ? parseFloat(formData.reward_amount) : 0,
       });
 
       if (error) throw error;
@@ -155,6 +169,8 @@ export default function LostFoundScreen() {
       category: 'Electronics',
       location: '',
       contact_method: 'in_app',
+      reward_offered: false,
+      reward_amount: '',
     });
   };
 

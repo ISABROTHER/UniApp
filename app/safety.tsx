@@ -23,12 +23,17 @@ import {
   XCircle,
   Clock,
   User,
+  Navigation,
+  Eye,
+  UserPlus,
+  Share2,
+  CheckCircle2,
 } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
-type Tab = 'map' | 'report' | 'wellness' | 'transport';
+type Tab = 'map' | 'walkhome' | 'report' | 'wellness' | 'transport';
 
 type Zone = {
   name: string;
@@ -43,7 +48,7 @@ type TransportStatus = 'idle' | 'requested' | 'matched' | 'in_transit' | 'comple
 
 export default function SafetyScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, session, member } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('map');
   const [loading, setLoading] = useState(false);
 
@@ -63,6 +68,17 @@ export default function SafetyScreen() {
   const [destination, setDestination] = useState('');
   const [transportStatus, setTransportStatus] = useState<TransportStatus>('idle');
   const [driverInfo, setDriverInfo] = useState({ name: '', phone: '', eta: '' });
+
+  const [walkDestination, setWalkDestination] = useState('');
+  const [walkSessionActive, setWalkSessionActive] = useState(false);
+  const [walkSessionId, setWalkSessionId] = useState<string | null>(null);
+  const [walkStartTime, setWalkStartTime] = useState<Date | null>(null);
+  const [walkTimer, setWalkTimer] = useState(0);
+  const [watchers, setWatchers] = useState<{ name: string; phone: string }[]>([]);
+  const [watcherName, setWatcherName] = useState('');
+  const [watcherPhone, setWatcherPhone] = useState('');
+  const [sessionHistory, setSessionHistory] = useState<any[]>([]);
+  const [shareLink, setShareLink] = useState('');
 
   const zones: Zone[] = [
     {
@@ -114,7 +130,20 @@ export default function SafetyScreen() {
     if (activeTab === 'wellness') {
       loadWellnessHistory();
     }
+    if (activeTab === 'walkhome') {
+      loadSessionHistory();
+    }
   }, [activeTab]);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (walkSessionActive && walkStartTime) {
+      interval = setInterval(() => {
+        setWalkTimer(Math.floor((Date.now() - walkStartTime.getTime()) / 1000));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [walkSessionActive, walkStartTime]);
 
   const loadWellnessHistory = async () => {
     if (!user) return;
@@ -127,6 +156,20 @@ export default function SafetyScreen() {
 
     if (!error && data) {
       setCheckinHistory(data.reverse());
+    }
+  };
+
+  const loadSessionHistory = async () => {
+    if (!session?.user?.id) return;
+    const { data, error } = await supabase
+      .from('walk_me_home_sessions')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .order('started_at', { ascending: false })
+      .limit(5);
+
+    if (!error && data) {
+      setSessionHistory(data);
     }
   };
 
@@ -215,6 +258,121 @@ export default function SafetyScreen() {
 
   const callNumber = (number: string) => {
     Linking.openURL(`tel:${number}`);
+  };
+
+  const handleAddWatcher = () => {
+    if (!watcherName.trim() || !watcherPhone.trim()) {
+      Alert.alert('Error', 'Please enter watcher name and phone');
+      return;
+    }
+    if (watchers.length >= 3) {
+      Alert.alert('Error', 'Maximum 3 watchers allowed');
+      return;
+    }
+    setWatchers([...watchers, { name: watcherName, phone: watcherPhone }]);
+    setWatcherName('');
+    setWatcherPhone('');
+  };
+
+  const handleRemoveWatcher = (index: number) => {
+    setWatchers(watchers.filter((_, i) => i !== index));
+  };
+
+  const handleStartWalkSession = async () => {
+    if (!walkDestination.trim()) {
+      Alert.alert('Error', 'Please enter a destination');
+      return;
+    }
+    if (watchers.length === 0) {
+      Alert.alert('Error', 'Please add at least one watcher');
+      return;
+    }
+
+    setLoading(true);
+    const generatedShareLink = `https://safewalk.app/${Math.random().toString(36).substr(2, 9)}`;
+
+    const { data, error } = await supabase
+      .from('walk_me_home_sessions')
+      .insert({
+        user_id: session?.user?.id,
+        destination: walkDestination,
+        start_latitude: 0,
+        start_longitude: 0,
+        current_latitude: 0,
+        current_longitude: 0,
+        share_link: generatedShareLink,
+        status: 'active',
+        started_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+
+    if (error || !data) {
+      setLoading(false);
+      Alert.alert('Error', 'Failed to start session');
+      return;
+    }
+
+    for (const watcher of watchers) {
+      await supabase.from('walk_me_home_watchers').insert({
+        session_id: data.id,
+        watcher_name: watcher.name,
+        watcher_phone: watcher.phone,
+        notified: true,
+      });
+    }
+
+    setWalkSessionId(data.id);
+    setShareLink(generatedShareLink);
+    setWalkSessionActive(true);
+    setWalkStartTime(new Date());
+    setWalkTimer(0);
+    setLoading(false);
+    Alert.alert('Success', 'Walk session started. Your watchers have been notified.');
+  };
+
+  const handleEndSession = async (status: 'completed' | 'alert_triggered') => {
+    if (!walkSessionId) return;
+
+    setLoading(true);
+    const { error } = await supabase
+      .from('walk_me_home_sessions')
+      .update({
+        status: status,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', walkSessionId);
+
+    setLoading(false);
+    if (error) {
+      Alert.alert('Error', 'Failed to end session');
+    } else {
+      Alert.alert('Success', status === 'completed' ? 'Session ended safely' : 'SOS alert sent to watchers');
+      setWalkSessionActive(false);
+      setWalkSessionId(null);
+      setWalkStartTime(null);
+      setWalkTimer(0);
+      setWalkDestination('');
+      setWatchers([]);
+      setShareLink('');
+      loadSessionHistory();
+    }
+  };
+
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   };
 
   const getRatingColor = (rating: Zone['rating']) => {
@@ -515,6 +673,209 @@ export default function SafetyScreen() {
             </TouchableOpacity>
           </View>
         </View>
+      )}
+    </ScrollView>
+  );
+
+  const renderWalkHomeTab = () => (
+    <ScrollView style={styles.tabContent}>
+      {!walkSessionActive ? (
+        <>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Walk Me Home</Text>
+            <Text style={styles.sectionSubtitle}>Get peace of mind with live tracking</Text>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Destination</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Where are you walking to?"
+              value={walkDestination}
+              onChangeText={setWalkDestination}
+              placeholderTextColor={COLORS.textTertiary}
+            />
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Watchers ({watchers.length}/3)</Text>
+            {watchers.map((watcher, index) => (
+              <View key={index} style={styles.watcherCard}>
+                <Eye size={20} color={COLORS.primary} />
+                <View style={styles.watcherInfo}>
+                  <Text style={styles.watcherName}>{watcher.name}</Text>
+                  <Text style={styles.watcherPhone}>{watcher.phone}</Text>
+                </View>
+                <TouchableOpacity onPress={() => handleRemoveWatcher(index)}>
+                  <XCircle size={20} color={COLORS.error} />
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            {watchers.length < 3 && (
+              <View style={styles.addWatcherContainer}>
+                <TextInput
+                  style={[styles.input, { marginBottom: SPACING.sm }]}
+                  placeholder="Watcher name"
+                  value={watcherName}
+                  onChangeText={setWatcherName}
+                  placeholderTextColor={COLORS.textTertiary}
+                />
+                <TextInput
+                  style={[styles.input, { marginBottom: SPACING.sm }]}
+                  placeholder="Watcher phone"
+                  value={watcherPhone}
+                  onChangeText={setWatcherPhone}
+                  keyboardType="phone-pad"
+                  placeholderTextColor={COLORS.textTertiary}
+                />
+                <TouchableOpacity style={styles.addWatcherButton} onPress={handleAddWatcher}>
+                  <UserPlus size={20} color={COLORS.primary} />
+                  <Text style={styles.addWatcherText}>Add Watcher</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.startSessionButton, loading && styles.buttonDisabled]}
+            onPress={handleStartWalkSession}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <>
+                <Navigation size={24} color={COLORS.white} />
+                <Text style={styles.startSessionText}>Start Walk Session</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {sessionHistory.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Session History</Text>
+              {sessionHistory.map((session, index) => (
+                <View key={index} style={styles.historyCard}>
+                  <View style={styles.historyHeader}>
+                    <View style={styles.historyTitleRow}>
+                      <MapPin size={16} color={COLORS.textPrimary} />
+                      <Text style={styles.historyDestination}>{session.destination}</Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.historyStatusBadge,
+                        {
+                          backgroundColor:
+                            session.status === 'completed'
+                              ? COLORS.successLight
+                              : session.status === 'alert_triggered'
+                              ? '#FEE2E2'
+                              : COLORS.infoLight,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.historyStatusText,
+                          {
+                            color:
+                              session.status === 'completed'
+                                ? COLORS.success
+                                : session.status === 'alert_triggered'
+                                ? COLORS.error
+                                : COLORS.info,
+                          },
+                        ]}
+                      >
+                        {session.status === 'completed'
+                          ? 'Completed'
+                          : session.status === 'alert_triggered'
+                          ? 'SOS'
+                          : 'Active'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.historyTime}>{formatDateTime(session.started_at)}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </>
+      ) : (
+        <>
+          <View style={styles.activeSessionCard}>
+            <View style={styles.sessionStatusHeader}>
+              <View style={styles.pulsingDot} />
+              <Text style={styles.sessionStatusText}>Walk in Progress</Text>
+            </View>
+            <Text style={styles.sessionDestination}>{walkDestination}</Text>
+          </View>
+
+          <View style={styles.timerCard}>
+            <Clock size={32} color={COLORS.accent} />
+            <View style={styles.timerContent}>
+              <Text style={styles.timerLabel}>Duration</Text>
+              <Text style={styles.timerValue}>{formatTimer(walkTimer)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Share Link</Text>
+            <View style={styles.shareLinkContainer}>
+              <Share2 size={20} color={COLORS.accent} />
+              <Text style={styles.shareLinkText} numberOfLines={1}>
+                {shareLink}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.label}>Active Watchers</Text>
+            {watchers.map((watcher, index) => (
+              <View key={index} style={styles.activeWatcherCard}>
+                <Eye size={18} color={COLORS.success} />
+                <View style={styles.watcherInfo}>
+                  <Text style={styles.watcherName}>{watcher.name}</Text>
+                  <Text style={styles.watcherPhone}>{watcher.phone}</Text>
+                </View>
+                <View style={styles.watchingBadge}>
+                  <Text style={styles.watchingText}>Watching</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.safeButton, loading && styles.buttonDisabled]}
+            onPress={() => handleEndSession('completed')}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <>
+                <CheckCircle2 size={24} color={COLORS.white} />
+                <Text style={styles.safeButtonText}>I'm Safe</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.sosButton, loading && styles.buttonDisabled]}
+            onPress={() => handleEndSession('alert_triggered')}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={COLORS.white} />
+            ) : (
+              <>
+                <AlertTriangle size={24} color={COLORS.white} />
+                <Text style={styles.sosButtonText}>SOS Emergency</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </>
       )}
     </ScrollView>
   );

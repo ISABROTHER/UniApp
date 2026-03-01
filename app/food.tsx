@@ -24,6 +24,7 @@ import {
   TruckIcon,
   ChefHat,
   CheckCircle2,
+  Calendar,
 } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
@@ -44,6 +45,8 @@ interface Vendor {
   delivery_fee: number;
   min_order: number;
   is_active: boolean;
+  opening_time?: string;
+  closing_time?: string;
 }
 
 interface MenuItem {
@@ -75,6 +78,8 @@ interface Order {
   driver_name?: string;
   driver_phone?: string;
   created_at: string;
+  delivery_type?: string;
+  special_instructions?: string;
 }
 
 type Screen = 'vendors' | 'menu' | 'checkout' | 'tracking';
@@ -97,6 +102,8 @@ export default function FoodScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showActiveOrders, setShowActiveOrders] = useState(false);
+  const [deliveryType, setDeliveryType] = useState<'delivery' | 'pickup'>('delivery');
+  const [specialInstructions, setSpecialInstructions] = useState('');
 
   useEffect(() => {
     loadVendors();
@@ -215,12 +222,14 @@ export default function FoodScreen() {
   };
 
   const placeOrder = async () => {
-    if (!user || !selectedVendor || !deliveryAddress.trim()) return;
+    if (!user || !selectedVendor) return;
+    if (deliveryType === 'delivery' && !deliveryAddress.trim()) return;
 
     try {
       const subtotal = getCartTotal();
-      const deliveryFee = selectedVendor.delivery_fee;
+      const deliveryFee = deliveryType === 'delivery' ? selectedVendor.delivery_fee : 0;
       const total = subtotal + deliveryFee;
+      const estimatedMinutes = deliveryType === 'delivery' ? 35 : 20;
 
       const { data, error } = await supabase
         .from('food_orders')
@@ -236,10 +245,12 @@ export default function FoodScreen() {
           subtotal,
           delivery_fee: deliveryFee,
           total,
-          delivery_address: deliveryAddress,
+          delivery_address: deliveryType === 'delivery' ? deliveryAddress : 'Pickup',
+          delivery_type: deliveryType,
+          special_instructions: specialInstructions || null,
           status: 'Placed',
           estimated_delivery: new Date(
-            Date.now() + 45 * 60 * 1000
+            Date.now() + estimatedMinutes * 60 * 1000
           ).toISOString(),
         })
         .select()
@@ -250,6 +261,7 @@ export default function FoodScreen() {
       setSelectedOrder({ ...data, vendor_name: selectedVendor.name });
       setCart([]);
       setDeliveryAddress('');
+      setSpecialInstructions('');
       setScreen('tracking');
       loadOrders();
     } catch (error) {
@@ -261,6 +273,17 @@ export default function FoodScreen() {
     setRefreshing(true);
     loadVendors();
     loadOrders();
+  };
+
+  const isVendorOpen = (vendor: Vendor) => {
+    if (!vendor.opening_time || !vendor.closing_time) return true;
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes();
+    const [openHour, openMin] = vendor.opening_time.split(':').map(Number);
+    const [closeHour, closeMin] = vendor.closing_time.split(':').map(Number);
+    const openTime = openHour * 60 + openMin;
+    const closeTime = closeHour * 60 + closeMin;
+    return currentTime >= openTime && currentTime < closeTime;
   };
 
   const filteredVendors =
@@ -340,38 +363,60 @@ export default function FoodScreen() {
     </ScrollView>
   );
 
-  const renderVendorCard = (vendor: Vendor) => (
-    <TouchableOpacity
-      key={vendor.id}
-      style={styles.vendorCard}
-      onPress={() => handleVendorPress(vendor)}
-    >
-      <Image source={{ uri: vendor.image_url }} style={styles.vendorImage} />
-      <View style={styles.vendorInfo}>
-        <Text style={styles.vendorName}>{vendor.name}</Text>
-        <Text style={styles.vendorCategory}>{vendor.category}</Text>
-        <View style={styles.vendorMeta}>
-          <View style={styles.rating}>
-            <Star size={14} color={COLORS.warning} fill={COLORS.warning} />
-            <Text style={styles.ratingText}>
-              {vendor.rating.toFixed(1)} ({vendor.review_count})
-            </Text>
+  const renderVendorCard = (vendor: Vendor) => {
+    const open = isVendorOpen(vendor);
+    return (
+      <TouchableOpacity
+        key={vendor.id}
+        style={[styles.vendorCard, !open && styles.vendorCardClosed]}
+        onPress={() => open && handleVendorPress(vendor)}
+        disabled={!open}
+      >
+        <Image
+          source={{ uri: vendor.image_url }}
+          style={[styles.vendorImage, !open && styles.vendorImageClosed]}
+        />
+        {!open && (
+          <View style={styles.closedBadge}>
+            <Text style={styles.closedBadgeText}>Closed</Text>
           </View>
-          <View style={styles.metaItem}>
-            <TruckIcon size={14} color={COLORS.textSecondary} />
-            <Text style={styles.metaText}>₦{vendor.delivery_fee}</Text>
+        )}
+        <View style={styles.vendorInfo}>
+          <Text style={[styles.vendorName, !open && styles.vendorNameClosed]}>
+            {vendor.name}
+          </Text>
+          <Text style={styles.vendorCategory}>{vendor.category}</Text>
+          {vendor.opening_time && vendor.closing_time && (
+            <View style={styles.vendorHours}>
+              <Clock size={14} color={open ? COLORS.success : COLORS.textTertiary} />
+              <Text style={[styles.vendorHoursText, !open && styles.vendorHoursTextClosed]}>
+                {vendor.opening_time} - {vendor.closing_time}
+              </Text>
+            </View>
+          )}
+          <View style={styles.vendorMeta}>
+            <View style={styles.rating}>
+              <Star size={14} color={COLORS.warning} fill={COLORS.warning} />
+              <Text style={styles.ratingText}>
+                {vendor.rating.toFixed(1)} ({vendor.review_count})
+              </Text>
+            </View>
+            <View style={styles.metaItem}>
+              <TruckIcon size={14} color={COLORS.textSecondary} />
+              <Text style={styles.metaText}>₦{vendor.delivery_fee}</Text>
+            </View>
+            <View style={styles.metaItem}>
+              <Text style={styles.metaText}>Min: ₦{vendor.min_order}</Text>
+            </View>
           </View>
-          <View style={styles.metaItem}>
-            <Text style={styles.metaText}>Min: ₦{vendor.min_order}</Text>
+          <View style={styles.location}>
+            <MapPin size={14} color={COLORS.textTertiary} />
+            <Text style={styles.locationText}>{vendor.location}</Text>
           </View>
         </View>
-        <View style={styles.location}>
-          <MapPin size={14} color={COLORS.textTertiary} />
-          <Text style={styles.locationText}>{vendor.location}</Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   const renderMenuItem = (item: MenuItem) => {
     const cartItem = cart.find((i) => i.id === item.id);
