@@ -8,7 +8,7 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarShowLabel: true, // This is the magic switch that turns the names on
+        tabBarShowLabel: true,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.textTertiary,
         tabBarLabelStyle: {
@@ -40,13 +40,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="favourites"
-        options={{
-          title: 'Saved',
-          tabBarIcon: ({ color, size }) => <Heart size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="messages"
         options={{
           title: 'Messages',
@@ -61,6 +54,10 @@ export default function TabLayout() {
         }}
       />
       {/* These screens are part of the tab system but hidden from the bottom bar */}
+      <Tabs.Screen
+        name="favourites"
+        options={{ href: null, title: 'Saved' }}
+      />
       <Tabs.Screen
         name="bookings"
         options={{ href: null, title: 'Bookings' }}
