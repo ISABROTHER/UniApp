@@ -268,6 +268,7 @@ export default function ProfileScreen() {
         <SectionHeader title="Housing" />
         <MenuItem icon={<Home size={20} color={COLORS.accent} />} title="My Bookings" subtitle="View and manage reservations" onPress={() => router.push('/(tabs)/bookings' as any)} iconBg="#E0F2FE" />
         <MenuItem icon={<FileText size={20} color={COLORS.info} />} title="Tenancy" subtitle="Agreements & rent payments" onPress={() => router.push('/tenancy' as any)} iconBg="#E0F2FE" />
+        <MenuItem icon={<CreditCard size={20} color={COLORS.primary} />} title="My Payments" subtitle="Receipts & transaction history" onPress={() => router.push('/transactions' as any)} iconBg="#E0F2FE" />
         <MenuItem icon={<Zap size={20} color={COLORS.warning} />} title="Utilities" subtitle="ECG electricity & GWCL water" onPress={() => router.push('/utilities' as any)} iconBg="#FEF3C7" />
         <MenuItem icon={<Wrench size={20} color={COLORS.error} />} title="Maintenance" subtitle="Report issues & track repairs" onPress={() => router.push('/maintenance' as any)} iconBg="#FEE2E2" />
 
