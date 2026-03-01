@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS, BOOKING_STATUS_COLORS } from '@/lib/constants';
 import { Booking } from '@/lib/types';
 import QRCode from '@/components/QRCode';
+import { setCache, getCache } from '@/lib/cache';
 import {
   CalendarCheck, MapPin, QrCode, ChevronRight, Clock,
   X, Share2, ScanLine, CheckCircle, AlertCircle,
@@ -46,14 +47,31 @@ export default function BookingsScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      
+      const cacheKey = `CACHE_BOOKINGS_${user.id}`;
+      
+      // Load offline cache immediately
+      const cached = await getCache<(Booking & { hostel?: any })[]>(cacheKey);
+      if (cached && bookings.length === 0) {
+        setBookings(cached);
+      }
+
+      // Fetch fresh network data
       const { data } = await supabase
         .from('bookings')
         .select('*, hostels(name, address, campus_proximity, hostel_images(url))')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-      setBookings((data || []) as (Booking & { hostel?: any })[]);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); setRefreshing(false); }
+        
+      if (data) {
+        setBookings(data as (Booking & { hostel?: any })[]);
+        setCache(cacheKey, data); // Save offline
+      }
+    } catch (e) { 
+      console.warn('Network error, relying on cache', e);
+    } finally { 
+      setLoading(false); setRefreshing(false); 
+    }
   };
 
   useFocusEffect(useCallback(() => { fetchBookings(); }, []));
@@ -488,4 +506,4 @@ const styles = StyleSheet.create({
   qrScanBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
 
   qrTip: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary, textAlign: 'center' },
-}); 
+});
