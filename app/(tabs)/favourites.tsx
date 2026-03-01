@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, RefreshControl, Alert } from 'react-native';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { Hostel } from '@/lib/types';
-import { Heart, MapPin, Star, ShieldCheck, BookOpen, TrendingUp } from 'lucide-react-native';
+import { Heart, MapPin, Star, ShieldCheck, BookOpen, TrendingUp, CheckCircle2, Circle, ChevronRight } from 'lucide-react-native';
 import { markOnboardingStep, awardPoints } from '@/hooks/useRetention';
 
 const BG = '#ECEEF6';
@@ -14,6 +14,8 @@ export default function FavouritesScreen() {
   const [favourites, setFavourites] = useState<Hostel[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isCompareMode, setIsCompareMode] = useState(false);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
 
   const fetchFavourites = async () => {
     try {
@@ -52,6 +54,17 @@ export default function FavouritesScreen() {
     if (!user) return;
     await supabase.from('favourites').delete().eq('user_id', user.id).eq('hostel_id', hostelId);
     setFavourites((prev) => prev.filter((h) => h.id !== hostelId));
+    setCompareIds((prev) => prev.filter((id) => id !== hostelId));
+  };
+
+  const toggleCompareSelection = (hostelId: string) => {
+    if (compareIds.includes(hostelId)) {
+      setCompareIds(prev => prev.filter(id => id !== hostelId));
+    } else if (compareIds.length < 3) {
+      setCompareIds(prev => [...prev, hostelId]);
+    } else {
+      Alert.alert('Limit Reached', 'You can only compare up to 3 hostels side-by-side.');
+    }
   };
 
   const getImageUrl = (h: Hostel) => h.images?.[0]?.image_url || 'https://images.pexels.com/photos/1571460/pexels-photo-1571460.jpeg?w=400';
@@ -77,9 +90,33 @@ export default function FavouritesScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.pageTitle}>Saved</Text>
-        <Text style={styles.count}>{favourites.length} saved</Text>
+        <View>
+          <Text style={styles.pageTitle}>Saved</Text>
+          <Text style={styles.count}>{favourites.length} saved</Text>
+        </View>
+        {favourites.length >= 2 && (
+          <TouchableOpacity 
+            style={[styles.compareToggleBtn, isCompareMode && styles.compareToggleActive]} 
+            onPress={() => {
+              setIsCompareMode(!isCompareMode);
+              setCompareIds([]);
+            }}
+            activeOpacity={0.8}
+          >
+            <TrendingUp size={16} color={isCompareMode ? COLORS.white : COLORS.primary} />
+            <Text style={[styles.compareToggleText, isCompareMode && { color: COLORS.white }]}>
+              {isCompareMode ? 'Cancel' : 'Compare'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {isCompareMode && (
+        <View style={styles.compareBanner}>
+          <Text style={styles.compareBannerText}>Select 2 to 3 hostels to compare side-by-side.</Text>
+        </View>
+      )}
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchFavourites(); }} tintColor={COLORS.primary} />}
@@ -87,23 +124,51 @@ export default function FavouritesScreen() {
       >
         {favourites.map((hostel) => {
           const roomType = hostel.rooms?.[0]?.room_type ?? null;
+          const isSelected = compareIds.includes(hostel.id);
+          
           return (
-            <TouchableOpacity key={hostel.id} style={styles.card} onPress={() => router.push(`/detail?id=${hostel.id}` as any)} activeOpacity={0.92}>
+            <TouchableOpacity 
+              key={hostel.id} 
+              style={[
+                styles.card, 
+                isCompareMode && isSelected && styles.cardSelected,
+                isCompareMode && !isSelected && compareIds.length >= 3 && styles.cardDisabled
+              ]} 
+              onPress={() => {
+                if (isCompareMode) {
+                  toggleCompareSelection(hostel.id);
+                } else {
+                  router.push(`/detail?id=${hostel.id}` as any);
+                }
+              }} 
+              activeOpacity={isCompareMode ? 0.7 : 0.92}
+            >
               <View style={styles.cardImageWrap}>
                 <Image source={{ uri: getImageUrl(hostel) }} style={styles.cardImage} />
-                {hostel.verified && (
+                {hostel.verified && !isCompareMode && (
                   <View style={styles.verifiedBadge}>
                     <ShieldCheck size={10} color={COLORS.white} strokeWidth={2.5} />
                     <Text style={styles.verifiedText}>Verified</Text>
                   </View>
                 )}
-                <TouchableOpacity
-                  style={styles.heartBtnActive}
-                  onPress={(e) => { e.stopPropagation(); removeFavourite(hostel.id); }}
-                  activeOpacity={0.85}
-                >
-                  <Heart size={16} color={COLORS.white} fill={COLORS.white} />
-                </TouchableOpacity>
+                
+                {isCompareMode ? (
+                  <View style={styles.selectionOverlay}>
+                    {isSelected ? (
+                      <CheckCircle2 size={24} color={COLORS.white} fill={COLORS.primary} />
+                    ) : (
+                      <Circle size={24} color={COLORS.white} />
+                    )}
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.heartBtnActive}
+                    onPress={(e) => { e.stopPropagation(); removeFavourite(hostel.id); }}
+                    activeOpacity={0.85}
+                  >
+                    <Heart size={16} color={COLORS.white} fill={COLORS.white} />
+                  </TouchableOpacity>
+                )}
               </View>
               <View style={styles.cardBody}>
                 <Text style={styles.cardName} numberOfLines={1}>{hostel.name}</Text>
@@ -127,20 +192,35 @@ export default function FavouritesScreen() {
                     <Text style={styles.ratingText}>{hostel.rating.toFixed(1)}</Text>
                   </View>
                 </View>
-                <TouchableOpacity
-                  style={styles.bookBtn}
-                  onPress={(e) => { e.stopPropagation(); router.push(`/book?id=${hostel.id}` as any); }}
-                  activeOpacity={0.85}
-                >
-                  <BookOpen size={13} color={COLORS.white} />
-                  <Text style={styles.bookBtnText}>Book Now</Text>
-                </TouchableOpacity>
+                {!isCompareMode && (
+                  <TouchableOpacity
+                    style={styles.bookBtn}
+                    onPress={(e) => { e.stopPropagation(); router.push(`/book?id=${hostel.id}` as any); }}
+                    activeOpacity={0.85}
+                  >
+                    <BookOpen size={13} color={COLORS.white} />
+                    <Text style={styles.bookBtnText}>Book Now</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </TouchableOpacity>
           );
         })}
-        <View style={{ height: 24 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
+
+      {isCompareMode && compareIds.length >= 2 && (
+        <View style={styles.floatingCompareBox}>
+          <TouchableOpacity 
+            style={styles.floatingCompareBtn}
+            onPress={() => router.push(`/compare?ids=${compareIds.join(',')}` as any)}
+            activeOpacity={0.9}
+          >
+            <Text style={styles.floatingCompareText}>Compare {compareIds.length} Hostels</Text>
+            <ChevronRight size={20} color={COLORS.white} />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
@@ -158,6 +238,21 @@ const styles = StyleSheet.create({
   },
   pageTitle: { fontFamily: FONT.headingBold, fontSize: 28, color: COLORS.textPrimary },
   count: { fontFamily: FONT.medium, fontSize: 14, color: COLORS.textSecondary },
+  
+  compareToggleBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderRadius: RADIUS.full, backgroundColor: `${COLORS.primary}15`,
+  },
+  compareToggleActive: { backgroundColor: COLORS.primary },
+  compareToggleText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
+
+  compareBanner: {
+    backgroundColor: COLORS.navy, paddingVertical: 10, paddingHorizontal: SPACING.md,
+    alignItems: 'center', justifyContent: 'center'
+  },
+  compareBannerText: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.white },
+
   list: { padding: SPACING.md },
 
   card: {
@@ -171,9 +266,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
+    borderWidth: 2,
+    borderColor: 'transparent'
   },
+  cardSelected: { borderColor: COLORS.primary, backgroundColor: `${COLORS.primary}05` },
+  cardDisabled: { opacity: 0.5 },
   cardImageWrap: { position: 'relative', width: 140 },
-  cardImage: { width: 140, height: 170, backgroundColor: COLORS.borderLight },
+  cardImage: { width: 140, height: '100%', minHeight: 140, backgroundColor: COLORS.borderLight },
   cardBody: { flex: 1, padding: SPACING.md, justifyContent: 'space-between' },
   cardName: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary, marginBottom: 4 },
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginBottom: 6 },
@@ -206,6 +305,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
     justifyContent: 'center', alignItems: 'center',
   },
+  selectionOverlay: {
+    position: 'absolute', top: 8, right: 8,
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center', alignItems: 'center',
+  },
 
   bookBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
@@ -219,4 +324,14 @@ const styles = StyleSheet.create({
   emptyText: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: SPACING.lg },
   browseBtn: { backgroundColor: COLORS.primary, paddingHorizontal: SPACING.xl, paddingVertical: 14, borderRadius: RADIUS.md },
   browseBtnText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
+
+  floatingCompareBox: {
+    position: 'absolute', bottom: Platform.OS === 'ios' ? 30 : 20, left: SPACING.md, right: SPACING.md,
+  },
+  floatingCompareBtn: {
+    backgroundColor: COLORS.navy, borderRadius: RADIUS.full,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    paddingVertical: 16, elevation: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10,
+  },
+  floatingCompareText: { fontFamily: FONT.headingBold, fontSize: 16, color: COLORS.white },
 });
