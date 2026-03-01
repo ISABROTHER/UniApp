@@ -30,15 +30,12 @@ export default function HallPicker({
 }: HallPickerProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Get halls for the selected university
   const halls = universityName ? getHallsForUniversity(universityName) : [];
 
-  // Filter halls based on search
   const filteredHalls = halls.filter((hall) =>
     hall.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // If no halls available, show "Not Applicable"
   const displayHalls = halls.length === 0 ? ['Not Applicable'] : filteredHalls;
 
   const handleSelect = (hallName: string) => {
@@ -56,7 +53,6 @@ export default function HallPicker({
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <View style={styles.overlay}>
         <View style={styles.container}>
-          {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerLeft}>
               <Building2 size={24} color={COLORS.primary} strokeWidth={2} />
@@ -74,7 +70,6 @@ export default function HallPicker({
             </TouchableOpacity>
           </View>
 
-          {/* Search Bar - Only show if there are halls to search */}
           {halls.length > 0 && (
             <>
               <View style={styles.searchContainer}>
@@ -94,7 +89,6 @@ export default function HallPicker({
                 )}
               </View>
 
-              {/* Results Count */}
               {searchQuery.length > 0 && (
                 <Text style={styles.resultsCount}>
                   {filteredHalls.length} {filteredHalls.length === 1 ? 'result' : 'results'}
@@ -103,7 +97,6 @@ export default function HallPicker({
             </>
           )}
 
-          {/* Hall List */}
           <ScrollView style={styles.listContainer} showsVerticalScrollIndicator={false}>
             {displayHalls.length === 0 ? (
               <View style={styles.emptyState}>
@@ -111,7 +104,6 @@ export default function HallPicker({
                 <Text style={styles.emptySubtext}>Try a different search term</Text>
               </View>
             ) : halls.length === 0 ? (
-              // No halls available for this university
               <View style={styles.notApplicableContainer}>
                 <Building2 size={48} color={COLORS.textTertiary} strokeWidth={1.5} />
                 <Text style={styles.notApplicableTitle}>No Official Halls Listed</Text>
@@ -127,7 +119,6 @@ export default function HallPicker({
                 </TouchableOpacity>
               </View>
             ) : (
-              // Display halls
               displayHalls.map((hall, index) => {
                 const isSelected = selectedHall === hall;
                 return (
