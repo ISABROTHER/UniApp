@@ -52,15 +52,15 @@ interface MenuItemProps {
 
 function MenuItem({ icon, title, subtitle, onPress, badge, iconBg, badgeColor }: MenuItemProps) {
   return (
-    <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.menuIconBox, iconBg && { backgroundColor: iconBg }]}>{icon}</View>
-      <View style={styles.menuTextBox}>
+    <TouchableOpacity style={styles.menuCard} onPress={onPress} activeOpacity={0.7}>
+      <View style={[styles.menuIconBox, iconBg ? { backgroundColor: iconBg } : {}]}>{icon}</View>
+      <View style={styles.menuContent}>
         <Text style={styles.menuTitle}>{title}</Text>
         <Text style={styles.menuSubtitle}>{subtitle}</Text>
       </View>
       {badge && (
-        <View style={[styles.menuBadge, badgeColor && { backgroundColor: badgeColor }]}>
-          <Text style={styles.menuBadgeText}>{badge}</Text>
+        <View style={[styles.badge, badgeColor ? { backgroundColor: `${badgeColor}18` } : {}]}>
+          <Text style={[styles.badgeText, badgeColor ? { color: badgeColor } : {}]}>{badge}</Text>
         </View>
       )}
       <ChevronRight size={18} color={COLORS.textTertiary} />
@@ -72,18 +72,26 @@ function SectionHeader({ title }: { title: string }) {
   return <Text style={styles.sectionHeader}>{title}</Text>;
 }
 
-const EDIT_FIELDS = [
-  { key: 'full_name', label: 'Full Name', icon: <User size={18} color={COLORS.textTertiary} />, placeholder: 'Your full name' },
-  { key: 'phone', label: 'Phone Number', icon: <Phone size={18} color={COLORS.textTertiary} />, placeholder: '0244123456', keyboardType: 'phone-pad' as const },
-  { key: 'faculty', label: 'Faculty', icon: <GraduationCap size={18} color={COLORS.textTertiary} />, placeholder: 'e.g., Science' },
-  { key: 'department', label: 'Department', icon: <GraduationCap size={18} color={COLORS.textTertiary} />, placeholder: 'e.g., Computer Science' },
-  { key: 'level', label: 'Level', icon: <Star size={18} color={COLORS.textTertiary} />, placeholder: 'e.g., 300' },
-  { key: 'hall_of_residence', label: 'Hall of Residence', icon: <Building2 size={18} color={COLORS.textTertiary} />, placeholder: 'e.g., Oguaa Hall' },
+interface EditField {
+  label: string;
+  key: keyof Member;
+  icon: React.ReactNode;
+  placeholder: string;
+  keyboardType?: 'default' | 'email-address' | 'phone-pad';
+}
+
+const EDIT_FIELDS: EditField[] = [
+  { label: 'Full Name', key: 'full_name', icon: <User size={18} color={COLORS.textSecondary} />, placeholder: 'Your full name' },
+  { label: 'Phone', key: 'phone', icon: <Phone size={18} color={COLORS.textSecondary} />, placeholder: '+233 XX XXX XXXX', keyboardType: 'phone-pad' },
+  { label: 'Faculty', key: 'faculty', icon: <GraduationCap size={18} color={COLORS.textSecondary} />, placeholder: 'e.g. Science & Technology' },
+  { label: 'Department', key: 'department', icon: <GraduationCap size={18} color={COLORS.textSecondary} />, placeholder: 'e.g. Computer Science' },
+  { label: 'Level', key: 'level', icon: <Star size={18} color={COLORS.textSecondary} />, placeholder: 'e.g. 300' },
+  { label: 'Hall of Residence', key: 'hall_of_residence', icon: <Home size={18} color={COLORS.textSecondary} />, placeholder: 'e.g. Oguaa Hall' },
 ];
 
 export default function ProfileScreen() {
+  const { signOut, isOwner, isAdmin, session } = useAuth();
   const router = useRouter();
-  const { session, signOut, isAdmin, isOwner } = useAuth();
   const [member, setMember] = useState<Member | null>(null);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [editVisible, setEditVisible] = useState(false);
@@ -190,14 +198,14 @@ export default function ProfileScreen() {
                 onPress={() => { setEditForm(member ?? {}); setEditVisible(true); }}
                 activeOpacity={0.8}
               >
-                <Edit3 size={16} color={COLORS.white} />
+                <Edit3 size={13} color={COLORS.white} />
                 <Text style={styles.editBtnText}>Edit</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
-        {isOwner && (
+        {(isOwner || isAdmin) && (
           <TouchableOpacity
             style={styles.ownerBanner}
             onPress={() => router.push('/owner' as any)}
@@ -254,7 +262,7 @@ export default function ProfileScreen() {
         <SectionHeader title="Account" />
         <MenuItem icon={<MessageSquare size={20} color={COLORS.accent} />} title="Messages" subtitle="Chat with owners & students" onPress={() => router.push('/(tabs)/messages' as any)} iconBg="#E0F2FE" />
         <MenuItem icon={<Bell size={20} color={COLORS.textPrimary} />} title="Notifications" subtitle="Manage your alerts" onPress={() => router.push('/notifications' as any)} />
-        <MenuItem icon={<GraduationCap size={20} color={COLORS.textPrimary} />} title="University & Hall" subtitle={member?.university || 'Set your institution & hall'} onPress={() => router.push('/edit-profile')} />
+        <MenuItem icon={<GraduationCap size={20} color={COLORS.textPrimary} />} title="My University" subtitle={member?.hall_of_residence || 'University of Cape Coast'} onPress={() => setEditVisible(true)} />
         <MenuItem icon={<Shield size={20} color={COLORS.textPrimary} />} title="Privacy & Security" subtitle="Manage your data" onPress={() => {}} />
         <MenuItem icon={<HelpCircle size={20} color={COLORS.textPrimary} />} title="Support" subtitle="Get help from our team" onPress={() => {}} />
 
@@ -340,158 +348,166 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md, paddingTop: Platform.OS === 'web' ? 20 : 60, paddingBottom: SPACING.md,
   },
 
-  guestHeroCard: {
-    backgroundColor: COLORS.primary, borderRadius: RADIUS.lg, marginHorizontal: SPACING.md,
-    paddingVertical: SPACING.xl * 1.5, paddingHorizontal: SPACING.lg, alignItems: 'center',
-  },
-  guestLogoBox: {
-    backgroundColor: 'rgba(255,255,255,0.2)', width: 64, height: 64, borderRadius: 20,
-    justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md,
-  },
-  guestHeroTitle: { fontFamily: FONT.headingBold, fontSize: 26, color: COLORS.white, marginBottom: SPACING.xs },
-  guestHeroSub: {
-    fontFamily: FONT.regular, fontSize: 15, color: 'rgba(255,255,255,0.85)', textAlign: 'center', lineHeight: 22,
-  },
-
-  featuresHeading: {
-    fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary, marginTop: SPACING.lg,
-    paddingHorizontal: SPACING.md, marginBottom: SPACING.sm,
-  },
-  featureCard: {
-    flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: SPACING.md,
-    marginHorizontal: SPACING.md, marginBottom: SPACING.sm, alignItems: 'flex-start',
-  },
-  featureIconBox: { width: 44, height: 44, borderRadius: RADIUS.sm, justifyContent: 'center', alignItems: 'center' },
-  featureContent: { flex: 1, marginLeft: SPACING.md },
-  featureTitle: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary, marginBottom: 2 },
-  featureDesc: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, lineHeight: 19 },
-
-  signInButton: {
-    backgroundColor: COLORS.primary, borderRadius: RADIUS.md, paddingVertical: SPACING.md + 2,
-    marginHorizontal: SPACING.md, marginTop: SPACING.lg, alignItems: 'center',
-  },
-  signInButtonText: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.white },
-
   profileCard: {
-    flexDirection: 'row', backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md,
-    marginHorizontal: SPACING.md, alignItems: 'center',
+    backgroundColor: COLORS.navy, marginHorizontal: SPACING.md, borderRadius: RADIUS.lg,
+    padding: SPACING.lg, flexDirection: 'row', alignItems: 'center', gap: SPACING.md, marginBottom: SPACING.md,
   },
   avatarCircle: {
     width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.primary,
-    justifyContent: 'center', alignItems: 'center',
+    justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.25)',
   },
   avatarInitial: { fontFamily: FONT.headingBold, fontSize: 28, color: COLORS.white },
-  profileInfo: { flex: 1, marginLeft: SPACING.md },
-  profileName: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary },
-  profileUniversity: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
-  profileBottom: { flexDirection: 'row', marginTop: SPACING.sm, alignItems: 'center', gap: SPACING.sm },
+  profileInfo: { flex: 1 },
+  profileName: { fontFamily: FONT.headingBold, fontSize: 20, color: COLORS.white, marginBottom: 4 },
+  profileUniversity: { fontFamily: FONT.regular, fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 10 },
+  profileBottom: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm },
   rolePill: {
-    paddingHorizontal: SPACING.sm + 2, paddingVertical: 4, borderRadius: RADIUS.sm, borderWidth: 1,
-    backgroundColor: COLORS.primary,
+    paddingHorizontal: 14, paddingVertical: 5, borderRadius: RADIUS.full, borderWidth: 1,
   },
-  roleText: { fontFamily: FONT.bold, fontSize: 11, color: COLORS.white },
+  roleText: { fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.white },
   editBtn: {
-    flexDirection: 'row', backgroundColor: COLORS.primary, borderRadius: RADIUS.sm,
-    paddingHorizontal: SPACING.sm + 2, paddingVertical: 6, alignItems: 'center', gap: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.18)', borderRadius: RADIUS.full,
+    paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
   },
-  editBtnText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.white },
+  editBtnText: { fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.white },
 
   ownerBanner: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: COLORS.navy, borderRadius: RADIUS.lg, paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.md, marginHorizontal: SPACING.md, marginTop: SPACING.sm,
+    marginHorizontal: SPACING.md, marginBottom: SPACING.md,
+    backgroundColor: COLORS.navy, borderRadius: RADIUS.lg,
+    padding: SPACING.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    borderWidth: 1, borderColor: 'rgba(74,144,226,0.4)',
   },
-  ownerBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.sm, flex: 1 },
+  ownerBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: SPACING.md },
   ownerBannerIconBox: {
-    width: 48, height: 48, borderRadius: RADIUS.md, backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center', alignItems: 'center',
+    width: 48, height: 48, borderRadius: RADIUS.md,
+    backgroundColor: COLORS.accent, justifyContent: 'center', alignItems: 'center',
   },
-  ownerBannerLabel: { fontFamily: FONT.bold, fontSize: 10, color: 'rgba(255,255,255,0.65)', letterSpacing: 1 },
-  ownerBannerTitle: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.white, marginTop: 2 },
-  ownerBannerSub: { fontFamily: FONT.regular, fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  ownerBannerLabel: { fontFamily: FONT.semiBold, fontSize: 10, color: COLORS.accent, letterSpacing: 1 },
+  ownerBannerTitle: { fontFamily: FONT.headingBold, fontSize: 16, color: COLORS.white, marginVertical: 2 },
+  ownerBannerSub: { fontFamily: FONT.regular, fontSize: 12, color: 'rgba(255,255,255,0.6)' },
 
   statsRow: {
-    flexDirection: 'row', marginTop: SPACING.md, marginHorizontal: SPACING.md, gap: SPACING.sm,
+    flexDirection: 'row', gap: SPACING.sm, paddingHorizontal: SPACING.md, marginBottom: SPACING.md,
   },
   statCard: {
-    flex: 1, backgroundColor: COLORS.white, borderRadius: RADIUS.md, paddingVertical: SPACING.sm + 2,
-    alignItems: 'center',
+    flex: 1, backgroundColor: COLORS.white, borderRadius: RADIUS.md,
+    paddingVertical: SPACING.md, paddingHorizontal: SPACING.sm, alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
   },
-  statNum: { fontFamily: FONT.bold, fontSize: 22 },
-  statLabel: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  statNum: { fontFamily: FONT.headingBold, fontSize: 26, marginBottom: 4 },
+  statLabel: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 16 },
 
   sectionHeader: {
-    fontFamily: FONT.bold, fontSize: 15, color: COLORS.textPrimary,
-    paddingHorizontal: SPACING.md, marginTop: SPACING.lg, marginBottom: SPACING.xs,
+    fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.6,
+    paddingHorizontal: SPACING.md, marginTop: SPACING.lg, marginBottom: SPACING.sm,
   },
-  menuItem: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white, paddingVertical: SPACING.md,
-    paddingHorizontal: SPACING.md, marginHorizontal: SPACING.md, marginBottom: SPACING.xs, borderRadius: RADIUS.md,
+
+  menuCard: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.white,
+    marginHorizontal: SPACING.md, marginBottom: SPACING.sm, borderRadius: RADIUS.md,
+    padding: SPACING.md, gap: SPACING.md,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4, elevation: 1,
   },
   menuIconBox: {
-    width: 40, height: 40, borderRadius: RADIUS.sm, backgroundColor: '#F3F4F6',
+    width: 42, height: 42, borderRadius: RADIUS.sm, backgroundColor: COLORS.background,
     justifyContent: 'center', alignItems: 'center',
   },
-  menuTextBox: { flex: 1, marginLeft: SPACING.md },
-  menuTitle: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary },
-  menuSubtitle: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
-  menuBadge: {
-    backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.xs,
-    paddingVertical: 2, marginRight: SPACING.xs,
+  menuContent: { flex: 1 },
+  menuTitle: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary, marginBottom: 2 },
+  menuSubtitle: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary },
+  badge: {
+    paddingHorizontal: 8, paddingVertical: 3, backgroundColor: COLORS.primaryFaded, borderRadius: RADIUS.full,
   },
-  menuBadgeText: { fontFamily: FONT.bold, fontSize: 10, color: COLORS.white },
+  badgeText: { fontFamily: FONT.semiBold, fontSize: 10, color: COLORS.primary },
 
   signOutButton: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: SPACING.xs,
-    backgroundColor: '#FEE2E2', borderRadius: RADIUS.md, paddingVertical: SPACING.md,
-    marginHorizontal: SPACING.md, marginTop: SPACING.lg,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.white, marginHorizontal: SPACING.md, marginTop: SPACING.md,
+    borderRadius: RADIUS.md, paddingVertical: SPACING.md, gap: SPACING.sm,
+    elevation: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 4,
   },
   signOutText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.error },
 
-  version: {
-    fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary, textAlign: 'center',
-    marginTop: SPACING.lg,
+  guestHeroCard: {
+    backgroundColor: COLORS.navy, marginHorizontal: SPACING.md, borderRadius: RADIUS.lg,
+    padding: SPACING.lg, alignItems: 'center', marginBottom: SPACING.lg,
   },
+  guestLogoBox: {
+    width: 56, height: 56, borderRadius: RADIUS.md, backgroundColor: COLORS.primary,
+    justifyContent: 'center', alignItems: 'center', marginBottom: SPACING.md,
+  },
+  guestHeroTitle: { fontFamily: FONT.headingBold, fontSize: 22, color: COLORS.white, marginBottom: SPACING.xs },
+  guestHeroSub: { fontFamily: FONT.regular, fontSize: 14, color: 'rgba(255,255,255,0.65)', textAlign: 'center', lineHeight: 22 },
+
+  featuresHeading: {
+    fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.textSecondary,
+    textTransform: 'uppercase', letterSpacing: 0.6, paddingHorizontal: SPACING.md, marginBottom: SPACING.sm,
+  },
+  featureCard: {
+    flexDirection: 'row', alignItems: 'flex-start', backgroundColor: COLORS.white,
+    marginHorizontal: SPACING.md, marginBottom: SPACING.sm, borderRadius: RADIUS.md,
+    padding: SPACING.md, gap: SPACING.md,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
+  },
+  featureIconBox: { width: 44, height: 44, borderRadius: RADIUS.sm, justifyContent: 'center', alignItems: 'center', flexShrink: 0 },
+  featureContent: { flex: 1 },
+  featureTitle: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.textPrimary, marginBottom: 4 },
+  featureDesc: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, lineHeight: 20 },
+
+  signInButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.primary, marginHorizontal: SPACING.md, marginTop: SPACING.md,
+    borderRadius: RADIUS.md, paddingVertical: 15,
+    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
+  },
+  signInButtonText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
+  version: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textTertiary, textAlign: 'center', marginTop: SPACING.md },
 
   sheetHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: SPACING.md, paddingTop: SPACING.lg, paddingBottom: SPACING.md,
-    borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
+    borderBottomWidth: 1, borderBottomColor: COLORS.borderLight,
+    backgroundColor: COLORS.white,
   },
-  sheetClose: { padding: SPACING.xs },
-  sheetTitle: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary },
+  sheetClose: { width: 36, height: 36, borderRadius: 18, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
+  sheetTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
   sheetSaveBtn: {
-    backgroundColor: COLORS.primary, borderRadius: RADIUS.sm, paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs + 2, minWidth: 60, alignItems: 'center',
+    backgroundColor: COLORS.primary, paddingHorizontal: 20, paddingVertical: 9,
+    borderRadius: RADIUS.full, minWidth: 72, alignItems: 'center', justifyContent: 'center',
   },
-  sheetSaveBtnText: { fontFamily: FONT.bold, fontSize: 14, color: COLORS.white },
+  sheetSaveBtnText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
 
-  sheetBody: { flex: 1, paddingHorizontal: SPACING.md },
-  sheetAvatarRow: { flexDirection: 'row', alignItems: 'center', marginTop: SPACING.lg, marginBottom: SPACING.md },
+  sheetBody: { flex: 1, backgroundColor: COLORS.background, paddingHorizontal: SPACING.md, paddingTop: SPACING.md },
+
+  sheetAvatarRow: {
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.md,
+    backgroundColor: COLORS.white, borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md,
+  },
   sheetAvatar: {
     width: 56, height: 56, borderRadius: 28, backgroundColor: COLORS.primary,
-    justifyContent: 'center', alignItems: 'center', marginRight: SPACING.md,
+    justifyContent: 'center', alignItems: 'center',
   },
-  sheetAvatarText: { fontFamily: FONT.bold, fontSize: 20, color: COLORS.white },
-  sheetAvatarName: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.textPrimary },
+  sheetAvatarText: { fontFamily: FONT.headingBold, fontSize: 22, color: COLORS.white },
+  sheetAvatarName: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.textPrimary },
   sheetAvatarEmail: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
 
-  sheetField: { marginBottom: SPACING.md },
-  sheetFieldLabel: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary, marginBottom: SPACING.xs },
+  sheetField: { marginBottom: SPACING.sm },
+  sheetFieldLabel: { fontFamily: FONT.semiBold, fontSize: 12, color: COLORS.textSecondary, marginBottom: 6, letterSpacing: 0.3, textTransform: 'uppercase' },
   sheetInputRow: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: RADIUS.sm,
-    borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: SPACING.sm + 2,
-    paddingVertical: Platform.OS === 'ios' ? SPACING.sm : SPACING.xs,
+    flexDirection: 'row', alignItems: 'center', gap: SPACING.sm,
+    backgroundColor: COLORS.white, borderRadius: RADIUS.md, paddingHorizontal: SPACING.md, paddingVertical: 12,
+    borderWidth: 1, borderColor: COLORS.borderLight,
   },
-  sheetInput: {
-    flex: 1, fontFamily: FONT.regular, fontSize: 15, color: COLORS.textPrimary, marginLeft: SPACING.xs,
-    padding: 0,
-  },
+  sheetInput: { flex: 1, fontFamily: FONT.regular, fontSize: 15, color: COLORS.textPrimary },
 
   successToast: {
-    position: 'absolute', bottom: SPACING.xl, alignSelf: 'center', flexDirection: 'row',
-    backgroundColor: COLORS.success, borderRadius: RADIUS.md, paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md, alignItems: 'center', gap: SPACING.xs,
+    position: 'absolute', bottom: 40, alignSelf: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: COLORS.success, paddingHorizontal: 24, paddingVertical: 14,
+    borderRadius: RADIUS.full, shadowColor: COLORS.success,
+    shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.35, shadowRadius: 16, elevation: 12,
   },
-  successToastText: { fontFamily: FONT.semiBold, fontSize: 14, color: COLORS.white },
+  successToastText: { fontFamily: FONT.semiBold, fontSize: 15, color: COLORS.white },
 });
