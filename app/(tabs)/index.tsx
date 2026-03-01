@@ -28,8 +28,20 @@ import {
   Shield,
   Heart,
   Calendar,
+  Wallet,
+  Bot,
+  ShieldAlert,
+  UtensilsCrossed,
+  BookOpen,
+  Bus,
+  GraduationCap,
+  Megaphone,
+  CreditCard,
+  Search as SearchIcon,
+  Vote,
 } from 'lucide-react-native';
 import LeaseRenewalCard from '@/components/LeaseRenewalCard';
+import SOSButton from '@/components/SOSButton';
 
 const { width: SW } = Dimensions.get('window');
 const BANNER_WIDTH = SW - SPACING.md * 2;
@@ -64,6 +76,36 @@ const SERVICE_BANNERS = [
     bg: ['#16A34A', '#14532D'],
     accent: '#BBF7D0',
     icon: Users,
+  },
+  {
+    id: 'wallet',
+    title: 'Campus Wallet',
+    subtitle: 'One wallet for rent, food, laundry & more',
+    cta: 'Open Wallet',
+    route: '/wallet',
+    bg: ['#0284C7', '#075985'],
+    accent: '#7DD3FC',
+    icon: Wallet,
+  },
+  {
+    id: 'food',
+    title: 'Campus Eats',
+    subtitle: 'Order from your favourite campus vendors',
+    cta: 'Order Now',
+    route: '/food',
+    bg: ['#F59E0B', '#B45309'],
+    accent: '#FDE68A',
+    icon: UtensilsCrossed,
+  },
+  {
+    id: 'ai',
+    title: 'AI Assistant',
+    subtitle: 'Ask anything about hostels & campus life',
+    cta: 'Chat Now',
+    route: '/ai-assistant',
+    bg: ['#7C3AED', '#5B21B6'],
+    accent: '#C4B5FD',
+    icon: Bot,
   },
 ];
 
@@ -235,6 +277,7 @@ export default function HomeScreen() {
   };
 
   return (
+    <>
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
@@ -322,13 +365,25 @@ export default function HomeScreen() {
 
       <View style={styles.quickActionsSection}>
         <View style={styles.quickActionsGrid}>
-
-          {/* Row 1 */}
           <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/(tabs)/bookings' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
               <Home size={28} color={COLORS.accent} />
             </View>
             <Text style={styles.qaLabel}>Housing</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/wallet' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#DBEAFE' }]}>
+              <Wallet size={28} color={COLORS.info} />
+            </View>
+            <Text style={styles.qaLabel}>Wallet</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/food' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
+              <UtensilsCrossed size={28} color={COLORS.warning} />
+            </View>
+            <Text style={styles.qaLabel}>Food</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/(tabs)/laundry' as any)}>
@@ -338,19 +393,39 @@ export default function HomeScreen() {
             <Text style={styles.qaLabel}>Smart Wash</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/(tabs)/stumark' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
-              <ShoppingBag size={28} color={COLORS.warning} />
-            </View>
-            <Text style={styles.qaLabel}>StuMark</Text>
-          </TouchableOpacity>
-
-          {/* Row 2 */}
           <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/print' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
               <Printer size={28} color={COLORS.success} />
             </View>
             <Text style={styles.qaLabel}>DigiPrint</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/hall' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#DBEAFE' }]}>
+              <Shield size={28} color={COLORS.info} />
+            </View>
+            <Text style={styles.qaLabel}>My Hall</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/events' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
+              <Calendar size={28} color={COLORS.primary} />
+            </View>
+            <Text style={styles.qaLabel}>Events</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/safety' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
+              <ShieldAlert size={28} color={COLORS.error} />
+            </View>
+            <Text style={styles.qaLabel}>Safety</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/ai-assistant' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#F3E8FF' }]}>
+              <Bot size={28} color='#7C3AED' />
+            </View>
+            <Text style={styles.qaLabel}>AI Assistant</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/roommates' as any)}>
@@ -360,25 +435,40 @@ export default function HomeScreen() {
             <Text style={styles.qaLabel}>Roommates</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/hall' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#DBEAFE' }]}>
-              <Shield size={28} color={COLORS.info} />
+          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/(tabs)/stumark' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
+              <ShoppingBag size={28} color={COLORS.warning} />
             </View>
-            <Text style={styles.qaLabel}>My Hall</Text>
+            <Text style={styles.qaLabel}>StuMark</Text>
           </TouchableOpacity>
-          
-          {/* Row 3 */}
-          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/calendar' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#F3E8FF' }]}>
-              <Calendar size={28} color='#9333EA' />
-            </View>
-            <Text style={styles.qaLabel}>Calendar</Text>
-          </TouchableOpacity>
-          
-          {/* Empty Placeholders to keep grid aligned */}
-          <View style={[styles.qa, styles.borderR]} />
-          <View style={styles.qa} />
 
+          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/study-rooms' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
+              <BookOpen size={28} color={COLORS.accent} />
+            </View>
+            <Text style={styles.qaLabel}>Study Rooms</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/shuttle' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
+              <Bus size={28} color={COLORS.success} />
+            </View>
+            <Text style={styles.qaLabel}>Shuttle</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/bulletin' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
+              <Megaphone size={28} color='#D97706' />
+            </View>
+            <Text style={styles.qaLabel}>Bulletin</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.qa} onPress={() => router.push('/lost-found' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#F3E8FF' }]}>
+              <SearchIcon size={28} color='#9333EA' />
+            </View>
+            <Text style={styles.qaLabel}>Lost & Found</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -416,8 +506,41 @@ export default function HomeScreen() {
 
       <RecentActivity />
 
+      <View style={styles.moreSection}>
+        <Text style={styles.sectionTitle}>More Services</Text>
+        <View style={styles.moreGrid}>
+          <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/student-id' as any)}>
+            <CreditCard size={20} color={COLORS.navy} />
+            <Text style={styles.moreItemText}>Student ID</Text>
+            <ChevronRight size={16} color={COLORS.textTertiary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/elections' as any)}>
+            <Vote size={20} color={COLORS.primary} />
+            <Text style={styles.moreItemText}>Hall Elections</Text>
+            <ChevronRight size={16} color={COLORS.textTertiary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/alumni' as any)}>
+            <GraduationCap size={20} color={COLORS.success} />
+            <Text style={styles.moreItemText}>Alumni Mentors</Text>
+            <ChevronRight size={16} color={COLORS.textTertiary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/calendar' as any)}>
+            <Calendar size={20} color='#9333EA' />
+            <Text style={styles.moreItemText}>Academic Calendar</Text>
+            <ChevronRight size={16} color={COLORS.textTertiary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/transactions' as any)}>
+            <Wallet size={20} color={COLORS.accent} />
+            <Text style={styles.moreItemText}>Transactions</Text>
+            <ChevronRight size={16} color={COLORS.textTertiary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       <View style={{ height: 32 }} />
     </ScrollView>
+    <SOSButton />
+    </>
   );
 }
 
@@ -529,4 +652,27 @@ const styles = StyleSheet.create({
   bannerCtaText: { fontFamily: FONT.semiBold, fontSize: 13 },
 
   sectionTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
+
+  moreSection: {
+    backgroundColor: COLORS.white,
+    marginTop: 1,
+    paddingTop: SPACING.md,
+    paddingHorizontal: SPACING.md,
+    paddingBottom: SPACING.sm,
+  },
+  moreGrid: { gap: 2 },
+  moreItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+    gap: SPACING.sm,
+  },
+  moreItemText: {
+    flex: 1,
+    fontFamily: FONT.medium,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+  },
 });

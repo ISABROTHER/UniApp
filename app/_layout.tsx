@@ -96,6 +96,20 @@ export default function RootLayout() {
         <Stack.Screen name="qr-scan" options={{ animation: 'fade' }} />
         <Stack.Screen name="hall" />
         <Stack.Screen name="hall-designation" />
+        <Stack.Screen name="wallet" />
+        <Stack.Screen name="events" />
+        <Stack.Screen name="safety" />
+        <Stack.Screen name="food" />
+        <Stack.Screen name="lost-found" />
+        <Stack.Screen name="shuttle" />
+        <Stack.Screen name="elections" />
+        <Stack.Screen name="alumni" />
+        <Stack.Screen name="bulletin" />
+        <Stack.Screen name="study-rooms" />
+        <Stack.Screen name="student-id" />
+        <Stack.Screen name="ai-assistant" />
+        <Stack.Screen name="sos-contacts" />
+        <Stack.Screen name="reviews" />
         <Stack.Screen name="auth/sign-in" />
         <Stack.Screen name="auth/sign-up" />
         <Stack.Screen name="auth/forgot-password" />
