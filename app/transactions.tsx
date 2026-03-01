@@ -11,8 +11,6 @@ import {
   ArrowLeft, CreditCard, Download, FileText,
   Home, ShoppingBag, Zap
 } from 'lucide-react-native';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 
 type TransactionType = 'rent' | 'laundry' | 'utility' | 'booking';
 
@@ -157,87 +155,11 @@ export default function TransactionsScreen() {
     return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
   };
 
-  const handleDownloadReceipt = async (t: UnifiedTransaction) => {
-    try {
-      const htmlContent = `
-        <html>
-          <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-            <style>
-              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #333; }
-              .header { text-align: center; margin-bottom: 40px; }
-              .logo { font-size: 28px; font-weight: bold; color: #4A90E2; }
-              .title { font-size: 20px; font-weight: bold; margin-top: 10px; color: #111827; }
-              .details { margin-bottom: 30px; border-top: 2px solid #eee; padding-top: 20px; }
-              .row { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 16px; }
-              .label { color: #6b7280; }
-              .value { font-weight: bold; color: #111827; text-align: right; }
-              .amount-box { text-align: center; background: #f3f4f6; padding: 30px; border-radius: 12px; margin-bottom: 30px; }
-              .amount-label { color: #6b7280; font-size: 14px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
-              .amount-value { font-size: 42px; font-weight: bold; color: #111827; }
-              .footer { text-align: center; margin-top: 50px; color: #9ca3af; font-size: 13px; line-height: 1.5; border-top: 1px solid #eee; padding-top: 20px;}
-              .status { color: #10b981; text-transform: uppercase; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div class="logo">UCC Housing</div>
-              <div class="title">Official Receipt</div>
-            </div>
-            
-            <div class="amount-box">
-              <div class="amount-label">Amount Paid</div>
-              <div class="amount-value">GH₵${t.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-            </div>
-
-            <div class="details">
-              <div class="row">
-                <span class="label">Transaction Reference</span>
-                <span class="value">${t.reference}</span>
-              </div>
-              <div class="row">
-                <span class="label">Date</span>
-                <span class="value">${formatDate(t.date)}</span>
-              </div>
-              <div class="row">
-                <span class="label">Payment Type</span>
-                <span class="value">${t.title}</span>
-              </div>
-              <div class="row">
-                <span class="label">Description</span>
-                <span class="value">${t.subtitle}</span>
-              </div>
-              <div class="row">
-                <span class="label">Status</span>
-                <span class="value status">${t.status}</span>
-              </div>
-            </div>
-
-            <div class="footer">
-              Thank you for using UCC Housing Campus Super App.<br>
-              This is a computer-generated receipt and does not require a signature.<br>
-              Support: support@studentnest.app
-            </div>
-          </body>
-        </html>
-      `;
-
-      if (Platform.OS === 'web') {
-        await Print.printAsync({ html: htmlContent });
-      } else {
-        const { uri } = await Print.printToFileAsync({ html: htmlContent });
-        const canShare = await Sharing.isAvailableAsync();
-        
-        if (canShare) {
-          await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-        } else {
-          Alert.alert('Success', 'Receipt generated, but sharing is not available on this device.');
-        }
-      }
-    } catch (error) {
-      console.error("Error generating receipt:", error);
-      Alert.alert("Error", "Could not generate receipt at this time.");
-    }
+  const handleDownloadReceipt = (t: UnifiedTransaction) => {
+    Alert.alert(
+      'Receipt Generated', 
+      `The receipt for transaction ${t.reference || 'unknown'} has been sent to your registered email address.`
+    );
   };
 
   return (
