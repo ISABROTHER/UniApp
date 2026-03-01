@@ -2,17 +2,6 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Member } from '@/lib/types';
 import { Session } from '@supabase/supabase-js';
-import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
-
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
 
 function phoneToEmail(phone: string): string {
   const digits = phone.replace(/\D/g, '');
@@ -52,63 +41,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [member, setMember] = useState<Member | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const registerPushToken = async (userId: string) => {
-    try {
-      // Skip push notification registration entirely on web to avoid errors
-      if (Platform.OS === 'web') return;
-
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF231F7C',
-        });
-      }
-
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      let finalStatus = existingStatus;
-      
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync();
-        finalStatus = status;
-      }
-      
-      if (finalStatus !== 'granted') {
-        return;
-      }
-      
-      const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-      const token = tokenData.data;
-      
-      const { error } = await supabase
-        .from('members')
-        .update({ push_token: token } as any)
-        .eq('id', userId);
-        
-      if (error) {
-        console.log('Notice: Could not save push token to members table.', error.message);
-      }
-    } catch (e) {
-      // This will silently catch the error on simulators (which can't get push tokens)
-      // without breaking your Bolt.new build.
-      console.log('Push registration skipped (likely simulator environment):', e);
-    }
-  };
-
   const fetchMember = async (userId: string) => {
     const { data } = await supabase
       .from('members')
       .select('*')
       .eq('id', userId)
       .maybeSingle();
-      
     setMember(data as Member | null);
-
-    if (data) {
-      await registerPushToken(userId);
-    }
   };
 
   const refreshMember = async () => {
