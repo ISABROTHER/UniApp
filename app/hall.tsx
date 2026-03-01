@@ -154,6 +154,12 @@ export default function MyHallScreen() {
         return;
       }
 
+      const { data: profileData } = await supabase
+        .from('members')
+        .select('traditional_hall, university')
+        .eq('id', userId)
+        .maybeSingle();
+
       const { data: memberData } = await supabase
         .from('hall_members')
         .select('hall_id, is_resident, halls(id, name)')
@@ -161,52 +167,75 @@ export default function MyHallScreen() {
         .eq('academic_year', '2026/27')
         .maybeSingle();
 
-      if (!memberData?.hall_id) {
+      if (profileData?.traditional_hall) {
+        setHallInfo({
+          id: null,
+          name: profileData.traditional_hall,
+          university: profileData.university,
+          isResident: memberData?.is_resident ?? false,
+          isFromProfile: true,
+        });
+      } else if (memberData?.hall_id) {
+        const hallData = memberData.halls as any;
+        setHallInfo({
+          id: hallData.id,
+          name: hallData.name,
+          isResident: memberData.is_resident,
+          isFromProfile: false,
+        });
+      } else {
         setLoading(false);
         return;
       }
 
-      const hallData = memberData.halls as any;
-      setHallInfo({
-        id: hallData.id,
-        name: hallData.name,
-        isResident: memberData.is_resident,
-      });
+      const hallId = memberData?.hall_id;
 
-      // Fetch hall statistics (parallel requests)
-      const [membersRes, announcementsRes, eventsRes] = await Promise.all([
-        supabase
-          .from('hall_members')
-          .select('is_resident', { count: 'exact' })
-          .eq('hall_id', memberData.hall_id),
-        supabase
-          .from('hall_posts')
-          .select('id, created_at, title, post_type, priority', { count: 'exact' })
-          .eq('hall_id', memberData.hall_id)
-          .order('created_at', { ascending: false })
-          .limit(10),
-        supabase
-          .from('hall_events')
-          .select('id, title, event_date', { count: 'exact' })
-          .eq('hall_id', memberData.hall_id)
-          .gte('event_date', new Date().toISOString()),
-      ]);
+      if (hallId) {
+        const [membersRes, announcementsRes, eventsRes] = await Promise.all([
+          supabase
+            .from('hall_members')
+            .select('is_resident', { count: 'exact' })
+            .eq('hall_id', hallId),
+          supabase
+            .from('hall_posts')
+            .select('id, created_at, title, post_type, priority', { count: 'exact' })
+            .eq('hall_id', hallId)
+            .order('created_at', { ascending: false })
+            .limit(10),
+          supabase
+            .from('hall_events')
+            .select('id, title, event_date', { count: 'exact' })
+            .eq('hall_id', hallId)
+            .gte('event_date', new Date().toISOString()),
+        ]);
 
-      const totalMembers = membersRes.count || 0;
-      const residents = membersRes.data?.filter(m => m.is_resident).length || 0;
+        const totalMembers = membersRes.count || 0;
+        const residents = membersRes.data?.filter(m => m.is_resident).length || 0;
 
-      setStats({
-        totalMembers,
-        residents,
-        affiliates: totalMembers - residents,
-        unreadAnnouncements: announcementsRes.count || 0,
-        upcomingEvents: eventsRes.count || 0,
-        pendingTasks: 0,
-        activeElections: 0,
-      });
+        setStats({
+          totalMembers,
+          residents,
+          affiliates: totalMembers - residents,
+          unreadAnnouncements: announcementsRes.count || 0,
+          upcomingEvents: eventsRes.count || 0,
+          pendingTasks: 0,
+          activeElections: 0,
+        });
 
-      if (announcementsRes.data) {
-        setRecentActivity(announcementsRes.data.slice(0, 5));
+        if (announcementsRes.data) {
+          setRecentActivity(announcementsRes.data.slice(0, 5));
+        }
+      } else {
+        setStats({
+          totalMembers: 0,
+          residents: 0,
+          affiliates: 0,
+          unreadAnnouncements: 0,
+          upcomingEvents: 0,
+          pendingTasks: 0,
+          activeElections: 0,
+        });
+        setRecentActivity([]);
       }
     } catch (error) {
       console.error('Error fetching hall data:', error);
@@ -286,6 +315,9 @@ export default function MyHallScreen() {
           <View>
             <Text style={styles.headerGreeting}>My Hall</Text>
             <Text style={styles.headerHallName}>{hallInfo.name}</Text>
+            {hallInfo.university && (
+              <Text style={styles.headerUniversity}>{hallInfo.university}</Text>
+            )}
           </View>
           <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/hall-designation' as any)}>
             <Shield size={22} color={COLORS.primary} />
@@ -574,6 +606,12 @@ const styles = StyleSheet.create({
     fontFamily: FONT.headingBold,
     fontSize: 26,
     color: COLORS.primary,
+  },
+  headerUniversity: {
+    fontFamily: FONT.regular,
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    marginTop: 2,
   },
   settingsBtn: {
     width: 44,
