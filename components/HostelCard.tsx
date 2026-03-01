@@ -5,15 +5,25 @@ import {
 } from 'react-native';
 import { COLORS, FONT, RADIUS } from '@/lib/constants';
 import { Hostel } from '@/lib/types';
-import { Heart, MapPin, XCircle } from 'lucide-react-native';
+import { Heart, MapPin, XCircle, PlusCircle, CheckCircle2 } from 'lucide-react-native';
 
 interface HostelCardProps {
   hostel: Hostel;
   onPress: () => void;
   onToggleFav: () => void;
+  onToggleCompare?: () => void;
+  isCompareSelected?: boolean;
+  showCompare?: boolean;
 }
 
-export default function HostelCard({ hostel, onPress, onToggleFav }: HostelCardProps) {
+export default function HostelCard({ 
+  hostel, 
+  onPress, 
+  onToggleFav, 
+  onToggleCompare, 
+  isCompareSelected, 
+  showCompare = false 
+}: HostelCardProps) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -40,7 +50,7 @@ export default function HostelCard({ hostel, onPress, onToggleFav }: HostelCardP
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
       <TouchableOpacity
-        style={[styles.card, isSoldOut && styles.cardDisabled]}
+        style={[styles.card, isSoldOut && styles.cardDisabled, isCompareSelected && styles.cardCompareHighlight]}
         onPress={onPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -49,6 +59,32 @@ export default function HostelCard({ hostel, onPress, onToggleFav }: HostelCardP
       >
         <View style={styles.cardImageWrap}>
           <Image source={{ uri: imageUrl }} style={styles.cardImage} resizeMode="cover" />
+          
+          {/* MODERN COMPARE PILL */}
+          {showCompare && (
+            <TouchableOpacity
+              style={[styles.compareBtn, isCompareSelected && styles.compareBtnSelected]}
+              onPress={(e) => {
+                e.stopPropagation();
+                onToggleCompare?.();
+              }}
+              activeOpacity={0.8}
+            >
+              {isCompareSelected ? (
+                <>
+                  <CheckCircle2 size={13} color={COLORS.white} />
+                  <Text style={styles.compareTextSelected}>Added</Text>
+                </>
+              ) : (
+                <>
+                  <PlusCircle size={13} color={COLORS.white} />
+                  <Text style={styles.compareText}>Compare</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* HEART BUTTON */}
           <TouchableOpacity
             style={styles.heartBtn}
             onPress={(e) => {
@@ -106,6 +142,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+  cardCompareHighlight: {
+    borderColor: COLORS.primary,
   },
   cardDisabled: {
     opacity: 0.6,
@@ -118,6 +159,34 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: COLORS.borderLight,
+  },
+  compareBtn: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(22, 22, 34, 0.6)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  compareBtnSelected: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  compareText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 11,
+    color: COLORS.white,
+  },
+  compareTextSelected: {
+    fontFamily: FONT.bold,
+    fontSize: 11,
+    color: COLORS.white,
   },
   heartBtn: {
     position: 'absolute',
