@@ -43,6 +43,12 @@ export default function FavouritesScreen() {
       if (hostels.length > 0) {
         await markOnboardingStep(user.id, 'first_favourite');
       }
+      
+      // Auto-exit compare mode if we drop below 2 items
+      if (hostels.length < 2) {
+        setIsCompareMode(false);
+        setCompareIds([]);
+      }
     } catch (e) { console.error(e); }
     finally { setLoading(false); setRefreshing(false); }
   };
@@ -53,7 +59,14 @@ export default function FavouritesScreen() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     await supabase.from('favourites').delete().eq('user_id', user.id).eq('hostel_id', hostelId);
-    setFavourites((prev) => prev.filter((h) => h.id !== hostelId));
+    
+    setFavourites((prev) => {
+      const updated = prev.filter((h) => h.id !== hostelId);
+      if (updated.length < 2) {
+        setIsCompareMode(false);
+      }
+      return updated;
+    });
     setCompareIds((prev) => prev.filter((id) => id !== hostelId));
   };
 
@@ -73,7 +86,18 @@ export default function FavouritesScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.pageTitle}>Saved</Text>
+          <View>
+            <Text style={styles.pageTitle}>Saved</Text>
+            <Text style={styles.count}>0 saved</Text>
+          </View>
+          <TouchableOpacity 
+            style={styles.compareToggleBtn} 
+            onPress={() => Alert.alert('Save More Hostels', 'Tap the heart icon on at least 2 hostels in the Search or Home tab to compare them.')}
+            activeOpacity={0.8}
+          >
+            <TrendingUp size={16} color={COLORS.primary} />
+            <Text style={styles.compareToggleText}>Compare</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.emptyContainer}>
           <Heart size={56} color={COLORS.border} strokeWidth={1.5} />
@@ -94,21 +118,24 @@ export default function FavouritesScreen() {
           <Text style={styles.pageTitle}>Saved</Text>
           <Text style={styles.count}>{favourites.length} saved</Text>
         </View>
-        {favourites.length >= 2 && (
-          <TouchableOpacity 
-            style={[styles.compareToggleBtn, isCompareMode && styles.compareToggleActive]} 
-            onPress={() => {
-              setIsCompareMode(!isCompareMode);
-              setCompareIds([]);
-            }}
-            activeOpacity={0.8}
-          >
-            <TrendingUp size={16} color={isCompareMode ? COLORS.white : COLORS.primary} />
-            <Text style={[styles.compareToggleText, isCompareMode && { color: COLORS.white }]}>
-              {isCompareMode ? 'Cancel' : 'Compare'}
-            </Text>
-          </TouchableOpacity>
-        )}
+        
+        <TouchableOpacity 
+          style={[styles.compareToggleBtn, isCompareMode && styles.compareToggleActive]} 
+          onPress={() => {
+            if (favourites.length < 2) {
+              Alert.alert('Save More Hostels', 'You need at least 2 saved hostels to compare them.');
+              return;
+            }
+            setIsCompareMode(!isCompareMode);
+            setCompareIds([]);
+          }}
+          activeOpacity={0.8}
+        >
+          <TrendingUp size={16} color={isCompareMode ? COLORS.white : COLORS.primary} />
+          <Text style={[styles.compareToggleText, isCompareMode && { color: COLORS.white }]}>
+            {isCompareMode ? 'Cancel' : 'Compare'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {isCompareMode && (
