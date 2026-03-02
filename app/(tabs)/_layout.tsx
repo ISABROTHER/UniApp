@@ -13,15 +13,15 @@ export default function TabLayout() {
         tabBarInactiveTintColor: COLORS.textTertiary,
         tabBarLabelStyle: {
           fontFamily: FONT.medium,
-          fontSize: 10,
+          fontSize: 11,
           marginBottom: Platform.OS === 'ios' ? 0 : 4,
         },
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopWidth: 1,
           borderTopColor: COLORS.borderLight,
-          height: Platform.OS === 'ios' ? 88 : 72,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+          height: Platform.OS === 'ios' ? 88 : 72, 
+          paddingBottom: Platform.OS === 'ios' ? 28 : 12, 
           paddingTop: 8,
         },
       }}>
@@ -42,7 +42,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: 'Chats',
+          title: 'Messages',
           tabBarIcon: ({ color, size }) => <MessageSquare size={size} color={color} />,
         }}
       />
@@ -71,4 +71,4 @@ export default function TabLayout() {
       />
     </Tabs>
   );
-} 
+}
