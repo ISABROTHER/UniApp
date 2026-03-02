@@ -26,9 +26,9 @@ export default function LeaseRenewalCard({ hostelId, hostelName, checkOutDate }:
         <Clock size={20} color={urgent ? COLORS.error : COLORS.warning} />
       </View>
       <View style={styles.body}>
-        <Text style={styles.label}>Lease Ending Soon</Text>
+        <Text style={styles.label} numberOfLines={1}>Lease Ending Soon</Text>
         <Text style={styles.hostelName} numberOfLines={1}>{hostelName}</Text>
-        <Text style={[styles.daysText, urgent && styles.daysTextUrgent]}>
+        <Text style={[styles.daysText, urgent && styles.daysTextUrgent]} numberOfLines={1}>
           {days === 0 ? 'Ends today!' : `Ends in ${days} day${days !== 1 ? 's' : ''}`}
         </Text>
       </View>
@@ -47,7 +47,6 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.md,
     backgroundColor: COLORS.warningLight,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
@@ -68,10 +67,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    marginRight: SPACING.md,
   },
   body: {
     flex: 1,
-    gap: 2,
+    flexShrink: 1,
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
   },
   label: {
     fontFamily: FONT.regular,
@@ -79,11 +81,13 @@ const styles = StyleSheet.create({
     color: '#92400E',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+    marginBottom: 2,
   },
   hostelName: {
     fontFamily: FONT.semiBold,
     fontSize: 14,
     color: COLORS.textPrimary,
+    marginBottom: 2,
   },
   daysText: {
     fontFamily: FONT.medium,
@@ -96,11 +100,11 @@ const styles = StyleSheet.create({
   cta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
     backgroundColor: COLORS.warning,
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
+    flexShrink: 0,
   },
   ctaUrgent: {
     backgroundColor: COLORS.error,
@@ -109,6 +113,7 @@ const styles = StyleSheet.create({
     fontFamily: FONT.semiBold,
     fontSize: 13,
     color: COLORS.white,
+    marginRight: 4,
   },
   ctaTextUrgent: {
     color: COLORS.white,
