@@ -14,11 +14,7 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontFamily: FONT.medium,
           fontSize: 10,
-          marginTop: 2,
           marginBottom: Platform.OS === 'ios' ? 0 : 4,
-        },
-        tabBarIconStyle: {
-          marginTop: 4,
         },
         tabBarStyle: {
           backgroundColor: COLORS.white,
@@ -26,7 +22,7 @@ export default function TabLayout() {
           borderTopColor: COLORS.borderLight,
           height: Platform.OS === 'ios' ? 88 : 72,
           paddingBottom: Platform.OS === 'ios' ? 28 : 12,
-          paddingTop: 4,
+          paddingTop: 8,
         },
       }}>
       <Tabs.Screen
@@ -46,7 +42,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: 'Messages',
+          title: 'Chats',
           tabBarIcon: ({ color, size }) => <MessageSquare size={size} color={color} />,
         }}
       />
