@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
-import { Home, Search, Heart, MessageSquare, User } from 'lucide-react-native';
+import { Home, Search, MessageSquare, Menu } from 'lucide-react-native';
 import { COLORS, FONT } from '@/lib/constants';
 
 export default function TabLayout() {
@@ -20,9 +20,7 @@ export default function TabLayout() {
           backgroundColor: COLORS.white,
           borderTopWidth: 1,
           borderTopColor: COLORS.borderLight,
-          // Increased height so the icon and text don't overlap
           height: Platform.OS === 'ios' ? 88 : 72, 
-          // Adjusted padding to center them perfectly
           paddingBottom: Platform.OS === 'ios' ? 28 : 12, 
           paddingTop: 8,
         },
@@ -51,11 +49,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
-          tabBarIcon: ({ color, size }) => <User size={size} color={color} />,
+          title: 'More',
+          tabBarIcon: ({ color, size }) => <Menu size={size} color={color} />,
         }}
       />
-      {/* These screens are part of the tab system but hidden from the bottom bar */}
       <Tabs.Screen
         name="favourites"
         options={{ href: null, title: 'Saved' }}
