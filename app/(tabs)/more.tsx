@@ -15,7 +15,7 @@ import {
   ChevronRight, LogOut, Bell, FileText, HelpCircle,
   User, MessageSquare, Wrench, Building2, Shield,
   CreditCard, Users, Zap, GraduationCap, ShoppingBag, Printer,
-  Home, Star, Edit3, X, Check, Phone, ChevronDown
+  Home, Star, Edit3, X, Check, Phone, ChevronDown, Calendar, Wallet, Vote
 } from 'lucide-react-native';
 
 const ONBOARDING_FEATURES = [
@@ -161,7 +161,7 @@ export default function ProfileScreen() {
   if (!session) {
     return (
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.pageTitle}>Profile</Text>
+        <Text style={styles.pageTitle}>More</Text>
         <View style={styles.guestHeroCard}>
           <View style={styles.guestLogoBox}>
             <Home size={28} color={COLORS.white} strokeWidth={2} />
@@ -196,7 +196,7 @@ export default function ProfileScreen() {
   return (
     <>
       <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.pageTitle}>Profile</Text>
+        <Text style={styles.pageTitle}>More</Text>
 
         <View style={styles.profileCard}>
           <View style={styles.avatarCircle}>
@@ -265,8 +265,15 @@ export default function ProfileScreen() {
         <OnboardingProgress />
         <LoyaltyCard />
 
+        <SectionHeader title="More Services" />
+        <MenuItem icon={<Home size={20} color={COLORS.accent} />} title="My Housing" subtitle="View and manage reservations" onPress={() => router.push('/(tabs)/bookings' as any)} iconBg="#E0F2FE" />
+        <MenuItem icon={<CreditCard size={20} color={COLORS.navy} />} title="Student ID" subtitle="Your digital student identity" onPress={() => router.push('/student-id' as any)} iconBg="#E0F2FE" />
+        <MenuItem icon={<Vote size={20} color={COLORS.primary} />} title="Hall Elections" subtitle="Vote and view candidates" onPress={() => router.push('/elections' as any)} iconBg="#FEE2E2" />
+        <MenuItem icon={<GraduationCap size={20} color={COLORS.success} />} title="Alumni Mentors" subtitle="Connect with alumni" onPress={() => router.push('/alumni' as any)} iconBg="#DCFCE7" />
+        <MenuItem icon={<Calendar size={20} color='#9333EA' />} title="Academic Calendar" subtitle="Important dates & deadlines" onPress={() => router.push('/calendar' as any)} iconBg="#F3E8FF" />
+        <MenuItem icon={<Wallet size={20} color={COLORS.accent} />} title="Transactions" subtitle="Payment history & receipts" onPress={() => router.push('/transactions' as any)} iconBg="#E0F2FE" />
+
         <SectionHeader title="Housing" />
-        <MenuItem icon={<Home size={20} color={COLORS.accent} />} title="My Bookings" subtitle="View and manage reservations" onPress={() => router.push('/(tabs)/bookings' as any)} iconBg="#E0F2FE" />
         <MenuItem icon={<FileText size={20} color={COLORS.info} />} title="Tenancy" subtitle="Agreements & rent payments" onPress={() => router.push('/tenancy' as any)} iconBg="#E0F2FE" />
         <MenuItem icon={<CreditCard size={20} color={COLORS.primary} />} title="My Payments" subtitle="Receipts & transaction history" onPress={() => router.push('/transactions' as any)} iconBg="#E0F2FE" />
         <MenuItem icon={<Zap size={20} color={COLORS.warning} />} title="Utilities" subtitle="ECG electricity & GWCL water" onPress={() => router.push('/utilities' as any)} iconBg="#FEF3C7" />
@@ -317,14 +324,14 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.sheetBody} contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
+          <ScrollView style={styles.sheetBody} showsVerticalScrollIndicator={false}>
             <View style={styles.sheetAvatarRow}>
               <View style={styles.sheetAvatar}>
-                <Text style={styles.sheetAvatarText}>{(member?.full_name || 'S')[0].toUpperCase()}</Text>
+                <Text style={styles.sheetAvatarText}>{(editForm.full_name || 'S')[0].toUpperCase()}</Text>
               </View>
               <View>
-                <Text style={styles.sheetAvatarName}>{member?.full_name || 'Student'}</Text>
-                <Text style={styles.sheetAvatarEmail}>{member?.email}</Text>
+                <Text style={styles.sheetAvatarName}>{editForm.full_name || 'Student'}</Text>
+                <Text style={styles.sheetAvatarEmail}>{session.user?.email}</Text>
               </View>
             </View>
 
@@ -335,20 +342,20 @@ export default function ProfileScreen() {
                   {field.icon}
                   <TextInput
                     style={styles.sheetInput}
-                    value={(editForm[field.key] as string) || ''}
-                    onChangeText={(v) => setEditForm(prev => ({ ...prev, [field.key]: v }))}
+                    value={editForm[field.key]?.toString() ?? ''}
+                    onChangeText={(text) => setEditForm((prev) => ({ ...prev, [field.key]: text }))}
                     placeholder={field.placeholder}
                     placeholderTextColor={COLORS.textTertiary}
-                    keyboardType={field.keyboardType || 'default'}
+                    keyboardType={field.keyboardType ?? 'default'}
                   />
                 </View>
               </View>
             ))}
 
             <View style={styles.sheetField}>
-              <Text style={styles.sheetFieldLabel}>University *</Text>
+              <Text style={[styles.sheetFieldLabel, validationError && { color: COLORS.error }]}>University *</Text>
               <TouchableOpacity
-                style={[styles.sheetInputRow, validationError && !editForm.university && styles.inputError]}
+                style={[styles.sheetInputRow, validationError && styles.inputError]}
                 onPress={() => setUniversityPickerVisible(true)}
                 activeOpacity={0.7}
               >
@@ -358,15 +365,11 @@ export default function ProfileScreen() {
                 </Text>
                 <ChevronDown size={18} color={COLORS.textTertiary} />
               </TouchableOpacity>
-              {validationError && !editForm.university && (
-                <Text style={styles.errorText}>{validationError}</Text>
-              )}
+              {validationError && <Text style={styles.errorText}>{validationError}</Text>}
             </View>
 
             <View style={styles.sheetField}>
-              <Text style={[styles.sheetFieldLabel, !editForm.university && styles.disabledLabel]}>
-                Traditional Hall
-              </Text>
+              <Text style={[styles.sheetFieldLabel, !editForm.university && styles.disabledLabel]}>Traditional Hall</Text>
               <TouchableOpacity
                 style={[styles.sheetInputRow, !editForm.university && styles.disabledInput]}
                 onPress={() => editForm.university && setHallPickerVisible(true)}
