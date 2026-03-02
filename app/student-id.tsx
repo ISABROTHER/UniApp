@@ -736,9 +736,9 @@ const styles = StyleSheet.create({
 
   /* --- PREMIUM BACK DESIGN --- */
   cardBack: {
-    backgroundColor: '#F8FAFC', 
+    backgroundColor: '#FFFFFF', // Pure PVC White for true authenticity
     borderWidth: 1,
-    borderColor: COLORS.border,
+    borderColor: '#E2E8F0', // Very light border to match white card
   },
   magStripe: {
     width: '100%',
@@ -754,19 +754,19 @@ const styles = StyleSheet.create({
   backDisclaimer: {
     fontSize: 9,
     fontFamily: FONT.regular,
-    color: COLORS.textSecondary,
+    color: '#475569', // Dark slate gray for strong contrast on white
     lineHeight: 13,
     textAlign: 'center',
     marginBottom: SPACING.xs,
     flexShrink: 1,
   },
   signatureBox: {
-    backgroundColor: COLORS.white,
+    backgroundColor: '#F8FAFC', // Slightly off-white for the box
     height: 40,
     justifyContent: 'center',
     paddingHorizontal: SPACING.sm,
     borderWidth: 1,
-    borderColor: COLORS.borderLight,
+    borderColor: '#CBD5E1',
     marginBottom: SPACING.sm,
   },
   signatureLabel: {
@@ -775,23 +775,23 @@ const styles = StyleSheet.create({
     left: 0,
     fontSize: 8,
     fontFamily: FONT.semiBold,
-    color: COLORS.textTertiary,
+    color: '#64748B',
   },
   signatureCursive: {
     fontFamily: Platform.OS === 'ios' ? 'Snell Roundhand' : 'serif',
     fontSize: 20,
-    color: COLORS.textPrimary,
+    color: '#0F172A',
     fontStyle: 'italic',
     flexShrink: 1,
   },
   qrRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.white,
+    backgroundColor: '#F8FAFC',
     padding: SPACING.sm,
     borderRadius: RADIUS.sm,
     borderWidth: 1,
-    borderColor: COLORS.borderLight,
+    borderColor: '#E2E8F0',
     flexShrink: 1,
   },
   qrCodeContainer: {
@@ -810,7 +810,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   qrPixelFilled: {
-    backgroundColor: '#091A10', // Deep Forest Black/Green
+    backgroundColor: '#000000', // Pure black QR for scanning contrast
   },
   qrDetails: {
     flex: 1,
@@ -820,14 +820,14 @@ const styles = StyleSheet.create({
   qrTitle: {
     fontSize: 11,
     fontFamily: FONT.bold,
-    color: COLORS.textPrimary,
+    color: '#0F172A', // Dark ink
     letterSpacing: 0.5,
     flexShrink: 1,
   },
   qrSub: {
     fontSize: 9,
     fontFamily: FONT.regular,
-    color: COLORS.textSecondary,
+    color: '#475569',
     marginVertical: 4,
     flexShrink: 1,
   },
@@ -845,16 +845,15 @@ const styles = StyleSheet.create({
   backStatusText: {
     fontSize: 8,
     fontFamily: FONT.bold,
-    color: COLORS.white,
+    color: '#FFFFFF',
     marginLeft: 3,
     letterSpacing: 0.5,
   },
   microPrint: {
     fontSize: 7,
     fontFamily: 'Courier',
-    color: COLORS.textTertiary,
+    color: '#94A3B8',
     textAlign: 'center',
-    opacity: 0.6,
     marginTop: SPACING.xs,
     flexShrink: 1,
   },
