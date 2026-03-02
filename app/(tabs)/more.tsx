@@ -7,9 +7,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { Member, LoyaltyBalance, UserStats } from '@/lib/types';
+import { Member, UserStats } from '@/lib/types';
 import { GHANAIAN_INSTITUTIONS, getHallsForInstitution } from '@/lib/institutions';
-import OnboardingProgress from '@/components/OnboardingProgress';
 import LoyaltyCard from '@/components/LoyaltyCard';
 import {
   ChevronRight, LogOut, Bell, FileText, HelpCircle,
@@ -262,7 +261,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <OnboardingProgress />
         <LoyaltyCard />
 
         <SectionHeader title="More Services" />
