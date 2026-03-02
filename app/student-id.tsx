@@ -157,6 +157,11 @@ export default function StudentIDScreen() {
     outputRange: ['180deg', '360deg'],
   });
 
+  // Automatically split name into Surname (last word) and Given Names (everything else)
+  const nameParts = member?.full_name?.trim().split(' ') || [];
+  const surname = nameParts.length > 1 ? nameParts[nameParts.length - 1].toUpperCase() : (nameParts[0]?.toUpperCase() || 'UNKNOWN');
+  const givenNames = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ').toUpperCase() : '';
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -243,15 +248,16 @@ export default function StudentIDScreen() {
                 <View style={[styles.ribbonStripe, { backgroundColor: '#006B3F' }]} />
               </View>
 
-              {/* Holographic watermark background */}
+              {/* Holographic watermark background - Adjusted for white background */}
               <View style={styles.watermarkContainer}>
-                <Shield size={280} color="rgba(255, 255, 255, 0.03)" strokeWidth={1} />
+                <Shield size={280} color="rgba(0, 0, 0, 0.03)" strokeWidth={1} />
               </View>
 
               {/* Realistic Card Header */}
               <View style={styles.cardHeader}>
                 <View style={styles.headerLeft}>
-                  <Shield size={32} color="#FCD116" strokeWidth={2.5} />
+                  {/* Using Ghana Green for the Shield on white background */}
+                  <Shield size={32} color="#006B3F" strokeWidth={2.5} />
                   <View style={styles.headerTextGroup}>
                     <Text style={styles.universityName} numberOfLines={1} adjustsFontSizeToFit>
                       {member?.university || 'UNIVERSITY'}
@@ -259,7 +265,7 @@ export default function StudentIDScreen() {
                     <Text style={styles.cardSubtitle} numberOfLines={1} adjustsFontSizeToFit>STUDENT IDENTIFICATION</Text>
                   </View>
                 </View>
-                <Wifi size={22} color={COLORS.white} opacity={0.5} style={{ transform: [{ rotate: '90deg' }], flexShrink: 0, marginLeft: 8 }} />
+                <Wifi size={22} color="#0F172A" opacity={0.3} style={{ transform: [{ rotate: '90deg' }], flexShrink: 0, marginLeft: 8 }} />
               </View>
 
               <View style={styles.cardBody}>
@@ -283,12 +289,22 @@ export default function StudentIDScreen() {
 
                 {/* Right Column: Details - Space Between to perfectly fill height */}
                 <View style={styles.bodyRight}>
+                  {/* Separate Surname and Given Names blocks */}
                   <View style={styles.detailBlock}>
-                    <Text style={styles.labelMicro} numberOfLines={1}>SURNAME, GIVEN NAMES</Text>
-                    <Text style={styles.studentName} numberOfLines={2} adjustsFontSizeToFit>
-                      {member?.full_name?.toUpperCase()}
+                    <Text style={styles.labelMicro} numberOfLines={1}>SURNAME</Text>
+                    <Text style={styles.studentName} numberOfLines={1} adjustsFontSizeToFit>
+                      {surname}
                     </Text>
                   </View>
+
+                  {givenNames ? (
+                    <View style={styles.detailBlock}>
+                      <Text style={styles.labelMicro} numberOfLines={1}>GIVEN NAMES</Text>
+                      <Text style={styles.studentName} numberOfLines={1} adjustsFontSizeToFit>
+                        {givenNames}
+                      </Text>
+                    </View>
+                  ) : null}
                   
                   <View style={styles.detailBlock}>
                     <Text style={styles.labelMicro} numberOfLines={1}>IDENTIFICATION NO.</Text>
@@ -314,7 +330,7 @@ export default function StudentIDScreen() {
               </View>
 
               <View style={styles.cardFooter}>
-                {/* Simulated physical Barcode */}
+                {/* Simulated physical Barcode - Dark for white background */}
                 <View style={styles.barcodeWrapper}>
                   {BARCODE_PATTERN.map((w, i) => (
                     <View key={i} style={[styles.barcodeLine, { width: w }]} />
@@ -534,13 +550,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   
-  /* --- PREMIUM GHANA INSPIRED FRONT --- */
+  /* --- PREMIUM WHITE & GHANA INSPIRED FRONT --- */
   cardFront: {
-    backgroundColor: '#091A10', // Deep Forest Black/Green
+    backgroundColor: '#FFFFFF', // Pure PVC White for the front
     padding: SPACING.lg,
     justifyContent: 'space-between',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: '#E2E8F0', // Light border for the white card
   },
   ghanaRibbon: {
     position: 'absolute',
@@ -581,14 +597,14 @@ const styles = StyleSheet.create({
   universityName: {
     fontSize: 16,
     fontFamily: FONT.bold,
-    color: COLORS.white,
+    color: '#0F172A', // Dark ink text on white
     letterSpacing: 1,
     flexShrink: 1,
   },
   cardSubtitle: {
     fontSize: 9,
     fontFamily: FONT.medium,
-    color: '#FCD116', // Ghana Gold
+    color: '#006B3F', // Ghana Green for contrast
     letterSpacing: 1.2,
     marginTop: 2,
     flexShrink: 1,
@@ -608,10 +624,10 @@ const styles = StyleSheet.create({
     width: 90,
     height: 115,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: '#F8FAFC',
     padding: 3,
     borderWidth: 1,
-    borderColor: '#FCD116', // Ghana Gold Border
+    borderColor: '#CBD5E1', // Subtle border for white background
   },
   photoImage: {
     flex: 1,
@@ -640,38 +656,38 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
     justifyContent: 'space-between', 
-    paddingBottom: SPACING.xs,
+    paddingBottom: 2, // Slightly adjusted for the extra text block
   },
   labelMicro: {
-    fontSize: 9,
+    fontSize: 8, // Reduced slightly to fit extra blocks
     fontFamily: FONT.semiBold,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: '#64748B', // Slate 500 for labels
     letterSpacing: 0.5,
     marginBottom: 2,
     flexShrink: 1,
   },
   studentName: {
-    fontSize: 18,
+    fontSize: 15, // Reduced from 18 to fit both surname and given names
     fontFamily: FONT.bold,
-    color: COLORS.white,
-    lineHeight: 22,
+    color: '#0F172A', // Dark ink text
+    lineHeight: 18,
     flexShrink: 1,
   },
   detailBlock: {
     flexShrink: 1,
   },
   idNumber: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Courier', 
     fontWeight: '700',
-    color: '#FCD116', // Ghana Gold
+    color: '#0F172A', // Dark ink for high visibility
     letterSpacing: 2,
     flexShrink: 1,
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONT.semiBold,
-    color: COLORS.white,
+    color: '#0F172A',
     flexShrink: 1,
   },
   datesRow: {
@@ -684,9 +700,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateValue: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FONT.semiBold,
-    color: COLORS.white,
+    color: '#0F172A',
     flexShrink: 1,
   },
   cardFooter: {
@@ -699,24 +715,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     height: 24,
     alignItems: 'center',
-    opacity: 0.6,
+    opacity: 0.8,
     flexShrink: 1,
     overflow: 'hidden',
   },
   barcodeLine: {
     height: '100%',
-    backgroundColor: COLORS.white,
+    backgroundColor: '#0F172A', // Dark barcode lines for white card
     marginRight: 2,
   },
   activePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 107, 63, 0.2)', // Ghana Green Tint
+    backgroundColor: 'rgba(0, 107, 63, 0.1)', // Light Ghana Green Tint
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: RADIUS.full,
     borderWidth: 1,
-    borderColor: 'rgba(0, 107, 63, 0.4)',
+    borderColor: 'rgba(0, 107, 63, 0.3)',
     flexShrink: 0,
     marginLeft: SPACING.sm,
   },
