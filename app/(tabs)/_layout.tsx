@@ -13,15 +13,15 @@ export default function TabLayout() {
         tabBarInactiveTintColor: COLORS.textTertiary,
         tabBarLabelStyle: {
           fontFamily: FONT.medium,
-          fontSize: 11,
+          fontSize: 10,
           marginBottom: Platform.OS === 'ios' ? 0 : 4,
         },
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopWidth: 1,
           borderTopColor: COLORS.borderLight,
-          height: Platform.OS === 'ios' ? 88 : 72, 
-          paddingBottom: Platform.OS === 'ios' ? 28 : 12, 
+          height: Platform.OS === 'ios' ? 88 : 72,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 12,
           paddingTop: 8,
         },
       }}>
@@ -42,7 +42,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="messages"
         options={{
-          title: 'Messages',
+          title: 'Chats',
           tabBarIcon: ({ color, size }) => <MessageSquare size={size} color={color} />,
         }}
       />
@@ -70,5 +70,5 @@ export default function TabLayout() {
         options={{ href: null, title: 'StuMark' }}
       />
     </Tabs>
-  );
-}
+  ); 
+} 
