@@ -10,14 +10,36 @@ import {
   Dimensions,
   Platform,
   Easing,
+  TextInput,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Shield, Fingerprint, Ticket, Check, ChevronDown, ChevronUp, RotateCw } from 'lucide-react-native';
+import { 
+  ArrowLeft, 
+  Shield, 
+  Fingerprint, 
+  Ticket, 
+  Check, 
+  ChevronDown, 
+  ChevronUp, 
+  RotateCw,
+  Plus,
+  X,
+  Smartphone,
+  KeyRound,
+  ShieldCheck
+} from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import StudentIDCard from '@/components/StudentIDCard';
 import EventTicket, { TicketData } from '@/components/EventTicket';
+
+// Enable LayoutAnimation for Android
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = Math.min(SCREEN_W - SPACING.md * 2, 380);
@@ -34,7 +56,12 @@ interface DigitalStudentID {
   is_active: boolean;
 }
 
-const MOCK_TICKETS: TicketData[] = [
+// Extending TicketData locally to support the 'isNew' UI flag
+interface LocalTicketData extends TicketData {
+  isNew?: boolean;
+}
+
+const INITIAL_MOCK_TICKETS: LocalTicketData[] = [
   {
     id: 'tkt-001',
     event_name: 'Hall Week Cultural Night',
@@ -88,14 +115,28 @@ const MOCK_TICKETS: TicketData[] = [
 export default function StudentIDScreen() {
   const router = useRouter();
   const { member } = useAuth();
+  
+  // Digital ID State
   const [digitalID, setDigitalID] = useState<DigitalStudentID | null>(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
   const [activeTab, setActiveTab] = useState<'id' | 'tickets'>('id');
+  
+  // Tickets State
+  const [localTickets, setLocalTickets] = useState<LocalTicketData[]>(INITIAL_MOCK_TICKETS);
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [showAllTickets, setShowAllTickets] = useState(false);
 
+  // Add Ticket Flow State
+  const [isAddingTicket, setIsAddingTicket] = useState(false);
+  const [addTicketStep, setAddTicketStep] = useState<1 | 2 | 3>(1);
+  const [addPhone, setAddPhone] = useState('');
+  const [addOtp, setAddOtp] = useState('');
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  // Animations
   const flipAnim = useRef(new Animated.Value(0)).current;
   const cardScale = useRef(new Animated.Value(1)).current;
   const tabSlide = useRef(new Animated.Value(0)).current;
@@ -188,11 +229,87 @@ export default function StudentIDScreen() {
     }).start();
   };
 
+  // --- Add Ticket Flow Handlers ---
+  const toggleAddTicket = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const opening = !isAddingTicket;
+    setIsAddingTicket(opening);
+    if (!opening) {
+      // Reset state if closing
+      setAddTicketStep(1);
+      setAddPhone('');
+      setAddOtp('');
+      setAddError(null);
+    }
+  };
+
+  const handleSendOTP = () => {
+    if (addPhone.replace(/\D/g, '').length < 9) {
+      setAddError('Please enter a valid phone number.');
+      return;
+    }
+    setAddError(null);
+    setAddLoading(true);
+    // Simulate API Call
+    setTimeout(() => {
+      setAddLoading(false);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setAddTicketStep(2);
+    }, 1200);
+  };
+
+  const handleVerifyOTP = () => {
+    if (addOtp.length < 4) {
+      setAddError('Please enter the verification code.');
+      return;
+    }
+    setAddError(null);
+    setAddLoading(true);
+    // Simulate API verification and masked preview fetch
+    setTimeout(() => {
+      setAddLoading(false);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setAddTicketStep(3);
+    }, 1500);
+  };
+
+  const handleLinkToDigiID = () => {
+    setAddLoading(true);
+    // Simulate Identity Match Verification
+    setTimeout(() => {
+      setAddLoading(false);
+      
+      const newTicket: LocalTicketData = {
+        id: `tkt-new-${Date.now()}`,
+        event_name: 'COMSA Week Celebration',
+        event_date: '2026-04-10T18:00:00',
+        venue: 'Main Auditorium',
+        category: 'Social',
+        is_free: false,
+        price: 50,
+        status: 'valid',
+        attendee_name: member?.full_name || 'Student',
+        ticket_number: `CW-2026-${Math.floor(Math.random() * 10000)}`,
+        isNew: true, // Triggers the "Added just now" badge
+      };
+
+      setLocalTickets([newTicket, ...localTickets]);
+      toggleAddTicket(); // Close the accordion gracefully
+    }, 1500);
+  };
+
+  const getMaskedName = () => {
+    if (!member?.full_name) return 'S*** S***';
+    const parts = member.full_name.split(' ');
+    if (parts.length === 1) return `${parts[0][0]}***`;
+    return `${parts[0][0]}*** ${parts[parts.length - 1][0]}***`;
+  };
+
   const frontOp = flipAnim.interpolate({ inputRange: [0, 0.5, 0.51, 1], outputRange: [1, 0, 0, 0] });
   const backOp = flipAnim.interpolate({ inputRange: [0, 0.49, 0.5, 1], outputRange: [0, 0, 1, 1] });
   const backRotate = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['180deg', '360deg'] });
 
-  const tickets = MOCK_TICKETS.map((t) => ({
+  const tickets = localTickets.map((t) => ({
     ...t,
     attendee_name: member?.full_name || 'Student',
   }));
@@ -370,17 +487,143 @@ export default function StudentIDScreen() {
 
         {activeTab === 'tickets' && (
           <Animated.View style={{ opacity: fadeIn }}>
+            
+            {/* INLINE ADD TICKET SECTION */}
+            <View style={[s.addTicketCard, isAddingTicket && s.addTicketCardActive]}>
+              <TouchableOpacity 
+                style={s.addTicketHeader} 
+                onPress={toggleAddTicket}
+                activeOpacity={0.7}
+              >
+                <View style={s.addTicketHeaderLeft}>
+                  {isAddingTicket ? (
+                    <X size={20} color={COLORS.textPrimary} />
+                  ) : (
+                    <Plus size={20} color="#006B3F" />
+                  )}
+                  <Text style={s.addTicketTitle}>
+                    {isAddingTicket ? 'Cancel Adding Ticket' : 'Add External Ticket'}
+                  </Text>
+                </View>
+                {!isAddingTicket && <ChevronDown size={20} color={COLORS.textTertiary} />}
+              </TouchableOpacity>
+
+              {isAddingTicket && (
+                <View style={s.addTicketBody}>
+                  {/* UX Stepper */}
+                  <View style={s.stepProgressRow}>
+                    <View style={[s.stepDot, addTicketStep >= 1 && s.stepDotActive]} />
+                    <View style={[s.stepLine, addTicketStep >= 2 && s.stepLineActive]} />
+                    <View style={[s.stepDot, addTicketStep >= 2 && s.stepDotActive]} />
+                    <View style={[s.stepLine, addTicketStep >= 3 && s.stepLineActive]} />
+                    <View style={[s.stepDot, addTicketStep >= 3 && s.stepDotActive]} />
+                  </View>
+                  <Text style={s.stepText}>
+                    {addTicketStep === 1 && "Step 1: Enter purchase phone number"}
+                    {addTicketStep === 2 && "Step 2: Enter verification code"}
+                    {addTicketStep === 3 && "Step 3: Confirm Identity Match"}
+                  </Text>
+
+                  {addError && (
+                    <View style={s.errorBox}>
+                      <Text style={s.errorText}>{addError}</Text>
+                    </View>
+                  )}
+
+                  {/* Step 1: Phone */}
+                  {addTicketStep === 1 && (
+                    <View style={s.inputGroup}>
+                      <View style={s.inputWrapper}>
+                        <Smartphone size={18} color={COLORS.textTertiary} style={s.inputIcon} />
+                        <TextInput
+                          style={s.textInput}
+                          placeholder="e.g. 024XXXXXXX"
+                          placeholderTextColor={COLORS.textTertiary}
+                          keyboardType="phone-pad"
+                          value={addPhone}
+                          onChangeText={(t) => { setAddPhone(t); setAddError(null); }}
+                          maxLength={10}
+                        />
+                      </View>
+                      <TouchableOpacity style={s.actionBtn} onPress={handleSendOTP} disabled={addLoading}>
+                        {addLoading ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.actionBtnText}>Send OTP</Text>}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {/* Step 2: OTP */}
+                  {addTicketStep === 2 && (
+                    <View style={s.inputGroup}>
+                      <View style={s.inputWrapper}>
+                        <KeyRound size={18} color={COLORS.textTertiary} style={s.inputIcon} />
+                        <TextInput
+                          style={s.textInput}
+                          placeholder="------"
+                          placeholderTextColor={COLORS.textTertiary}
+                          keyboardType="number-pad"
+                          value={addOtp}
+                          onChangeText={(t) => { setAddOtp(t); setAddError(null); }}
+                          maxLength={6}
+                        />
+                      </View>
+                      <TouchableOpacity style={s.actionBtn} onPress={handleVerifyOTP} disabled={addLoading}>
+                        {addLoading ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.actionBtnText}>Verify OTP</Text>}
+                      </TouchableOpacity>
+                      <TouchableOpacity style={s.textBtn} onPress={() => setAddTicketStep(1)}>
+                        <Text style={s.textBtnLabel}>Change Phone Number</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {/* Step 3: Masked Preview & Identity Verification */}
+                  {addTicketStep === 3 && (
+                    <View style={s.inputGroup}>
+                      <View style={s.maskedPreview}>
+                        <View style={s.previewRow}>
+                          <Text style={s.previewLabel}>Event:</Text>
+                          <Text style={s.previewValue}>C*** Week Celebration</Text>
+                        </View>
+                        <View style={s.previewRow}>
+                          <Text style={s.previewLabel}>Type:</Text>
+                          <Text style={s.previewValue}>Regular Entry</Text>
+                        </View>
+                        <View style={s.previewRow}>
+                          <Text style={s.previewLabel}>Owner:</Text>
+                          <Text style={s.previewValue}>{getMaskedName()}</Text>
+                        </View>
+                        
+                        <View style={s.digiIdCheck}>
+                          <ShieldCheck size={16} color="#006B3F" />
+                          <Text style={s.digiIdCheckText}>DigiID Match Confirmed</Text>
+                        </View>
+                      </View>
+                      
+                      <TouchableOpacity style={s.actionBtnGreen} onPress={handleLinkToDigiID} disabled={addLoading}>
+                        {addLoading ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={s.actionBtnText}>Add to My Tickets</Text>}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
+
             {validTickets.length > 0 && (
               <View style={s.ticketSection}>
                 <Text style={s.ticketSectionTitle}>UPCOMING</Text>
                 {validTickets.map((ticket) => (
-                  <EventTicket
-                    key={ticket.id}
-                    ticket={ticket}
-                    onPress={() =>
-                      setExpandedTicket(expandedTicket === ticket.id ? null : ticket.id)
-                    }
-                  />
+                  <View key={ticket.id} style={{ position: 'relative' }}>
+                    <EventTicket
+                      ticket={ticket}
+                      onPress={() =>
+                        setExpandedTicket(expandedTicket === ticket.id ? null : ticket.id)
+                      }
+                    />
+                    {ticket.isNew && (
+                      <View style={s.newBadge}>
+                        <Text style={s.newBadgeText}>Added just now</Text>
+                      </View>
+                    )}
+                  </View>
                 ))}
               </View>
             )}
@@ -653,6 +896,183 @@ const s = StyleSheet.create({
     marginTop: 1,
   },
 
+  /* --- INLINE ADD TICKET UI --- */
+  addTicketCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: SPACING.lg,
+    overflow: 'hidden',
+  },
+  addTicketCardActive: {
+    borderColor: '#006B3F',
+    elevation: 4,
+    shadowColor: '#006B3F',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+  },
+  addTicketHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: SPACING.md,
+    backgroundColor: '#F8FAFC',
+  },
+  addTicketHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addTicketTitle: {
+    fontSize: 14,
+    fontFamily: FONT.bold,
+    color: '#0F172A',
+  },
+  addTicketBody: {
+    padding: SPACING.md,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  stepProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 20,
+  },
+  stepDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#CBD5E1',
+  },
+  stepDotActive: {
+    backgroundColor: '#006B3F',
+  },
+  stepLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: '#CBD5E1',
+    marginHorizontal: 4,
+  },
+  stepLineActive: {
+    backgroundColor: '#006B3F',
+  },
+  stepText: {
+    fontSize: 11,
+    fontFamily: FONT.semiBold,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  errorBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+  },
+  errorText: {
+    color: '#EF4444',
+    fontSize: 12,
+    fontFamily: FONT.medium,
+    textAlign: 'center',
+  },
+  inputGroup: {
+    gap: 12,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    backgroundColor: '#F8FAFC',
+    height: 50,
+    paddingHorizontal: 14,
+  },
+  inputIcon: {
+    marginRight: 10,
+  },
+  textInput: {
+    flex: 1,
+    fontFamily: FONT.medium,
+    fontSize: 15,
+    color: '#0F172A',
+    height: '100%',
+  },
+  actionBtn: {
+    backgroundColor: '#0A1628',
+    height: 50,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBtnGreen: {
+    backgroundColor: '#006B3F',
+    height: 50,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontFamily: FONT.bold,
+  },
+  textBtn: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  textBtnLabel: {
+    color: COLORS.textTertiary,
+    fontSize: 13,
+    fontFamily: FONT.medium,
+    textDecorationLine: 'underline',
+  },
+  maskedPreview: {
+    backgroundColor: '#F1F5F9',
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 4,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  previewLabel: {
+    fontSize: 12,
+    fontFamily: FONT.medium,
+    color: '#64748B',
+  },
+  previewValue: {
+    fontSize: 12,
+    fontFamily: 'Courier',
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  digiIdCheck: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 107, 63, 0.1)',
+    paddingVertical: 8,
+    borderRadius: 6,
+    marginTop: 8,
+    gap: 6,
+  },
+  digiIdCheckText: {
+    fontSize: 11,
+    fontFamily: FONT.bold,
+    color: '#006B3F',
+  },
+
   ticketSection: {
     marginBottom: SPACING.lg,
   },
@@ -662,6 +1082,27 @@ const s = StyleSheet.create({
     color: '#475569',
     letterSpacing: 1.2,
     marginBottom: 12,
+  },
+  newBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -4,
+    backgroundColor: '#DC143C',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    elevation: 3,
+    shadowColor: '#DC143C',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    zIndex: 10,
+  },
+  newBadgeText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontFamily: FONT.bold,
+    letterSpacing: 0.5,
   },
   pastHeader: {
     flexDirection: 'row',
