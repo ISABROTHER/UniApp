@@ -47,7 +47,7 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="more"
         options={{
           title: 'More',
           tabBarIcon: ({ color, size }) => <Menu size={size} color={color} />,
@@ -71,4 +71,4 @@ export default function TabLayout() {
       />
     </Tabs>
   ); 
-} 
+}
