@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
-import { Home, Search, MessageSquare, Menu } from 'lucide-react-native';
+import { Home, Search, MessageSquare, MoreHorizontal } from 'lucide-react-native';
 import { COLORS, FONT } from '@/lib/constants';
 
 export default function TabLayout() {
@@ -13,16 +13,20 @@ export default function TabLayout() {
         tabBarInactiveTintColor: COLORS.textTertiary,
         tabBarLabelStyle: {
           fontFamily: FONT.medium,
-          fontSize: 11,
+          fontSize: 10,
+          marginTop: 2,
           marginBottom: Platform.OS === 'ios' ? 0 : 4,
+        },
+        tabBarIconStyle: {
+          marginTop: 4,
         },
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopWidth: 1,
           borderTopColor: COLORS.borderLight,
-          height: Platform.OS === 'ios' ? 88 : 72, 
-          paddingBottom: Platform.OS === 'ios' ? 28 : 12, 
-          paddingTop: 8,
+          height: Platform.OS === 'ios' ? 88 : 72,
+          paddingBottom: Platform.OS === 'ios' ? 28 : 12,
+          paddingTop: 4,
         },
       }}>
       <Tabs.Screen
@@ -50,7 +54,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'More',
-          tabBarIcon: ({ color, size }) => <Menu size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <MoreHorizontal size={size} color={color} />,
         }}
       />
       <Tabs.Screen
