@@ -9,7 +9,7 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import Svg, { Rect, Defs, LinearGradient, Stop, Circle, Path, G } from 'react-native-svg';
+import Svg, { Rect, Defs, LinearGradient, Stop, Circle, Path } from 'react-native-svg';
 import { COLORS, FONT, SPACING } from '@/lib/constants';
 import { Member } from '@/lib/types';
 import QRCode from '@/components/QRCode';
@@ -99,9 +99,9 @@ function ChipSVG() {
 function ContactlessIcon() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M8.5 16.5a5.5 5.5 0 000-9" stroke="#94A3B8" strokeWidth={1.5} strokeLinecap="round" />
-      <Path d="M12 19a8 8 0 000-14" stroke="#94A3B8" strokeWidth={1.5} strokeLinecap="round" />
-      <Path d="M15.5 21.5a10.5 10.5 0 000-19" stroke="#94A3B8" strokeWidth={1.5} strokeLinecap="round" />
+      <Path d="M8.5 16.5a5.5 5.5 0 000-9" stroke="#64748B" strokeWidth={1.5} strokeLinecap="round" />
+      <Path d="M12 19a8 8 0 000-14" stroke="#64748B" strokeWidth={1.5} strokeLinecap="round" />
+      <Path d="M15.5 21.5a10.5 10.5 0 000-19" stroke="#64748B" strokeWidth={1.5} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -133,19 +133,14 @@ export default function StudentIDCard({ member, digitalID, isFlipped }: Props) {
           <Svg width={CARD_W} height={CARD_H} viewBox={`0 0 ${CARD_W} ${CARD_H}`} style={StyleSheet.absoluteFill}>
             <Defs>
               <LinearGradient id="cardBg" x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor="#0A1628" />
-                <Stop offset="0.4" stopColor="#0F2035" />
-                <Stop offset="1" stopColor="#152A42" />
-              </LinearGradient>
-              <LinearGradient id="goldAccent" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor="#C9A94E" />
-                <Stop offset="0.5" stopColor="#E8D48B" />
-                <Stop offset="1" stopColor="#C9A94E" />
+                <Stop offset="0" stopColor="#FFFFFF" />
+                <Stop offset="0.4" stopColor="#F8FAFC" />
+                <Stop offset="1" stopColor="#F1F5F9" />
               </LinearGradient>
             </Defs>
             <Rect x={0} y={0} width={CARD_W} height={CARD_H} rx={14} fill="url(#cardBg)" />
-            <Circle cx={CARD_W * 0.85} cy={CARD_H * 0.15} r={CARD_H * 0.6} fill="rgba(255,255,255,0.015)" />
-            <Circle cx={CARD_W * 0.9} cy={CARD_H * 0.2} r={CARD_H * 0.4} fill="rgba(255,255,255,0.01)" />
+            <Circle cx={CARD_W * 0.85} cy={CARD_H * 0.15} r={CARD_H * 0.6} fill="rgba(0,0,0,0.015)" />
+            <Circle cx={CARD_W * 0.9} cy={CARD_H * 0.2} r={CARD_H * 0.4} fill="rgba(0,0,0,0.01)" />
           </Svg>
 
           <HolographicOverlay />
@@ -156,8 +151,8 @@ export default function StudentIDCard({ member, digitalID, isFlipped }: Props) {
               <View style={styles.frontHeaderLeft}>
                 <View style={styles.uniShield}>
                   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                    <Path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="#C9A94E" opacity={0.9} />
-                    <Path d="M12 6l-4 2.5v3c0 2.78 1.92 5.37 4 6 2.08-.63 4-3.22 4-6v-3L12 6z" fill="#0A1628" />
+                    <Path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="#006B3F" opacity={0.9} />
+                    <Path d="M12 6l-4 2.5v3c0 2.78 1.92 5.37 4 6 2.08-.63 4-3.22 4-6v-3L12 6z" fill="#FFFFFF" />
                   </Svg>
                 </View>
                 <View style={styles.frontHeaderTexts}>
@@ -179,7 +174,7 @@ export default function StudentIDCard({ member, digitalID, isFlipped }: Props) {
               <View style={styles.photoSection}>
                 <View style={styles.photoBorder}>
                   <Image
-                    source={{ uri: member?.avatar_url || 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg?auto=compress&cs=tinysrgb&w=200' }}
+                    source={{ uri: 'https://i.imgur.com/h286QnR.jpeg' }}
                     style={styles.photo}
                   />
                 </View>
@@ -245,8 +240,8 @@ export default function StudentIDCard({ member, digitalID, isFlipped }: Props) {
         <Svg width={CARD_W} height={CARD_H} viewBox={`0 0 ${CARD_W} ${CARD_H}`} style={StyleSheet.absoluteFill}>
           <Defs>
             <LinearGradient id="backBg" x1="0" y1="0" x2="0.3" y2="1">
-              <Stop offset="0" stopColor="#0F2035" />
-              <Stop offset="1" stopColor="#0A1628" />
+              <Stop offset="0" stopColor="#F8FAFC" />
+              <Stop offset="1" stopColor="#FFFFFF" />
             </LinearGradient>
           </Defs>
           <Rect x={0} y={0} width={CARD_W} height={CARD_H} rx={14} fill="url(#backBg)" />
@@ -317,8 +312,10 @@ const styles = StyleSheet.create({
     elevation: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.15,
     shadowRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   frontGradientBg: {
     width: '100%',
@@ -331,7 +328,7 @@ const styles = StyleSheet.create({
     top: -30,
     width: 60,
     height: CARD_H + 60,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(255,255,255,0.4)',
     zIndex: 5,
   },
   microtextWrap: {
@@ -341,12 +338,12 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 2,
     overflow: 'hidden',
-    opacity: 0.08,
+    opacity: 0.1,
   },
   microtext: {
     fontSize: 4,
     fontFamily: 'Courier',
-    color: '#C9A94E',
+    color: '#0F172A',
     letterSpacing: 1,
   },
   frontContent: {
@@ -374,43 +371,43 @@ const styles = StyleSheet.create({
   frontUniName: {
     fontSize: 10,
     fontFamily: FONT.bold,
-    color: '#E8D48B',
+    color: '#0F172A',
     letterSpacing: 0.5,
     lineHeight: 13,
   },
   frontCardLabel: {
     fontSize: 5.5,
     fontFamily: FONT.semiBold,
-    color: 'rgba(201,169,78,0.6)',
+    color: '#006B3F',
     letterSpacing: 2,
     marginTop: 1,
   },
   liveIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(22,163,74,0.12)',
+    backgroundColor: 'rgba(0, 107, 63, 0.1)',
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 4,
     borderWidth: 0.5,
-    borderColor: 'rgba(22,163,74,0.2)',
+    borderColor: 'rgba(0, 107, 63, 0.2)',
   },
   liveDot: {
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: '#22C55E',
+    backgroundColor: '#006B3F',
     marginRight: 4,
   },
   liveLabel: {
     fontSize: 6,
     fontFamily: FONT.bold,
-    color: '#22C55E',
+    color: '#006B3F',
     letterSpacing: 0.8,
   },
   goldLine: {
     height: 0.5,
-    backgroundColor: 'rgba(201,169,78,0.2)',
+    backgroundColor: 'rgba(15, 23, 42, 0.1)',
     marginVertical: 6,
   },
   frontMiddle: {
@@ -425,9 +422,9 @@ const styles = StyleSheet.create({
     height: CARD_H * 0.42 * 1.25,
     borderRadius: 4,
     borderWidth: 1.5,
-    borderColor: 'rgba(201,169,78,0.3)',
+    borderColor: '#E2E8F0',
     overflow: 'hidden',
-    backgroundColor: '#1A2332',
+    backgroundColor: '#F8FAFC',
   },
   photo: {
     width: '100%',
@@ -444,7 +441,7 @@ const styles = StyleSheet.create({
   studentName: {
     fontSize: 13,
     fontFamily: FONT.bold,
-    color: '#FFFFFF',
+    color: '#0F172A',
     letterSpacing: 0.5,
     marginBottom: 6,
     lineHeight: 16,
@@ -463,20 +460,20 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 5.5,
     fontFamily: FONT.semiBold,
-    color: 'rgba(201,169,78,0.5)',
+    color: '#64748B',
     letterSpacing: 1,
     marginBottom: 1,
   },
   fieldValue: {
     fontSize: 11,
     fontFamily: FONT.bold,
-    color: '#E8D48B',
+    color: '#0F172A',
     letterSpacing: 0.8,
   },
   fieldValueSm: {
     fontSize: 9,
     fontFamily: FONT.semiBold,
-    color: 'rgba(255,255,255,0.8)',
+    color: '#0F172A',
   },
   frontBottom: {
     flexDirection: 'row',
@@ -489,17 +486,18 @@ const styles = StyleSheet.create({
     height: 18,
     alignItems: 'flex-end',
     overflow: 'hidden',
+    opacity: 0.8,
   },
   barLine: {
     height: '100%',
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: '#0F172A',
     marginRight: 1,
   },
   barcodeNumber: {
     fontSize: 6,
     fontFamily: 'Courier',
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.4)',
+    color: '#475569',
     letterSpacing: 2,
     marginTop: 2,
   },
@@ -511,11 +509,11 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontFamily: 'Courier',
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.4)',
+    color: '#475569',
     letterSpacing: 0.5,
   },
   clockColon: {
-    color: 'rgba(201,169,78,0.5)',
+    color: '#94A3B8',
   },
 
   backBg: {
@@ -527,7 +525,7 @@ const styles = StyleSheet.create({
   magStripe: {
     width: '100%',
     height: 30,
-    backgroundColor: '#1A2332',
+    backgroundColor: '#0F172A',
     marginTop: 12,
   },
   backContent: {
@@ -548,11 +546,13 @@ const styles = StyleSheet.create({
     padding: 4,
     backgroundColor: '#FFFFFF',
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   qrLabel: {
     fontSize: 6,
     fontFamily: FONT.bold,
-    color: 'rgba(201,169,78,0.5)',
+    color: '#64748B',
     letterSpacing: 1,
     marginTop: 4,
   },
@@ -566,26 +566,26 @@ const styles = StyleSheet.create({
   backInfoLabel: {
     fontSize: 5.5,
     fontFamily: FONT.semiBold,
-    color: 'rgba(201,169,78,0.5)',
+    color: '#64748B',
     letterSpacing: 1,
     marginBottom: 1,
   },
   backInfoValue: {
     fontSize: 9,
     fontFamily: FONT.semiBold,
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   backInfoMono: {
     fontSize: 9,
     fontFamily: 'Courier',
     fontWeight: '700',
-    color: '#E8D48B',
+    color: '#0F172A',
     letterSpacing: 1.5,
   },
   signatureBox: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: '#F8FAFC',
     borderWidth: 0.5,
-    borderColor: 'rgba(201,169,78,0.15)',
+    borderColor: '#CBD5E1',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 4,
@@ -594,25 +594,25 @@ const styles = StyleSheet.create({
   sigLabel: {
     fontSize: 5,
     fontFamily: FONT.semiBold,
-    color: 'rgba(201,169,78,0.4)',
+    color: '#64748B',
     letterSpacing: 1,
     marginBottom: 2,
   },
   sigName: {
     fontFamily: Platform.OS === 'ios' ? 'Snell Roundhand' : 'serif',
     fontSize: 14,
-    color: '#E8D48B',
+    color: '#0F172A',
     fontStyle: 'italic',
   },
   backFooter: {
     borderTopWidth: 0.5,
-    borderTopColor: 'rgba(201,169,78,0.1)',
+    borderTopColor: '#E2E8F0',
     paddingTop: 4,
   },
   disclaimer: {
     fontSize: 5,
     fontFamily: FONT.regular,
-    color: 'rgba(255,255,255,0.3)',
+    color: '#475569',
     lineHeight: 7.5,
     textAlign: 'center',
     marginBottom: 2,
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   verCode: {
     fontSize: 5.5,
     fontFamily: 'Courier',
-    color: 'rgba(201,169,78,0.3)',
+    color: '#94A3B8',
     textAlign: 'center',
     letterSpacing: 1.5,
   },
