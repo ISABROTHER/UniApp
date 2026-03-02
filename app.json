@@ -15,6 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "requireFullScreen": true,
       "bundleIdentifier": "com.uccharousing.app"
     },
     "android": {
@@ -23,6 +24,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.uccharousing.app",
+      "softwareKeyboardLayoutMode": "pan",
       "intentFilters": [
         {
           "action": "VIEW",
