@@ -12,14 +12,18 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Shield, Check, Calendar, CreditCard, Link2 } from 'lucide-react-native';
+import { ArrowLeft, Shield, Check, Calendar, CreditCard, Link2, Wifi } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - SPACING.xl * 2;
-const CARD_HEIGHT = CARD_WIDTH * 1.6;
+// Standard physical ID card ratio is slightly wider, adjusted for realistic proportions
+const CARD_HEIGHT = CARD_WIDTH * 1.58; 
+
+// Fixed sequence for a stable, realistic looking barcode pattern
+const BARCODE_PATTERN = [2, 1, 3, 1, 2, 4, 1, 1, 3, 2, 1, 2, 3, 1, 2, 1, 4, 2, 1, 3, 2, 1, 2];
 
 interface DigitalStudentID {
   id: string;
@@ -128,22 +132,34 @@ export default function StudentIDScreen() {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
   };
 
   const cardScale = flipAnim.interpolate({
     inputRange: [0, 0.5, 1],
-    outputRange: [1, 0.9, 1],
+    outputRange: [1, 0.95, 1],
+  });
+
+  const frontOpacity = flipAnim.interpolate({
+    inputRange: [0, 0.5, 0.51, 1],
+    outputRange: [1, 0, 0, 0],
+  });
+
+  const backOpacity = flipAnim.interpolate({
+    inputRange: [0, 0.49, 0.5, 1],
+    outputRange: [0, 0, 1, 1],
+  });
+
+  const backTransform = flipAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['180deg', '360deg'],
   });
 
   if (loading) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <ArrowLeft size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Digital Student ID</Text>
@@ -160,10 +176,7 @@ export default function StudentIDScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <ArrowLeft size={24} color={COLORS.textPrimary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Digital Student ID</Text>
@@ -196,10 +209,7 @@ export default function StudentIDScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <ArrowLeft size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Digital Student ID</Text>
@@ -212,111 +222,157 @@ export default function StudentIDScreen() {
         showsVerticalScrollIndicator={false}
       >
         <TouchableOpacity
-          activeOpacity={0.9}
+          activeOpacity={0.95}
           onPress={flipCard}
-          style={styles.cardContainer}
+          style={styles.cardWrapper}
         >
           <Animated.View
             style={[
-              styles.card,
-              {
-                transform: [{ scale: cardScale }],
-              },
+              styles.cardContainer,
+              { transform: [{ scale: cardScale }] }
             ]}
           >
-            {!isFlipped ? (
-              <View style={styles.cardFront}>
-                <View style={styles.cardHeader}>
-                  <Shield size={32} color={COLORS.gold} strokeWidth={2} style={styles.cardIcon} />
-                  <Text style={styles.universityName} numberOfLines={2} adjustsFontSizeToFit>
-                    {member?.university}
-                  </Text>
-                  <Text style={styles.cardSubtitle} numberOfLines={1}>Student Identification Card</Text>
-                </View>
+            {/* FRONT OF CARD */}
+            <Animated.View style={[styles.cardSide, styles.cardFront, { opacity: frontOpacity }]}>
+              {/* Holographic watermark background */}
+              <View style={styles.watermarkContainer}>
+                <Shield size={280} color="rgba(255, 255, 255, 0.03)" strokeWidth={1} />
+              </View>
 
-                <View style={styles.cardBody}>
-                  <View style={styles.photoContainer}>
-                    <View style={styles.photoCircle}>
+              {/* Realistic Card Header */}
+              <View style={styles.cardHeader}>
+                <View style={styles.headerLeft}>
+                  <Shield size={28} color={COLORS.gold} strokeWidth={2.5} />
+                  <View style={styles.headerTextGroup}>
+                    <Text style={styles.universityName} numberOfLines={1} adjustsFontSizeToFit>
+                      {member?.university || 'UNIVERSITY'}
+                    </Text>
+                    <Text style={styles.cardSubtitle}>STUDENT IDENTIFICATION</Text>
+                  </View>
+                </View>
+                <Wifi size={20} color={COLORS.white} opacity={0.5} style={{ transform: [{ rotate: '90deg' }] }} />
+              </View>
+
+              <View style={styles.cardBody}>
+                {/* Left Column: Photo & Chip */}
+                <View style={styles.bodyLeft}>
+                  <View style={styles.photoFrame}>
+                    <View style={styles.photoInner}>
                       <Text style={styles.initialsText} adjustsFontSizeToFit numberOfLines={1}>
                         {getInitials()}
                       </Text>
                     </View>
                   </View>
-
-                  <View style={styles.infoSection}>
-                    <Text style={styles.studentName} numberOfLines={1} adjustsFontSizeToFit>
-                      {member?.full_name}
-                    </Text>
-                    <View style={styles.divider} />
-
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>Student ID</Text>
-                      <Text style={styles.infoValue} numberOfLines={1}>{member?.student_id}</Text>
-                    </View>
-
-                    <View style={styles.infoRow}>
-                      <Text style={styles.infoLabel}>Level</Text>
-                      <Text style={styles.infoValue} numberOfLines={1}>{member?.level}</Text>
-                    </View>
+                  
+                  {/* Simulated Smart Card EMV Chip */}
+                  <View style={styles.smartChip}>
+                    <View style={styles.chipLineHorizontal} />
+                    <View style={styles.chipLineVerticalLeft} />
+                    <View style={styles.chipLineVerticalRight} />
+                    <View style={styles.chipInnerRect} />
                   </View>
                 </View>
 
-                <View style={styles.cardFooter}>
-                  <View style={styles.validitySection}>
-                    <View style={styles.validityRow}>
-                      <Calendar size={14} color={COLORS.gold} style={styles.validityIcon} />
-                      <Text style={styles.validityLabel}>Issued</Text>
-                      <Text style={styles.validityValue} numberOfLines={1}>{formatDate(digitalID.issued_at)}</Text>
-                    </View>
-                    <View style={styles.validityRow}>
-                      <Calendar size={14} color={COLORS.gold} style={styles.validityIcon} />
-                      <Text style={styles.validityLabel}>Expires</Text>
-                      <Text style={styles.validityValue} numberOfLines={1}>{formatDate(digitalID.expires_at)}</Text>
-                    </View>
+                {/* Right Column: Details */}
+                <View style={styles.bodyRight}>
+                  <Text style={styles.labelMicro}>SURNAME, GIVEN NAMES</Text>
+                  <Text style={styles.studentName} numberOfLines={2} adjustsFontSizeToFit>
+                    {member?.full_name?.toUpperCase()}
+                  </Text>
+                  
+                  <View style={styles.detailBlock}>
+                    <Text style={styles.labelMicro}>IDENTIFICATION NO.</Text>
+                    <Text style={styles.idNumber} numberOfLines={1}>{member?.student_id}</Text>
                   </View>
 
-                  <View style={styles.statusBadge}>
-                    <Check size={14} color={COLORS.white} strokeWidth={3} />
-                    <Text style={styles.statusText}>Active</Text>
+                  <View style={styles.detailBlock}>
+                    <Text style={styles.labelMicro}>ACADEMIC LEVEL</Text>
+                    <Text style={styles.infoValue} numberOfLines={1}>LEVEL {member?.level || '100'}</Text>
+                  </View>
+
+                  <View style={styles.datesRow}>
+                    <View style={styles.dateItem}>
+                      <Text style={styles.labelMicro}>ISSUED</Text>
+                      <Text style={styles.dateValue}>{formatDate(digitalID.issued_at)}</Text>
+                    </View>
+                    <View style={styles.dateItem}>
+                      <Text style={styles.labelMicro}>EXPIRES</Text>
+                      <Text style={styles.dateValue}>{formatDate(digitalID.expires_at)}</Text>
+                    </View>
                   </View>
                 </View>
-
-                <View style={styles.goldBar} />
               </View>
-            ) : (
-              <View style={styles.cardBack}>
-                <Text style={styles.backTitle}>Verification Code</Text>
 
-                <View style={styles.qrCodeContainer}>
-                  <View style={styles.qrCodeGrid}>
-                    {Array.from({ length: 100 }).map((_, index) => (
-                      <View
-                        key={index}
-                        style={[
-                          styles.qrPixel,
-                          Math.random() > 0.5 && styles.qrPixelFilled,
-                        ]}
-                      />
-                    ))}
-                  </View>
+              <View style={styles.cardFooter}>
+                {/* Simulated physical Barcode */}
+                <View style={styles.barcodeWrapper}>
+                  {BARCODE_PATTERN.map((w, i) => (
+                    <View key={i} style={[styles.barcodeLine, { width: w }]} />
+                  ))}
                 </View>
+                
+                <View style={styles.activePill}>
+                  <View style={styles.activeIndicator} />
+                  <Text style={styles.activePillText}>VALID</Text>
+                </View>
+              </View>
 
-                <Text style={styles.scanText}>Scan for Verification</Text>
-                <Text style={styles.qrDescription}>
-                  Present this QR code to verify your student identity at campus facilities and events.
+              {/* Edge highlight to simulate physical card thickness */}
+              <View style={styles.cardEdgeHighlight} />
+            </Animated.View>
+
+            {/* BACK OF CARD */}
+            <Animated.View
+              style={[
+                styles.cardSide,
+                styles.cardBack,
+                { opacity: backOpacity, transform: [{ rotateY: backTransform }] },
+              ]}
+            >
+              {/* Magnetic Stripe */}
+              <View style={styles.magStripe} />
+
+              <View style={styles.backContent}>
+                <Text style={styles.backDisclaimer} numberOfLines={3}>
+                  This card is the property of {member?.university}. It must be returned upon graduation, withdrawal, or upon request by university officials.
                 </Text>
 
-                <View style={styles.backFooter}>
-                  <Text style={styles.backFooterText} numberOfLines={1}>ID: {member?.student_id}</Text>
-                  <View style={styles.backStatusBadge}>
-                    <Check size={12} color={COLORS.white} strokeWidth={3} />
-                    <Text style={styles.backStatusText}>Verified</Text>
+                {/* Signature Box */}
+                <View style={styles.signatureBox}>
+                  <Text style={styles.signatureLabel}>AUTHORIZED SIGNATURE</Text>
+                  <Text style={styles.signatureCursive} numberOfLines={1}>{member?.full_name}</Text>
+                </View>
+
+                <View style={styles.qrRow}>
+                  <View style={styles.qrCodeContainer}>
+                    <View style={styles.qrCodeGrid}>
+                      {Array.from({ length: 100 }).map((_, index) => (
+                        <View
+                          key={index}
+                          style={[
+                            styles.qrPixel,
+                            Math.random() > 0.4 && styles.qrPixelFilled,
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  </View>
+                  
+                  <View style={styles.qrDetails}>
+                    <Text style={styles.qrTitle}>SCAN TO VERIFY</Text>
+                    <Text style={styles.qrSub}>Official University{"\n"}Validation Code</Text>
+                    <View style={styles.backStatusBadge}>
+                      <Check size={12} color={COLORS.white} strokeWidth={3} />
+                      <Text style={styles.backStatusText}>VERIFIED SECURE</Text>
+                    </View>
                   </View>
                 </View>
 
-                <View style={styles.goldBar} />
+                <Text style={styles.microPrint} numberOfLines={1}>
+                  {digitalID.id} • {digitalID.student_number} • DO NOT DUPLICATE
+                </Text>
               </View>
-            )}
+            </Animated.View>
           </Animated.View>
         </TouchableOpacity>
 
@@ -332,27 +388,22 @@ export default function StudentIDScreen() {
 
         <View style={styles.detailsCard}>
           <Text style={styles.detailsTitle}>ID Details</Text>
-
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Student Number</Text>
             <Text style={styles.detailValue} numberOfLines={1}>{digitalID.student_number}</Text>
           </View>
-
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>University</Text>
             <Text style={styles.detailValue} numberOfLines={2}>{digitalID.university}</Text>
           </View>
-
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Issue Date</Text>
             <Text style={styles.detailValue} numberOfLines={1}>{formatDate(digitalID.issued_at)}</Text>
           </View>
-
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Expiry Date</Text>
             <Text style={styles.detailValue} numberOfLines={1}>{formatDate(digitalID.expires_at)}</Text>
           </View>
-
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Status</Text>
             <View style={styles.activeStatusBadge}>
@@ -477,183 +528,277 @@ const styles = StyleSheet.create({
     fontFamily: FONT.semiBold,
     color: COLORS.white,
   },
-  cardContainer: {
+  cardWrapper: {
     alignItems: 'center',
     marginBottom: SPACING.md,
+    perspective: 1000,
   },
-  card: {
+  cardContainer: {
     width: CARD_WIDTH,
     height: CARD_HEIGHT,
-    borderRadius: RADIUS.lg,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
   },
+  cardSide: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
+    backfaceVisibility: 'hidden',
+    elevation: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.4,
+    shadowRadius: 15,
+    overflow: 'hidden',
+  },
+  cardEdgeHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  
+  /* --- PREMIUM FRONT DESIGN --- */
   cardFront: {
-    flex: 1,
-    backgroundColor: COLORS.navy,
-    padding: SPACING.md,
+    backgroundColor: '#0B1120', // Deep Onyx
+    padding: SPACING.lg,
     justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  watermarkContainer: {
+    position: 'absolute',
+    right: -60,
+    bottom: -40,
+    opacity: 0.8,
   },
   cardHeader: {
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: SPACING.md,
   },
-  cardIcon: {
-    marginBottom: 4,
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexShrink: 1,
+  },
+  headerTextGroup: {
+    marginLeft: SPACING.sm,
+    flexShrink: 1,
   },
   universityName: {
+    fontSize: 15,
+    fontFamily: FONT.bold,
+    color: COLORS.white,
+    letterSpacing: 1,
+  },
+  cardSubtitle: {
+    fontSize: 9,
+    fontFamily: FONT.medium,
+    color: COLORS.gold,
+    letterSpacing: 1.5,
+    marginTop: 2,
+  },
+  cardBody: {
+    flexDirection: 'row',
+    flex: 1,
+    marginTop: SPACING.sm,
+  },
+  bodyLeft: {
+    alignItems: 'center',
+    marginRight: SPACING.md,
+    flexShrink: 0,
+  },
+  photoFrame: {
+    width: 90,
+    height: 110,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(212, 175, 55, 0.4)', // Gold tint
+  },
+  photoInner: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  initialsText: {
+    fontSize: 32,
+    fontFamily: FONT.bold,
+    color: COLORS.white,
+  },
+  smartChip: {
+    width: 42,
+    height: 32,
+    backgroundColor: '#D4AF37', // Pure Gold
+    borderRadius: 6,
+    marginTop: SPACING.lg,
+    position: 'relative',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#997A00',
+  },
+  chipLineHorizontal: { position: 'absolute', top: '50%', left: 0, right: 0, height: 1, backgroundColor: '#B8860B' },
+  chipLineVerticalLeft: { position: 'absolute', left: '30%', top: 0, bottom: 0, width: 1, backgroundColor: '#B8860B' },
+  chipLineVerticalRight: { position: 'absolute', right: '30%', top: 0, bottom: 0, width: 1, backgroundColor: '#B8860B' },
+  chipInnerRect: { position: 'absolute', top: '25%', left: '35%', width: '30%', height: '50%', borderWidth: 1, borderColor: '#B8860B', borderRadius: 2 },
+  
+  bodyRight: {
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  labelMicro: {
+    fontSize: 8,
+    fontFamily: FONT.semiBold,
+    color: 'rgba(255, 255, 255, 0.5)',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  studentName: {
     fontSize: 18,
     fontFamily: FONT.bold,
     color: COLORS.white,
-    marginTop: SPACING.xs,
-    textAlign: 'center',
+    marginBottom: SPACING.md,
+    lineHeight: 22,
   },
-  cardSubtitle: {
-    fontSize: 11,
-    fontFamily: FONT.medium,
-    color: COLORS.gold,
-    marginTop: 2,
-    letterSpacing: 1,
-  },
-  cardBody: {
-    justifyContent: 'center',
-  },
-  photoContainer: {
-    alignItems: 'center',
+  detailBlock: {
     marginBottom: SPACING.sm,
   },
-  photoCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: RADIUS.full,
-    backgroundColor: COLORS.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: COLORS.white,
-  },
-  initialsText: {
-    fontSize: 28,
-    fontFamily: FONT.bold,
-    color: COLORS.white,
-  },
-  infoSection: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: RADIUS.md,
-    padding: SPACING.sm,
-  },
-  studentName: {
-    fontSize: 20,
-    fontFamily: FONT.bold,
-    color: COLORS.white,
-    textAlign: 'center',
-    marginBottom: SPACING.xs,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginVertical: SPACING.xs,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginVertical: 2,
-  },
-  infoLabel: {
-    fontSize: 13,
-    fontFamily: FONT.medium,
+  idNumber: {
+    fontSize: 16,
+    fontFamily: 'Courier', // Monospace feel for ID
+    fontWeight: '700',
     color: COLORS.gold,
-    flexShrink: 0,
+    letterSpacing: 2,
   },
   infoValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONT.semiBold,
     color: COLORS.white,
-    flexShrink: 1,
-    textAlign: 'right',
-    marginLeft: SPACING.sm,
   },
-  cardFooter: {
-    marginTop: SPACING.sm,
-  },
-  validitySection: {
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: RADIUS.sm,
-    padding: SPACING.xs,
-    marginBottom: SPACING.xs,
-  },
-  validityRow: {
+  datesRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 2,
+    marginTop: 4,
   },
-  validityIcon: {
-    marginRight: 6,
+  dateItem: {
+    marginRight: SPACING.lg,
   },
-  validityLabel: {
-    fontSize: 11,
-    fontFamily: FONT.medium,
-    color: COLORS.white,
-    flexShrink: 0,
-  },
-  validityValue: {
-    fontSize: 11,
-    fontFamily: FONT.semiBold,
-    color: COLORS.white,
-    flex: 1,
-    textAlign: 'right',
-    marginLeft: SPACING.sm,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.success,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: RADIUS.sm,
-  },
-  statusText: {
+  dateValue: {
     fontSize: 12,
     fontFamily: FONT.semiBold,
     color: COLORS.white,
-    marginLeft: SPACING.xs / 2,
   },
-  goldBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-    backgroundColor: COLORS.gold,
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: SPACING.sm,
   },
-  cardBack: {
-    flex: 1,
-    backgroundColor: COLORS.navy,
-    padding: SPACING.lg,
+  barcodeWrapper: {
+    flexDirection: 'row',
+    height: 24,
     alignItems: 'center',
-    justifyContent: 'center',
+    opacity: 0.6,
   },
-  backTitle: {
-    fontSize: 18,
+  barcodeLine: {
+    height: '100%',
+    backgroundColor: COLORS.white,
+    marginRight: 2,
+  },
+  activePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(16, 185, 129, 0.3)',
+  },
+  activeIndicator: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.success,
+    marginRight: 6,
+  },
+  activePillText: {
+    fontSize: 10,
     fontFamily: FONT.bold,
-    color: COLORS.white,
-    marginBottom: SPACING.lg,
+    color: COLORS.success,
+    letterSpacing: 1,
+  },
+
+  /* --- PREMIUM BACK DESIGN --- */
+  cardBack: {
+    backgroundColor: '#F8FAFC', // Crisp white/silver
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  magStripe: {
+    width: '100%',
+    height: 45,
+    backgroundColor: '#0F172A',
+    marginTop: SPACING.xl,
+  },
+  backContent: {
+    padding: SPACING.lg,
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  backDisclaimer: {
+    fontSize: 9,
+    fontFamily: FONT.regular,
+    color: COLORS.textSecondary,
+    lineHeight: 13,
+    textAlign: 'center',
+    marginBottom: SPACING.sm,
+  },
+  signatureBox: {
+    backgroundColor: COLORS.white,
+    height: 40,
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.sm,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
+    marginBottom: SPACING.md,
+  },
+  signatureLabel: {
+    position: 'absolute',
+    top: -14,
+    left: 0,
+    fontSize: 8,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textTertiary,
+  },
+  signatureCursive: {
+    fontFamily: Platform.OS === 'ios' ? 'Snell Roundhand' : 'serif',
+    fontSize: 20,
+    color: COLORS.textPrimary,
+    fontStyle: 'italic',
+  },
+  qrRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    padding: SPACING.sm,
+    borderRadius: RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.borderLight,
   },
   qrCodeContainer: {
-    backgroundColor: COLORS.white,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    marginBottom: SPACING.lg,
+    marginRight: SPACING.md,
   },
   qrCodeGrid: {
-    width: 200,
-    height: 200,
+    width: 70,
+    height: 70,
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
@@ -665,53 +810,48 @@ const styles = StyleSheet.create({
   qrPixelFilled: {
     backgroundColor: COLORS.navy,
   },
-  scanText: {
-    fontSize: 16,
-    fontFamily: FONT.semiBold,
-    color: COLORS.gold,
-    marginBottom: SPACING.sm,
+  qrDetails: {
+    flex: 1,
+    justifyContent: 'center',
   },
-  qrDescription: {
-    fontSize: 12,
-    fontFamily: FONT.regular,
-    color: COLORS.white,
-    textAlign: 'center',
-    opacity: 0.8,
-    lineHeight: 18,
-    paddingHorizontal: SPACING.md,
-  },
-  backFooter: {
-    position: 'absolute',
-    bottom: SPACING.lg,
-    left: SPACING.lg,
-    right: SPACING.lg,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  backFooterText: {
+  qrTitle: {
     fontSize: 11,
-    fontFamily: FONT.medium,
-    color: COLORS.white,
-    opacity: 0.7,
-    flexShrink: 1,
-    marginRight: SPACING.sm,
+    fontFamily: FONT.bold,
+    color: COLORS.textPrimary,
+    letterSpacing: 0.5,
+  },
+  qrSub: {
+    fontSize: 9,
+    fontFamily: FONT.regular,
+    color: COLORS.textSecondary,
+    marginVertical: 4,
   },
   backStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.success,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs / 2,
-    borderRadius: RADIUS.xs,
-    flexShrink: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    alignSelf: 'flex-start',
   },
   backStatusText: {
-    fontSize: 10,
-    fontFamily: FONT.semiBold,
+    fontSize: 8,
+    fontFamily: FONT.bold,
     color: COLORS.white,
-    marginLeft: 4,
+    marginLeft: 3,
+    letterSpacing: 0.5,
   },
+  microPrint: {
+    fontSize: 6,
+    fontFamily: 'Courier',
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+    opacity: 0.6,
+    marginTop: SPACING.sm,
+  },
+
+  /* --- OTHER UI ELEMENTS --- */
   flipHint: {
     fontSize: 14,
     fontFamily: FONT.medium,
@@ -773,21 +913,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     textAlign: 'right',
     marginLeft: SPACING.sm,
-  },
-  activeStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.borderLight,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs / 2,
-    borderRadius: RADIUS.xs,
-    flexShrink: 0,
-  },
-  activeStatusText: {
-    fontSize: 12,
-    fontFamily: FONT.semiBold,
-    color: COLORS.success,
-    marginLeft: 4,
   },
   ghanaCardSection: {
     backgroundColor: COLORS.white,
