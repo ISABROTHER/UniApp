@@ -1,748 +1,627 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Animated,
-  ActivityIndicator,
-  ScrollView,
+  Easing,
   Dimensions,
   Platform,
-  Easing,
+  Image,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { ArrowLeft, Shield, Fingerprint, Ticket, Check, ChevronDown, ChevronUp, RotateCw } from 'lucide-react-native';
-import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
-import StudentIDCard from '@/components/StudentIDCard';
-import EventTicket, { TicketData } from '@/components/EventTicket';
+import Svg, { Rect, Defs, LinearGradient, Stop, Circle, Path } from 'react-native-svg';
+import { COLORS, FONT, SPACING } from '@/lib/constants';
+import { Member } from '@/lib/types';
+import QRCode from '@/components/QRCode';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CARD_W = Math.min(SCREEN_W - SPACING.md * 2, 380);
 const CARD_H = CARD_W * 0.618;
 
-interface DigitalStudentID {
-  id: string;
-  user_id: string;
-  university: string;
-  student_number: string;
-  qr_code_data: string;
-  issued_at: string;
-  expires_at: string;
-  is_active: boolean;
+interface Props {
+  member: Member | null;
+  digitalID: {
+    id: string;
+    issued_at: string;
+    expires_at: string;
+    qr_code_data: string;
+  } | null;
+  isFlipped: boolean;
 }
 
-const MOCK_TICKETS: TicketData[] = [
-  {
-    id: 'tkt-001',
-    event_name: 'Hall Week Cultural Night',
-    event_date: '2026-03-15T19:00:00',
-    venue: 'Oguaa Hall Forecourt',
-    category: 'Hall Week',
-    is_free: true,
-    price: null,
-    status: 'valid',
-    attendee_name: '',
-    ticket_number: 'HW-2026-0847',
-  },
-  {
-    id: 'tkt-002',
-    event_name: 'Tech Career Fair 2026',
-    event_date: '2026-03-22T09:00:00',
-    venue: 'Sam Jonah Library Auditorium',
-    category: 'Career',
-    is_free: true,
-    price: null,
-    status: 'valid',
-    attendee_name: '',
-    ticket_number: 'CF-2026-1293',
-  },
-  {
-    id: 'tkt-003',
-    event_name: 'Inter-Hall Football Finals',
-    event_date: '2026-02-28T15:00:00',
-    venue: 'UCC Main Stadium',
-    category: 'Sports',
-    is_free: false,
-    price: 10,
-    status: 'used',
-    attendee_name: '',
-    ticket_number: 'SF-2026-0421',
-  },
-  {
-    id: 'tkt-004',
-    event_name: 'Freshers Welcome Concert',
-    event_date: '2025-11-20T18:00:00',
-    venue: 'New Auditorium',
-    category: 'Social',
-    is_free: false,
-    price: 25,
-    status: 'expired',
-    attendee_name: '',
-    ticket_number: 'FW-2025-3018',
-  },
-];
+const BARCODE_PATTERN = [3,1,2,1,3,1,1,2,3,1,2,1,2,3,1,1,3,2,1,1,2,1,3,1,2,1,1,3,2,1,2,1,3,1,1,2,1,2,3,1];
 
-export default function StudentIDScreen() {
-  const router = useRouter();
-  const { member } = useAuth();
-  const [digitalID, setDigitalID] = useState<DigitalStudentID | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [activeTab, setActiveTab] = useState<'id' | 'tickets'>('id');
-  const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
-  const [showAllTickets, setShowAllTickets] = useState(false);
+function LiveClock() {
+  const [t, setT] = React.useState(new Date());
+  useEffect(() => {
+    const i = setInterval(() => setT(new Date()), 1000);
+    return () => clearInterval(i);
+  }, []);
+  return (
+    <Text style={styles.clockText}>
+      {t.getHours().toString().padStart(2, '0')}
+      <Text style={styles.clockColon}>:</Text>
+      {t.getMinutes().toString().padStart(2, '0')}
+      <Text style={styles.clockColon}>:</Text>
+      {t.getSeconds().toString().padStart(2, '0')}
+    </Text>
+  );
+}
 
-  const flipAnim = useRef(new Animated.Value(0)).current;
-  const cardScale = useRef(new Animated.Value(1)).current;
-  const tabSlide = useRef(new Animated.Value(0)).current;
-  const fadeIn = useRef(new Animated.Value(0)).current;
+function HolographicOverlay() {
+  const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    loadDigitalID();
+    Animated.loop(
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 6000,
+        easing: Easing.inOut(Easing.ease),
+        useNativeDriver: true,
+      })
+    ).start();
   }, []);
 
-  useEffect(() => {
-    Animated.timing(fadeIn, {
-      toValue: 1,
-      duration: 600,
-      easing: Easing.out(Easing.ease),
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
-  const loadDigitalID = async () => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('digital_student_ids')
-        .select('*')
-        .eq('user_id', member?.id)
-        .eq('is_active', true)
-        .maybeSingle();
-      if (error) throw error;
-      setDigitalID(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const generateDigitalID = async () => {
-    try {
-      setGenerating(true);
-      const qrData = JSON.stringify({
-        studentId: member?.student_id,
-        name: member?.full_name,
-        university: member?.university,
-        timestamp: new Date().toISOString(),
-      });
-      const issuedAt = new Date();
-      const expiresAt = new Date();
-      expiresAt.setFullYear(expiresAt.getFullYear() + 4);
-      const { data, error } = await supabase
-        .from('digital_student_ids')
-        .insert({
-          user_id: member?.id,
-          university: member?.university,
-          student_number: member?.student_id,
-          qr_code_data: qrData,
-          issued_at: issuedAt.toISOString(),
-          expires_at: expiresAt.toISOString(),
-          is_active: true,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      setDigitalID(data);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  const flipCard = () => {
-    const toValue = isFlipped ? 0 : 1;
-    Animated.parallel([
-      Animated.spring(flipAnim, { toValue, friction: 8, tension: 10, useNativeDriver: true }),
-      Animated.sequence([
-        Animated.timing(cardScale, { toValue: 0.95, duration: 150, useNativeDriver: true }),
-        Animated.timing(cardScale, { toValue: 1, duration: 200, useNativeDriver: true }),
-      ]),
-    ]).start();
-    setIsFlipped(!isFlipped);
-  };
-
-  const switchTab = (tab: 'id' | 'tickets') => {
-    setActiveTab(tab);
-    Animated.spring(tabSlide, {
-      toValue: tab === 'id' ? 0 : 1,
-      friction: 8,
-      tension: 50,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const frontOp = flipAnim.interpolate({ inputRange: [0, 0.5, 0.51, 1], outputRange: [1, 0, 0, 0] });
-  const backOp = flipAnim.interpolate({ inputRange: [0, 0.49, 0.5, 1], outputRange: [0, 0, 1, 1] });
-  const backRotate = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['180deg', '360deg'] });
-
-  const tickets = MOCK_TICKETS.map((t) => ({
-    ...t,
-    attendee_name: member?.full_name || 'Student',
-  }));
-  const validTickets = tickets.filter((t) => t.status === 'valid');
-  const pastTickets = tickets.filter((t) => t.status !== 'valid');
-
-  const tabIndicatorX = tabSlide.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, (SCREEN_W - SPACING.md * 2) / 2],
+  const translateX = anim.interpolate({
+    inputRange: [0, 0.5, 1],
+    outputRange: [-CARD_W * 1.2, CARD_W * 0.3, -CARD_W * 1.2],
   });
 
-  if (loading) {
-    return (
-      <View style={s.container}>
-        <View style={s.topBar}>
-          <TouchableOpacity style={s.topBarBtn} onPress={() => router.back()}>
-            <ArrowLeft size={22} color={COLORS.textPrimary} />
-          </TouchableOpacity>
-          <Text style={s.topBarTitle}>Student ID</Text>
-          <View style={s.topBarBtn} />
-        </View>
-        <View style={s.loadWrap}>
-          <ActivityIndicator size="large" color="#0A1628" />
-        </View>
-      </View>
-    );
-  }
+  return (
+    <Animated.View
+      style={[styles.holoOverlay, { transform: [{ translateX }, { rotate: '25deg' }] }]}
+      pointerEvents="none"
+    />
+  );
+}
 
-  if (!digitalID) {
+function SecurityMicrotext({ text }: { text: string }) {
+  const repeated = (text + ' ').repeat(40);
+  return (
+    <View style={styles.microtextWrap} pointerEvents="none">
+      <Text style={styles.microtext} numberOfLines={1}>{repeated}</Text>
+    </View>
+  );
+}
+
+function ChipSVG() {
+  return (
+    <Svg width={36} height={28} viewBox="0 0 36 28">
+      <Rect x={0} y={0} width={36} height={28} rx={3} fill="#C9A94E" />
+      <Rect x={1} y={1} width={34} height={26} rx={2.5} fill="#D4B65A" />
+      <Rect x={4} y={4} width={28} height={20} rx={1} fill="#C9A94E" stroke="#B89A3E" strokeWidth={0.5} />
+      <Path d="M4 14h28M18 4v20M10 4v20M26 4v20" stroke="#B89A3E" strokeWidth={0.3} />
+      <Path d="M4 9h28M4 19h28" stroke="#B89A3E" strokeWidth={0.3} />
+    </Svg>
+  );
+}
+
+function ContactlessIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M8.5 16.5a5.5 5.5 0 000-9" stroke="#64748B" strokeWidth={1.5} strokeLinecap="round" />
+      <Path d="M12 19a8 8 0 000-14" stroke="#64748B" strokeWidth={1.5} strokeLinecap="round" />
+      <Path d="M15.5 21.5a10.5 10.5 0 000-19" stroke="#64748B" strokeWidth={1.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+export default function StudentIDCard({ member, digitalID, isFlipped }: Props) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.3, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  const fmtDate = (d: string) =>
+    new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
+
+  const qrValue = useMemo(() => {
+    if (digitalID?.qr_code_data) return digitalID.qr_code_data;
+    return JSON.stringify({ id: member?.id, name: member?.full_name, ts: Date.now() });
+  }, [digitalID, member]);
+
+  if (!isFlipped) {
     return (
-      <View style={s.container}>
-        <View style={s.topBar}>
-          <TouchableOpacity style={s.topBarBtn} onPress={() => router.back()}>
-            <ArrowLeft size={22} color={COLORS.textPrimary} />
-          </TouchableOpacity>
-          <Text style={s.topBarTitle}>Student ID</Text>
-          <View style={s.topBarBtn} />
-        </View>
-        <View style={s.emptyWrap}>
-          <View style={s.emptyIcon}>
-            <Shield size={48} color="#C9A94E" strokeWidth={1.5} />
+      <View style={styles.card}>
+        <View style={styles.frontGradientBg}>
+          <Svg width={CARD_W} height={CARD_H} viewBox={`0 0 ${CARD_W} ${CARD_H}`} style={StyleSheet.absoluteFill}>
+            <Defs>
+              <LinearGradient id="cardBg" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor="#FFFFFF" />
+                <Stop offset="0.4" stopColor="#F8FAFC" />
+                <Stop offset="1" stopColor="#F1F5F9" />
+              </LinearGradient>
+            </Defs>
+            <Rect x={0} y={0} width={CARD_W} height={CARD_H} rx={14} fill="url(#cardBg)" />
+            <Circle cx={CARD_W * 0.85} cy={CARD_H * 0.15} r={CARD_H * 0.6} fill="rgba(0,0,0,0.015)" />
+            <Circle cx={CARD_W * 0.9} cy={CARD_H * 0.2} r={CARD_H * 0.4} fill="rgba(0,0,0,0.01)" />
+          </Svg>
+
+          <HolographicOverlay />
+          <SecurityMicrotext text="STUDENT IDENTITY CARD OFFICIAL DOCUMENT VERIFIED" />
+
+          <View style={styles.frontContent}>
+            <View style={styles.frontTopRow}>
+              <View style={styles.frontHeaderLeft}>
+                <View style={styles.uniShield}>
+                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                    <Path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="#006B3F" opacity={0.9} />
+                    <Path d="M12 6l-4 2.5v3c0 2.78 1.92 5.37 4 6 2.08-.63 4-3.22 4-6v-3L12 6z" fill="#FFFFFF" />
+                  </Svg>
+                </View>
+                <View style={styles.frontHeaderTexts}>
+                  <Text style={styles.frontUniName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
+                    {(member?.university || 'UNIVERSITY').toUpperCase()}
+                  </Text>
+                  <Text style={styles.frontCardLabel}>STUDENT IDENTIFICATION</Text>
+                </View>
+              </View>
+              <View style={styles.liveIndicator}>
+                <Animated.View style={[styles.liveDot, { opacity: pulseAnim }]} />
+                <Text style={styles.liveLabel}>ACTIVE</Text>
+              </View>
+            </View>
+
+            <View style={styles.goldLine} />
+
+            <View style={styles.frontMiddle}>
+              <View style={styles.photoSection}>
+                <View style={styles.photoBorder}>
+                  <Image
+                    source={{ uri: 'https://i.imgur.com/h286QnR.jpeg' }}
+                    style={styles.photo}
+                  />
+                </View>
+                <View style={styles.chipArea}>
+                  <ChipSVG />
+                </View>
+              </View>
+
+              <View style={styles.infoSection}>
+                <Text style={styles.studentName} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                  {member?.full_name?.toUpperCase() || 'STUDENT NAME'}
+                </Text>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoField}>
+                    <Text style={styles.fieldLabel}>STUDENT ID</Text>
+                    <Text style={styles.fieldValue}>{member?.student_id || '---'}</Text>
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoFieldFull}>
+                    <Text style={styles.fieldLabel}>PROGRAMME</Text>
+                    <Text style={styles.fieldValueSm} numberOfLines={1}>
+                      {member?.traditional_hall || 'Undergraduate Programme'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoField}>
+                    <Text style={styles.fieldLabel}>LEVEL</Text>
+                    <Text style={styles.fieldValueSm}>{member?.level || '100'}</Text>
+                  </View>
+                  <View style={styles.infoField}>
+                    <Text style={styles.fieldLabel}>GENDER</Text>
+                    <Text style={styles.fieldValueSm}>{(member?.gender || 'N/A').toUpperCase()}</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.frontBottom}>
+              <View style={styles.barcodeSection}>
+                <View style={styles.barcodeStrip}>
+                  {BARCODE_PATTERN.map((w, i) => (
+                    <View key={i} style={[styles.barLine, { width: w }]} />
+                  ))}
+                </View>
+                <Text style={styles.barcodeNumber}>{member?.student_id || ''}</Text>
+              </View>
+              <View style={styles.bottomRight}>
+                <ContactlessIcon />
+                <LiveClock />
+              </View>
+            </View>
           </View>
-          <Text style={s.emptyTitle}>Digital Student ID</Text>
-          <Text style={s.emptyDesc}>
-            Generate your official digital student identification card for campus access, exam verification, and identity authentication.
-          </Text>
-          <TouchableOpacity
-            style={s.genBtn}
-            onPress={generateDigitalID}
-            disabled={generating}
-            activeOpacity={0.8}
-          >
-            {generating ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={s.genBtnText}>Generate ID Card</Text>
-            )}
-          </TouchableOpacity>
         </View>
       </View>
     );
   }
 
   return (
-    <View style={s.container}>
-      <View style={s.topBar}>
-        <TouchableOpacity style={s.topBarBtn} onPress={() => router.back()}>
-          <ArrowLeft size={22} color={COLORS.textPrimary} />
-        </TouchableOpacity>
-        <Text style={s.topBarTitle}>Student ID</Text>
-        <View style={s.topBarBtn} />
-      </View>
+    <View style={styles.card}>
+      <View style={styles.backBg}>
+        <Svg width={CARD_W} height={CARD_H} viewBox={`0 0 ${CARD_W} ${CARD_H}`} style={StyleSheet.absoluteFill}>
+          <Defs>
+            <LinearGradient id="backBg" x1="0" y1="0" x2="0.3" y2="1">
+              <Stop offset="0" stopColor="#F8FAFC" />
+              <Stop offset="1" stopColor="#FFFFFF" />
+            </LinearGradient>
+          </Defs>
+          <Rect x={0} y={0} width={CARD_W} height={CARD_H} rx={14} fill="url(#backBg)" />
+        </Svg>
 
-      <View style={s.tabBar}>
-        <Animated.View
-          style={[
-            s.tabIndicator,
-            { transform: [{ translateX: tabIndicatorX }], width: (SCREEN_W - SPACING.md * 2) / 2 },
-          ]}
-        />
-        <TouchableOpacity
-          style={s.tab}
-          onPress={() => switchTab('id')}
-          activeOpacity={0.7}
-        >
-          <Fingerprint size={16} color={activeTab === 'id' ? '#0A1628' : COLORS.textTertiary} />
-          <Text style={[s.tabText, activeTab === 'id' && s.tabTextActive]}>ID Card</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={s.tab}
-          onPress={() => switchTab('tickets')}
-          activeOpacity={0.7}
-        >
-          <Ticket size={16} color={activeTab === 'tickets' ? '#0A1628' : COLORS.textTertiary} />
-          <Text style={[s.tabText, activeTab === 'tickets' && s.tabTextActive]}>Tickets</Text>
-          {validTickets.length > 0 && (
-            <View style={s.ticketBadge}>
-              <Text style={s.ticketBadgeText}>{validTickets.length}</Text>
+        <View style={styles.magStripe} />
+
+        <View style={styles.backContent}>
+          <View style={styles.backTop}>
+            <View style={styles.qrSection}>
+              <View style={styles.qrContainer}>
+                <QRCode value={qrValue} size={80} color="#0A1628" bg="#FFFFFF" />
+              </View>
+              <Text style={styles.qrLabel}>SCAN TO VERIFY</Text>
             </View>
-          )}
-        </TouchableOpacity>
-      </View>
 
-      <ScrollView
-        style={s.scroll}
-        contentContainerStyle={s.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {activeTab === 'id' && (
-          <Animated.View style={{ opacity: fadeIn }}>
-            <TouchableOpacity
-              activeOpacity={0.97}
-              onPress={flipCard}
-              style={s.cardWrapper}
-            >
-              <Animated.View style={{ transform: [{ scale: cardScale }] }}>
-                <Animated.View style={[s.cardSide, { opacity: frontOp }]}>
-                  <StudentIDCard member={member} digitalID={digitalID} isFlipped={false} />
-                </Animated.View>
-                <Animated.View
-                  style={[
-                    s.cardSide,
-                    s.cardBack,
-                    { opacity: backOp, transform: [{ rotateY: backRotate }] },
-                  ]}
-                >
-                  <StudentIDCard member={member} digitalID={digitalID} isFlipped={true} />
-                </Animated.View>
-              </Animated.View>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={s.flipHintRow} onPress={flipCard} activeOpacity={0.7}>
-              <RotateCw size={14} color={COLORS.textTertiary} />
-              <Text style={s.flipHint}>Tap card to flip</Text>
-            </TouchableOpacity>
-
-            <View style={s.servicesSection}>
-              <Text style={s.servicesSectionTitle}>DIGITAL SERVICES</Text>
-              <View style={s.serviceCard}>
-                <View style={s.svcHeader}>
-                  <View style={s.svcIconWrap}>
-                    <Fingerprint size={22} color="#C9A94E" />
+            <View style={styles.backInfoSection}>
+              {digitalID && (
+                <>
+                  <View style={styles.backInfoRow}>
+                    <Text style={styles.backInfoLabel}>DATE OF ISSUE</Text>
+                    <Text style={styles.backInfoValue}>{fmtDate(digitalID.issued_at)}</Text>
                   </View>
-                  <View style={s.svcHeaderText}>
-                    <Text style={s.svcTitle}>Student BankID</Text>
-                    <Text style={s.svcSubtitle}>Verified Digital Identity</Text>
+                  <View style={styles.backInfoRow}>
+                    <Text style={styles.backInfoLabel}>EXPIRY DATE</Text>
+                    <Text style={styles.backInfoValue}>{fmtDate(digitalID.expires_at)}</Text>
                   </View>
-                </View>
-                <View style={s.svcDivider} />
-                <Text style={s.svcDesc}>
-                  Your Student ID serves as a verified digital identity for secure authentication across campus services.
-                </Text>
-                <View style={s.svcFeatures}>
-                  {[
-                    { t: 'Document Signing', d: 'Sign hostel agreements and forms digitally' },
-                    { t: 'Identity Verification', d: 'Prove student status for discounts and services' },
-                    { t: 'Exam Authentication', d: 'Verify identity at exam halls automatically' },
-                    { t: 'Voter Authentication', d: 'SRC election voter ID verification' },
-                  ].map((f, i) => (
-                    <View key={i} style={s.svcFeatureRow}>
-                      <View style={s.svcCheckCircle}>
-                        <Check size={10} color="#C9A94E" strokeWidth={3} />
-                      </View>
-                      <View style={s.svcFeatureText}>
-                        <Text style={s.svcFeatureTitle}>{f.t}</Text>
-                        <Text style={s.svcFeatureDesc}>{f.d}</Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </View>
+                  <View style={styles.backInfoRow}>
+                    <Text style={styles.backInfoLabel}>CAMPUS</Text>
+                    <Text style={styles.backInfoValue}>MAIN CAMPUS</Text>
+                  </View>
+                  <View style={styles.backInfoRow}>
+                    <Text style={styles.backInfoLabel}>CARD ID</Text>
+                    <Text style={styles.backInfoMono}>{digitalID.id.substring(0, 8).toUpperCase()}</Text>
+                  </View>
+                </>
+              )}
             </View>
-          </Animated.View>
-        )}
+          </View>
 
-        {activeTab === 'tickets' && (
-          <Animated.View style={{ opacity: fadeIn }}>
-            {validTickets.length > 0 && (
-              <View style={s.ticketSection}>
-                <Text style={s.ticketSectionTitle}>UPCOMING</Text>
-                {validTickets.map((ticket) => (
-                  <EventTicket
-                    key={ticket.id}
-                    ticket={ticket}
-                    onPress={() =>
-                      setExpandedTicket(expandedTicket === ticket.id ? null : ticket.id)
-                    }
-                  />
-                ))}
-              </View>
+          <View style={styles.signatureBox}>
+            <Text style={styles.sigLabel}>AUTHORIZED SIGNATURE</Text>
+            <Text style={styles.sigName} numberOfLines={1} adjustsFontSizeToFit>
+              {member?.full_name}
+            </Text>
+          </View>
+
+          <View style={styles.backFooter}>
+            <Text style={styles.disclaimer}>
+              This card is the property of {member?.university || 'the institution'}. If found, return to the Office of Student Affairs.
+            </Text>
+            {digitalID && (
+              <Text style={styles.verCode}>VER: {digitalID.id.substring(0, 12).toUpperCase()}</Text>
             )}
-
-            {pastTickets.length > 0 && (
-              <View style={s.ticketSection}>
-                <TouchableOpacity
-                  style={s.pastHeader}
-                  onPress={() => setShowAllTickets(!showAllTickets)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={s.ticketSectionTitle}>PAST TICKETS</Text>
-                  {showAllTickets ? (
-                    <ChevronUp size={18} color={COLORS.textTertiary} />
-                  ) : (
-                    <ChevronDown size={18} color={COLORS.textTertiary} />
-                  )}
-                </TouchableOpacity>
-                {showAllTickets ? (
-                  pastTickets.map((ticket) => (
-                    <EventTicket key={ticket.id} ticket={ticket} compact />
-                  ))
-                ) : (
-                  pastTickets.slice(0, 2).map((ticket) => (
-                    <EventTicket key={ticket.id} ticket={ticket} compact />
-                  ))
-                )}
-              </View>
-            )}
-
-            {tickets.length === 0 && (
-              <View style={s.noTickets}>
-                <Ticket size={36} color={COLORS.textTertiary} />
-                <Text style={s.noTicketsTitle}>No Tickets Yet</Text>
-                <Text style={s.noTicketsDesc}>
-                  Tickets for campus events you RSVP to will appear here automatically.
-                </Text>
-                <TouchableOpacity
-                  style={s.browseEventsBtn}
-                  onPress={() => router.push('/events' as never)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={s.browseEventsBtnText}>Browse Events</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </Animated.View>
-        )}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
+          </View>
+        </View>
+      </View>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    paddingTop: Platform.OS === 'web' ? 0 : 0,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm + 2,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingTop: Platform.OS === 'web' ? SPACING.sm + 2 : 50,
-  },
-  topBarBtn: {
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  topBarTitle: {
-    fontSize: 17,
-    fontFamily: FONT.semiBold,
-    color: COLORS.textPrimary,
-  },
-  loadWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    marginHorizontal: SPACING.md,
-    marginTop: SPACING.md,
-    borderRadius: RADIUS.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    position: 'relative',
-  },
-  tabIndicator: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    backgroundColor: '#F0F2F5',
-    borderRadius: RADIUS.md - 1,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 6,
-    zIndex: 1,
-  },
-  tabText: {
-    fontSize: 13,
-    fontFamily: FONT.semiBold,
-    color: COLORS.textTertiary,
-  },
-  tabTextActive: {
-    color: '#0A1628',
-  },
-  ticketBadge: {
-    backgroundColor: '#DC143C',
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 2,
-  },
-  ticketBadgeText: {
-    fontSize: 10,
-    fontFamily: FONT.bold,
-    color: '#FFF',
-  },
-
-  scroll: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.lg,
-  },
-
-  cardWrapper: {
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  cardSide: {
+const styles = StyleSheet.create({
+  card: {
     width: CARD_W,
     height: CARD_H,
-    backfaceVisibility: 'hidden',
-  },
-  cardBack: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-  },
-
-  flipHintRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: SPACING.lg,
-    paddingVertical: 4,
-  },
-  flipHint: {
-    fontSize: 12,
-    fontFamily: FONT.medium,
-    color: COLORS.textTertiary,
-  },
-
-  servicesSection: {
-    marginBottom: SPACING.md,
-  },
-  servicesSectionTitle: {
-    fontSize: 11,
-    fontFamily: FONT.bold,
-    color: '#475569',
-    letterSpacing: 1.2,
-    marginBottom: 10,
-  },
-  serviceCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 16,
-    elevation: 2,
+    borderRadius: 14,
+    overflow: 'hidden',
+    elevation: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
-  svcHeader: {
+  frontGradientBg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  holoOverlay: {
+    position: 'absolute',
+    top: -30,
+    width: 60,
+    height: CARD_H + 60,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    zIndex: 5,
+  },
+  microtextWrap: {
+    position: 'absolute',
+    bottom: CARD_H * 0.38,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+    overflow: 'hidden',
+    opacity: 0.1,
+  },
+  microtext: {
+    fontSize: 4,
+    fontFamily: 'Courier',
+    color: '#0F172A',
+    letterSpacing: 1,
+  },
+  frontContent: {
+    ...StyleSheet.absoluteFillObject,
+    padding: 14,
+    justifyContent: 'space-between',
+    zIndex: 10,
+  },
+  frontTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  frontHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 12,
-  },
-  svcIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(201,169,78,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(201,169,78,0.15)',
-  },
-  svcHeaderText: {
     flex: 1,
   },
-  svcTitle: {
-    fontSize: 16,
+  uniShield: {
+    marginRight: 8,
+  },
+  frontHeaderTexts: {
+    flex: 1,
+  },
+  frontUniName: {
+    fontSize: 10,
     fontFamily: FONT.bold,
     color: '#0F172A',
+    letterSpacing: 0.5,
+    lineHeight: 13,
   },
-  svcSubtitle: {
-    fontSize: 11,
-    fontFamily: FONT.regular,
-    color: '#64748B',
+  frontCardLabel: {
+    fontSize: 5.5,
+    fontFamily: FONT.semiBold,
+    color: '#006B3F',
+    letterSpacing: 2,
     marginTop: 1,
   },
-  svcDivider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    marginBottom: 12,
-  },
-  svcDesc: {
-    fontSize: 12,
-    fontFamily: FONT.regular,
-    color: '#475569',
-    lineHeight: 18,
-    marginBottom: 14,
-  },
-  svcFeatures: {
-    gap: 10,
-  },
-  svcFeatureRow: {
+  liveIndicator: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  svcCheckCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(201,169,78,0.1)',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-    marginTop: 1,
+    backgroundColor: 'rgba(0, 107, 63, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0, 107, 63, 0.2)',
   },
-  svcFeatureText: {
+  liveDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#006B3F',
+    marginRight: 4,
+  },
+  liveLabel: {
+    fontSize: 6,
+    fontFamily: FONT.bold,
+    color: '#006B3F',
+    letterSpacing: 0.8,
+  },
+  goldLine: {
+    height: 0.5,
+    backgroundColor: 'rgba(15, 23, 42, 0.1)',
+    marginVertical: 6,
+  },
+  frontMiddle: {
+    flexDirection: 'row',
     flex: 1,
   },
-  svcFeatureTitle: {
-    fontSize: 12,
+  photoSection: {
+    marginRight: 12,
+  },
+  photoBorder: {
+    width: CARD_H * 0.42,
+    height: CARD_H * 0.42 * 1.25,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: '#E2E8F0',
+    overflow: 'hidden',
+    backgroundColor: '#F8FAFC',
+  },
+  photo: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  chipArea: {
+    marginTop: 6,
+  },
+  infoSection: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  studentName: {
+    fontSize: 13,
+    fontFamily: FONT.bold,
+    color: '#0F172A',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    lineHeight: 16,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    marginBottom: 3,
+    gap: 12,
+  },
+  infoField: {
+    flex: 1,
+  },
+  infoFieldFull: {
+    flex: 1,
+  },
+  fieldLabel: {
+    fontSize: 5.5,
+    fontFamily: FONT.semiBold,
+    color: '#64748B',
+    letterSpacing: 1,
+    marginBottom: 1,
+  },
+  fieldValue: {
+    fontSize: 11,
+    fontFamily: FONT.bold,
+    color: '#0F172A',
+    letterSpacing: 0.8,
+  },
+  fieldValueSm: {
+    fontSize: 9,
     fontFamily: FONT.semiBold,
     color: '#0F172A',
   },
-  svcFeatureDesc: {
-    fontSize: 10,
-    fontFamily: FONT.regular,
-    color: '#64748B',
-    marginTop: 1,
+  frontBottom: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  barcodeSection: {},
+  barcodeStrip: {
+    flexDirection: 'row',
+    height: 18,
+    alignItems: 'flex-end',
+    overflow: 'hidden',
+    opacity: 0.8,
+  },
+  barLine: {
+    height: '100%',
+    backgroundColor: '#0F172A',
+    marginRight: 1,
+  },
+  barcodeNumber: {
+    fontSize: 6,
+    fontFamily: 'Courier',
+    fontWeight: '600',
+    color: '#475569',
+    letterSpacing: 2,
+    marginTop: 2,
+  },
+  bottomRight: {
+    alignItems: 'flex-end',
+    gap: 2,
+  },
+  clockText: {
+    fontSize: 8,
+    fontFamily: 'Courier',
+    fontWeight: '700',
+    color: '#475569',
+    letterSpacing: 0.5,
+  },
+  clockColon: {
+    color: '#94A3B8',
   },
 
-  ticketSection: {
-    marginBottom: SPACING.lg,
+  backBg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 14,
+    overflow: 'hidden',
   },
-  ticketSectionTitle: {
-    fontSize: 11,
-    fontFamily: FONT.bold,
-    color: '#475569',
-    letterSpacing: 1.2,
-    marginBottom: 12,
-  },
-  pastHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  noTickets: {
-    alignItems: 'center',
-    paddingVertical: 48,
-  },
-  noTicketsTitle: {
-    fontSize: 17,
-    fontFamily: FONT.semiBold,
-    color: COLORS.textPrimary,
+  magStripe: {
+    width: '100%',
+    height: 30,
+    backgroundColor: '#0F172A',
     marginTop: 12,
+  },
+  backContent: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 10,
+    justifyContent: 'space-between',
+  },
+  backTop: {
+    flexDirection: 'row',
+  },
+  qrSection: {
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  qrContainer: {
+    padding: 4,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  qrLabel: {
+    fontSize: 6,
+    fontFamily: FONT.bold,
+    color: '#64748B',
+    letterSpacing: 1,
+    marginTop: 4,
+  },
+  backInfoSection: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  backInfoRow: {
     marginBottom: 6,
   },
-  noTicketsDesc: {
-    fontSize: 13,
-    fontFamily: FONT.regular,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 20,
-    paddingHorizontal: SPACING.xl,
+  backInfoLabel: {
+    fontSize: 5.5,
+    fontFamily: FONT.semiBold,
+    color: '#64748B',
+    letterSpacing: 1,
+    marginBottom: 1,
   },
-  browseEventsBtn: {
-    backgroundColor: '#0A1628',
-    paddingHorizontal: 28,
-    paddingVertical: 12,
-    borderRadius: 10,
+  backInfoValue: {
+    fontSize: 9,
+    fontFamily: FONT.semiBold,
+    color: '#0F172A',
   },
-  browseEventsBtnText: {
+  backInfoMono: {
+    fontSize: 9,
+    fontFamily: 'Courier',
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: 1.5,
+  },
+  signatureBox: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 0.5,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 4,
+    marginVertical: 4,
+  },
+  sigLabel: {
+    fontSize: 5,
+    fontFamily: FONT.semiBold,
+    color: '#64748B',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  sigName: {
+    fontFamily: Platform.OS === 'ios' ? 'Snell Roundhand' : 'serif',
     fontSize: 14,
-    fontFamily: FONT.bold,
-    color: '#FFF',
+    color: '#0F172A',
+    fontStyle: 'italic',
   },
-
-  emptyWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: SPACING.xl,
+  backFooter: {
+    borderTopWidth: 0.5,
+    borderTopColor: '#E2E8F0',
+    paddingTop: 4,
   },
-  emptyIcon: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: 'rgba(201,169,78,0.08)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: SPACING.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(201,169,78,0.2)',
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontFamily: FONT.bold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.sm,
-  },
-  emptyDesc: {
-    fontSize: 14,
+  disclaimer: {
+    fontSize: 5,
     fontFamily: FONT.regular,
-    color: COLORS.textSecondary,
+    color: '#475569',
+    lineHeight: 7.5,
     textAlign: 'center',
-    lineHeight: 21,
-    marginBottom: SPACING.xl,
+    marginBottom: 2,
   },
-  genBtn: {
-    backgroundColor: '#0A1628',
-    paddingHorizontal: SPACING.xl,
-    paddingVertical: 14,
-    borderRadius: 12,
-    width: '100%',
-    alignItems: 'center',
-  },
-  genBtnText: {
-    fontSize: 15,
-    fontFamily: FONT.bold,
-    color: '#FFF',
+  verCode: {
+    fontSize: 5.5,
+    fontFamily: 'Courier',
+    color: '#94A3B8',
+    textAlign: 'center',
+    letterSpacing: 1.5,
   },
 });
