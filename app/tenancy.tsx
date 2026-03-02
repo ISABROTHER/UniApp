@@ -12,6 +12,7 @@ import {
   ArrowLeft, FileText, CheckCircle, Clock, AlertCircle, CreditCard,
   ChevronRight, Shield, Receipt, X, Smartphone,
   BadgeCheck, ArrowRight, Pen, RotateCcw, Eye, Lock,
+  TrendingUp, Calendar
 } from 'lucide-react-native';
 
 const { width: SW } = Dimensions.get('window');
@@ -303,7 +304,15 @@ export default function TenancyScreen() {
         {loading ? (
           <View style={styles.loadingBox}><ActivityIndicator color={COLORS.primary} /></View>
         ) : tab === 'overview' ? (
-          <OverviewTab agreements={agreements} activeAgreement={activeAgreement} paidCount={paidCount} unpaidCount={unpaidCount} receiptsCount={receipts.length} onGoTab={setTab} />
+          <OverviewTab 
+            agreements={agreements} 
+            activeAgreement={activeAgreement} 
+            invoices={invoices}
+            paidCount={paidCount} 
+            unpaidCount={unpaidCount} 
+            receiptsCount={receipts.length} 
+            onGoTab={setTab} 
+          />
         ) : tab === 'agreements' ? (
           <AgreementsTab agreements={agreements} statusIcon={statusIcon} onSign={openSign} />
         ) : tab === 'invoices' ? (
@@ -573,32 +582,131 @@ export default function TenancyScreen() {
   );
 }
 
-function OverviewTab({ agreements, activeAgreement, paidCount, unpaidCount, receiptsCount, onGoTab }: {
-  agreements: TenancyAgreement[]; activeAgreement?: TenancyAgreement;
+function OverviewTab({ agreements, activeAgreement, invoices, paidCount, unpaidCount, receiptsCount, onGoTab }: {
+  agreements: TenancyAgreement[]; activeAgreement?: TenancyAgreement; invoices: RentInvoiceWithAgreement[];
   paidCount: number; unpaidCount: number; receiptsCount: number; onGoTab: (t: TabType) => void;
 }) {
+  
+  // Calculate Timeline Data
+  let progressPct = 0;
+  let daysLeft = 0;
+  
+  if (activeAgreement?.start_date && activeAgreement?.end_date) {
+    const today = new Date();
+    const start = new Date(activeAgreement.start_date);
+    const end = new Date(activeAgreement.end_date);
+    const total = end.getTime() - start.getTime();
+    if (total > 0) {
+      const passed = today.getTime() - start.getTime();
+      progressPct = Math.min(100, Math.max(0, (passed / total) * 100));
+      daysLeft = Math.max(0, Math.ceil((end.getTime() - today.getTime()) / (1000 * 3600 * 24)));
+    }
+  }
+
+  // Get up to 10 most recent invoices for the histogram (sorted oldest to newest left-to-right)
+  const histInvoices = invoices.slice(0, 10).reverse();
+
   return (
     <>
       {activeAgreement ? (
-        <View style={styles.activeAgreementCard}>
-          <View style={styles.activeAgreementTop}>
-            <View style={styles.activeAgreementBadge}>
-              <CheckCircle size={13} color={COLORS.success} />
-              <Text style={styles.activeAgreementBadgeText}>Active Tenancy</Text>
+        <View style={styles.heroCard}>
+          {/* Abstract Deco Backgrounds */}
+          <View style={styles.heroDecoCircle1} />
+          <View style={styles.heroDecoCircle2} />
+
+          {/* Hero Header */}
+          <View style={styles.heroTop}>
+            <View style={styles.heroPill}>
+              <Shield size={12} color={COLORS.white} />
+              <Text style={styles.heroPillText}>Active & Protected</Text>
             </View>
-            <Text style={styles.activeRent}>GH₵{activeAgreement.monthly_rent.toLocaleString()}<Text style={styles.activeRentPer}>/mo</Text></Text>
-          </View>
-          <Text style={styles.activeAddress}>{(activeAgreement as any).hostels?.name || activeAgreement.property_address}</Text>
-          <Text style={styles.activeAddr2}>{activeAgreement.property_address}</Text>
-          <View style={styles.activePeriodRow}>
-            <Text style={styles.activePeriodText}>{activeAgreement.start_date} — {activeAgreement.end_date}</Text>
-          </View>
-          {activeAgreement.ghana_rent_act_compliant && (
-            <View style={styles.compliantPill}>
-              <Shield size={12} color={COLORS.success} />
-              <Text style={styles.compliantPillText}>Ghana Rent Act 1963 Compliant</Text>
+            <View style={styles.heroDaysBadge}>
+              <Clock size={12} color={COLORS.white} />
+              <Text style={styles.heroDaysText}>{daysLeft} Days Left</Text>
             </View>
-          )}
+          </View>
+
+          {/* Hero Core Content */}
+          <Text style={styles.heroAddress} numberOfLines={1}>
+            {(activeAgreement as any).hostels?.name || activeAgreement.property_address}
+          </Text>
+          <Text style={styles.heroRent}>
+            GH₵{activeAgreement.monthly_rent.toLocaleString()}
+            <Text style={styles.heroRentPer}>/mo</Text>
+          </Text>
+
+          <View style={styles.heroDivider} />
+
+          {/* Hero Data Visualizations (Diagrams/Histograms) */}
+          <View style={styles.heroVisualsRow}>
+            
+            {/* Left: Tenancy Timeline Progress */}
+            <View style={styles.heroProgressCol}>
+              <View style={styles.heroVisualHeader}>
+                <Calendar size={14} color="rgba(255,255,255,0.7)" />
+                <Text style={styles.heroVisualTitle}>Lease Timeline</Text>
+              </View>
+              
+              <View style={styles.progressBarTrack}>
+                <View style={[styles.progressBarFill, { width: `${progressPct}%` }]} />
+                {/* Current Date Marker */}
+                <View style={[styles.progressMarker, { left: `${progressPct}%` }]} />
+              </View>
+              
+              <View style={styles.progressLabels}>
+                <Text style={styles.progressDate}>{new Date(activeAgreement.start_date).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })}</Text>
+                <Text style={styles.progressPctText}>{Math.round(progressPct)}%</Text>
+                <Text style={styles.progressDate}>{new Date(activeAgreement.end_date).toLocaleDateString('en-GB', { month: 'short', year: '2-digit' })}</Text>
+              </View>
+            </View>
+
+            {/* Right: Payment Histogram */}
+            <View style={styles.heroHistCol}>
+              <View style={styles.heroVisualHeader}>
+                <TrendingUp size={14} color="rgba(255,255,255,0.7)" />
+                <Text style={styles.heroVisualTitle}>Rent History</Text>
+              </View>
+              
+              <View style={styles.histogramBox}>
+                {histInvoices.length > 0 ? (
+                  histInvoices.map((inv, idx) => {
+                    const isPaid = inv.status === 'paid';
+                    const isOverdue = inv.status === 'overdue';
+                    return (
+                      <View key={inv.id || idx} style={styles.histBarWrapper}>
+                        <View 
+                          style={[
+                            styles.histBar, 
+                            isPaid ? styles.histBarPaid : isOverdue ? styles.histBarOverdue : styles.histBarUnpaid,
+                            { height: isPaid ? 28 : 16 } // Taller if paid for visual satisfaction
+                          ]} 
+                        />
+                      </View>
+                    );
+                  })
+                ) : (
+                  // Empty State Histogram
+                  Array.from({ length: 6 }).map((_, idx) => (
+                    <View key={idx} style={styles.histBarWrapper}>
+                      <View style={[styles.histBar, styles.histBarEmpty]} />
+                    </View>
+                  ))
+                )}
+              </View>
+              
+              <View style={styles.histLabels}>
+                <View style={styles.histLegendItem}>
+                  <View style={[styles.histLegendDot, { backgroundColor: COLORS.success }]} />
+                  <Text style={styles.histLegendText}>Paid</Text>
+                </View>
+                <View style={styles.histLegendItem}>
+                  <View style={[styles.histLegendDot, { backgroundColor: COLORS.warning }]} />
+                  <Text style={styles.histLegendText}>Due</Text>
+                </View>
+              </View>
+
+            </View>
+          </View>
         </View>
       ) : (
         <View style={styles.noAgreementBox}>
@@ -607,6 +715,8 @@ function OverviewTab({ agreements, activeAgreement, paidCount, unpaidCount, rece
           <Text style={styles.noAgreementSub}>Book a hostel to get a tenancy agreement from your landlord.</Text>
         </View>
       )}
+
+      {/* Stats Below Hero */}
       <View style={styles.statsRow}>
         <TouchableOpacity style={styles.statCard} onPress={() => onGoTab('agreements')}>
           <FileText size={20} color={COLORS.accent} />
@@ -624,6 +734,7 @@ function OverviewTab({ agreements, activeAgreement, paidCount, unpaidCount, rece
           <Text style={styles.statLabel}>Receipts</Text>
         </TouchableOpacity>
       </View>
+
       <View style={styles.quickLinks}>
         {[
           { label: 'View Agreements', tab: 'agreements' as TabType, color: COLORS.accent },
@@ -788,18 +899,175 @@ const styles = StyleSheet.create({
   content: { padding: SPACING.md },
   loadingBox: { alignItems: 'center', paddingTop: 80 },
 
-  activeAgreementCard: { backgroundColor: COLORS.navy, borderRadius: RADIUS.lg, padding: SPACING.md, marginBottom: SPACING.md },
-  activeAgreementTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
-  activeAgreementBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(22,163,74,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.full },
-  activeAgreementBadgeText: { fontFamily: FONT.semiBold, fontSize: 11, color: COLORS.success },
-  activeRent: { fontFamily: FONT.headingBold, fontSize: 26, color: COLORS.white },
-  activeRentPer: { fontFamily: FONT.regular, fontSize: 14, color: 'rgba(255,255,255,0.6)' },
-  activeAddress: { fontFamily: FONT.semiBold, fontSize: 16, color: COLORS.white, marginBottom: 2 },
-  activeAddr2: { fontFamily: FONT.regular, fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: SPACING.sm },
-  activePeriodRow: { marginBottom: SPACING.sm },
-  activePeriodText: { fontFamily: FONT.regular, fontSize: 12, color: 'rgba(255,255,255,0.55)' },
-  compliantPill: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: 'rgba(22,163,74,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.full },
-  compliantPillText: { fontFamily: FONT.medium, fontSize: 11, color: COLORS.success },
+  /* --- NEW FINTECH HERO CARD STYLES --- */
+  heroCard: { 
+    backgroundColor: '#0A1220', // Deep premium navy
+    borderRadius: 24, 
+    padding: SPACING.lg, 
+    marginBottom: SPACING.md,
+    overflow: 'hidden',
+    position: 'relative',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+  },
+  heroDecoCircle1: {
+    position: 'absolute',
+    top: -50,
+    right: -40,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  heroDecoCircle2: {
+    position: 'absolute',
+    bottom: -60,
+    left: -30,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  heroTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  heroPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(22, 163, 74, 0.25)', // Success green translucent
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    borderColor: 'rgba(22, 163, 74, 0.4)',
+  },
+  heroPillText: { fontFamily: FONT.semiBold, fontSize: 11, color: '#4ADE80' },
+  heroDaysBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: RADIUS.full,
+  },
+  heroDaysText: { fontFamily: FONT.semiBold, fontSize: 11, color: COLORS.white },
+  heroAddress: { fontFamily: FONT.medium, fontSize: 14, color: '#94A3B8', marginBottom: 4 },
+  heroRent: { fontFamily: FONT.headingBold, fontSize: 32, color: COLORS.white, letterSpacing: -0.5 },
+  heroRentPer: { fontFamily: FONT.medium, fontSize: 16, color: '#64748B' },
+  heroDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginVertical: SPACING.md },
+  
+  heroVisualsRow: {
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
+  heroProgressCol: {
+    flex: 1.2,
+  },
+  heroHistCol: {
+    flex: 0.8,
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255,255,255,0.1)',
+    paddingLeft: SPACING.md,
+  },
+  heroVisualHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  heroVisualTitle: {
+    fontFamily: FONT.medium,
+    fontSize: 11,
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  
+  /* Timeline Progress Bar */
+  progressBarTrack: {
+    height: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 4,
+    marginBottom: 8,
+    position: 'relative',
+    overflow: 'visible',
+  },
+  progressBarFill: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: '#3B82F6', // Tech Blue
+    borderRadius: 4,
+  },
+  progressMarker: {
+    position: 'absolute',
+    top: -3,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    backgroundColor: COLORS.white,
+    borderWidth: 3,
+    borderColor: '#3B82F6',
+    transform: [{ translateX: -7 }],
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  progressDate: { fontFamily: FONT.regular, fontSize: 10, color: '#64748B' },
+  progressPctText: { fontFamily: FONT.bold, fontSize: 12, color: COLORS.white },
+
+  /* Mini Histogram */
+  histogramBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    height: 32,
+    gap: 4,
+    marginBottom: 8,
+  },
+  histBarWrapper: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    height: '100%',
+  },
+  histBar: {
+    width: '100%',
+    maxWidth: 6,
+    borderRadius: 3,
+  },
+  histBarPaid: { backgroundColor: COLORS.success },
+  histBarUnpaid: { backgroundColor: COLORS.warning },
+  histBarOverdue: { backgroundColor: COLORS.error },
+  histBarEmpty: { height: 12, backgroundColor: 'rgba(255,255,255,0.05)' },
+  histLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  histLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  histLegendDot: { width: 6, height: 6, borderRadius: 3 },
+  histLegendText: { fontFamily: FONT.regular, fontSize: 9, color: '#64748B' },
+  /* --- END HERO STYLES --- */
+
   noAgreementBox: { alignItems: 'center', paddingVertical: SPACING.xl, backgroundColor: COLORS.white, borderRadius: RADIUS.lg, marginBottom: SPACING.md, borderWidth: 1, borderColor: COLORS.border },
   noAgreementTitle: { fontFamily: FONT.heading, fontSize: 18, color: COLORS.textPrimary, marginTop: SPACING.md, marginBottom: SPACING.sm },
   noAgreementSub: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center', paddingHorizontal: SPACING.xl },
