@@ -17,7 +17,6 @@ import { UserStats } from '@/lib/types';
 import { useAuth } from '@/contexts/AuthContext';
 import NotificationBell from '@/components/NotificationBell';
 import RecentActivity from '@/components/RecentActivity';
-import OnboardingProgress from '@/components/OnboardingProgress';
 import { useActivityLogger, ensureUserStats } from '@/hooks/useRetention';
 import {
   Users,
@@ -25,13 +24,10 @@ import {
   Printer,
   ChevronRight,
   Shield,
-  Heart,
   Wallet,
   Bot,
   ShieldAlert,
   UtensilsCrossed,
-  BookOpen,
-  Bus,
   GraduationCap,
   Megaphone,
   Search as SearchIcon,
@@ -313,7 +309,6 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <OnboardingProgress />
       <LeaseRenewalCard
         hostelId={activeBooking?.hostelId}
         hostelName={activeBooking?.hostelName}
