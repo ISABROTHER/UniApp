@@ -204,7 +204,7 @@ export default function OrganizationDuesScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={COLORS.text} />
+          <ArrowLeft size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>Dues & Giving</Text>
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontFamily: FONT.bold,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   headerSubtitle: {
     fontSize: 14,
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
   },
   summaryCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     marginBottom: SPACING.md,
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
   summaryPeriod: {
     fontSize: 16,
     fontFamily: FONT.semibold,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.md,
   },
   summaryRow: {
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
   },
   typeSelector: {
     flexDirection: 'row',
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.xs,
     marginBottom: SPACING.md,
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     color: COLORS.background,
   },
   paySection: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.lg,
     marginBottom: SPACING.md,
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontFamily: FONT.semibold,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.md,
   },
   inputGroup: {
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontFamily: FONT.medium,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.xs,
   },
   amountInputContainer: {
@@ -485,14 +485,14 @@ const styles = StyleSheet.create({
   currencySymbol: {
     fontSize: 18,
     fontFamily: FONT.semibold,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     marginRight: SPACING.xs,
   },
   amountInput: {
     flex: 1,
     fontSize: 18,
     fontFamily: FONT.medium,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     paddingVertical: SPACING.md,
   },
   periodSelector: {
@@ -508,7 +508,7 @@ const styles = StyleSheet.create({
   periodText: {
     fontSize: 16,
     fontFamily: FONT.regular,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   walletInfo: {
     flexDirection: 'row',
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
   walletText: {
     fontSize: 14,
     fontFamily: FONT.medium,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   payButton: {
     backgroundColor: COLORS.primary,
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.white,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
   paymentAmount: {
     fontSize: 18,
     fontFamily: FONT.bold,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   paymentDate: {
     fontSize: 12,

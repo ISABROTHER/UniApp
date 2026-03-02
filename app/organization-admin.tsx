@@ -331,7 +331,7 @@ export default function OrganizationAdminScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={COLORS.text} />
+          <ArrowLeft size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Admin Dashboard</Text>
@@ -425,7 +425,7 @@ export default function OrganizationAdminScreen() {
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search members..."
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={COLORS.textSecondary}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
@@ -458,14 +458,14 @@ export default function OrganizationAdminScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Title"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={COLORS.textSecondary}
                 value={announcementForm.title}
                 onChangeText={text => setAnnouncementForm({ ...announcementForm, title: text })}
               />
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Body"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={COLORS.textSecondary}
                 value={announcementForm.body}
                 onChangeText={text => setAnnouncementForm({ ...announcementForm, body: text })}
                 multiline
@@ -566,7 +566,7 @@ export default function OrganizationAdminScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Amount"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={COLORS.textSecondary}
                 value={transactionForm.amount}
                 onChangeText={text => setTransactionForm({ ...transactionForm, amount: text })}
                 keyboardType="numeric"
@@ -574,14 +574,14 @@ export default function OrganizationAdminScreen() {
               <TextInput
                 style={styles.input}
                 placeholder="Category"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={COLORS.textSecondary}
                 value={transactionForm.category}
                 onChangeText={text => setTransactionForm({ ...transactionForm, category: text })}
               />
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Description"
-                placeholderTextColor={COLORS.textLight}
+                placeholderTextColor={COLORS.textSecondary}
                 value={transactionForm.description}
                 onChangeText={text => setTransactionForm({ ...transactionForm, description: text })}
                 multiline
@@ -691,13 +691,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: FONT.size.lg,
-    fontWeight: FONT.weight.bold,
-    color: COLORS.text,
+    fontSize: 18,
+    fontFamily: FONT.bold,
+    color: COLORS.textPrimary,
   },
   headerSubtitle: {
-    fontSize: FONT.size.sm,
-    color: COLORS.textLight,
+    fontSize: 14,
+    color: COLORS.textSecondary,
   },
   statsContainer: {
     paddingHorizontal: SPACING.md,
@@ -715,14 +715,14 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   statNumber: {
-    fontSize: FONT.size.xl,
-    fontWeight: FONT.weight.bold,
-    color: COLORS.text,
+    fontSize: 20,
+    fontFamily: FONT.bold,
+    color: COLORS.textPrimary,
     marginTop: SPACING.xs,
   },
   statLabel: {
-    fontSize: FONT.size.xs,
-    color: COLORS.textLight,
+    fontSize: 12,
+    color: COLORS.textSecondary,
     marginTop: SPACING.xs,
   },
   tabsContainer: {
@@ -741,12 +741,12 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.primary,
   },
   tabText: {
-    fontSize: FONT.size.md,
-    color: COLORS.textLight,
+    fontSize: 16,
+    color: COLORS.textSecondary,
   },
   activeTabText: {
     color: COLORS.primary,
-    fontWeight: FONT.weight.semibold,
+    fontFamily: FONT.semiBold,
   },
   content: {
     flex: 1,
@@ -757,9 +757,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   sectionTitle: {
-    fontSize: FONT.size.lg,
-    fontWeight: FONT.weight.bold,
-    color: COLORS.text,
+    fontSize: 18,
+    fontFamily: FONT.bold,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.md,
   },
   searchInput: {
@@ -769,7 +769,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     padding: SPACING.sm,
     marginBottom: SPACING.md,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   pendingMemberCard: {
     backgroundColor: COLORS.white,
@@ -794,13 +794,13 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   memberName: {
-    fontSize: FONT.size.md,
-    fontWeight: FONT.weight.semibold,
-    color: COLORS.text,
+    fontSize: 16,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
   },
   memberEmail: {
-    fontSize: FONT.size.sm,
-    color: COLORS.textLight,
+    fontSize: 14,
+    color: COLORS.textSecondary,
     marginTop: 2,
   },
   roleBadge: {
@@ -812,9 +812,9 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   roleBadgeText: {
-    fontSize: FONT.size.xs,
+    fontSize: 12,
     color: COLORS.white,
-    fontWeight: FONT.weight.semibold,
+    fontFamily: FONT.semiBold,
   },
   pendingActions: {
     flexDirection: 'row',
@@ -840,9 +840,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   roleButtonText: {
-    fontSize: FONT.size.sm,
+    fontSize: 14,
     color: COLORS.white,
-    fontWeight: FONT.weight.semibold,
+    fontFamily: FONT.semiBold,
   },
   input: {
     backgroundColor: COLORS.white,
@@ -851,16 +851,16 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     padding: SPACING.sm,
     marginBottom: SPACING.sm,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   textArea: {
     minHeight: 80,
     textAlignVertical: 'top',
   },
   inputLabel: {
-    fontSize: FONT.size.sm,
-    fontWeight: FONT.weight.semibold,
-    color: COLORS.text,
+    fontSize: 14,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.xs,
   },
   priorityContainer: {
@@ -881,11 +881,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   priorityButtonText: {
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   priorityButtonTextActive: {
     color: COLORS.white,
-    fontWeight: FONT.weight.semibold,
+    fontFamily: FONT.semiBold,
   },
   postButton: {
     backgroundColor: COLORS.primary,
@@ -895,8 +895,8 @@ const styles = StyleSheet.create({
   },
   postButtonText: {
     color: COLORS.white,
-    fontSize: FONT.size.md,
-    fontWeight: FONT.weight.bold,
+    fontSize: 16,
+    fontFamily: FONT.bold,
   },
   announcementCard: {
     backgroundColor: COLORS.white,
@@ -913,14 +913,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   announcementTitle: {
-    fontSize: FONT.size.md,
-    fontWeight: FONT.weight.bold,
-    color: COLORS.text,
+    fontSize: 16,
+    fontFamily: FONT.bold,
+    color: COLORS.textPrimary,
     flex: 1,
   },
   announcementBody: {
-    fontSize: FONT.size.sm,
-    color: COLORS.text,
+    fontSize: 14,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.sm,
   },
   announcementFooter: {
@@ -929,8 +929,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   announcementAuthor: {
-    fontSize: FONT.size.xs,
-    color: COLORS.textLight,
+    fontSize: 12,
+    color: COLORS.textSecondary,
   },
   priorityBadge: {
     paddingHorizontal: SPACING.xs,
@@ -938,9 +938,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
   },
   priorityBadgeText: {
-    fontSize: FONT.size.xs,
+    fontSize: 12,
     color: COLORS.white,
-    fontWeight: FONT.weight.semibold,
+    fontFamily: FONT.semiBold,
   },
   financeSummary: {
     backgroundColor: COLORS.white,
@@ -955,13 +955,13 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   financeLabel: {
-    fontSize: FONT.size.md,
-    color: COLORS.text,
+    fontSize: 16,
+    color: COLORS.textPrimary,
   },
   financeValue: {
-    fontSize: FONT.size.md,
-    fontWeight: FONT.weight.bold,
-    color: COLORS.text,
+    fontSize: 16,
+    fontFamily: FONT.bold,
+    color: COLORS.textPrimary,
   },
   typeToggle: {
     flexDirection: 'row',
@@ -981,11 +981,11 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   typeButtonText: {
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   typeButtonTextActive: {
     color: COLORS.white,
-    fontWeight: FONT.weight.semibold,
+    fontFamily: FONT.semiBold,
   },
   transactionCard: {
     backgroundColor: COLORS.white,
@@ -999,23 +999,23 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
   },
   transactionCategory: {
-    fontSize: FONT.size.md,
-    fontWeight: FONT.weight.semibold,
-    color: COLORS.text,
+    fontSize: 16,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
   },
   transactionDescription: {
-    fontSize: FONT.size.sm,
-    color: COLORS.textLight,
+    fontSize: 14,
+    color: COLORS.textSecondary,
     marginTop: 2,
   },
   transactionDate: {
-    fontSize: FONT.size.xs,
-    color: COLORS.textLight,
+    fontSize: 12,
+    color: COLORS.textSecondary,
     marginTop: 2,
   },
   transactionAmount: {
-    fontSize: FONT.size.lg,
-    fontWeight: FONT.weight.bold,
+    fontSize: 18,
+    fontFamily: FONT.bold,
   },
   toggleRow: {
     flexDirection: 'row',
@@ -1024,8 +1024,8 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   toggleLabel: {
-    fontSize: FONT.size.md,
-    color: COLORS.text,
+    fontSize: 16,
+    color: COLORS.textPrimary,
   },
   toggle: {
     width: 50,
@@ -1056,14 +1056,14 @@ const styles = StyleSheet.create({
     borderColor: '#FED7D7',
   },
   dangerTitle: {
-    fontSize: FONT.size.lg,
-    fontWeight: FONT.weight.bold,
+    fontSize: 18,
+    fontFamily: FONT.bold,
     color: COLORS.error,
     marginBottom: SPACING.xs,
   },
   dangerText: {
-    fontSize: FONT.size.sm,
-    color: COLORS.textLight,
+    fontSize: 14,
+    color: COLORS.textSecondary,
     marginBottom: SPACING.md,
   },
   dangerButton: {
@@ -1074,7 +1074,7 @@ const styles = StyleSheet.create({
   },
   dangerButtonText: {
     color: COLORS.white,
-    fontSize: FONT.size.md,
-    fontWeight: FONT.weight.semibold,
+    fontSize: 16,
+    fontFamily: FONT.semiBold,
   },
 });

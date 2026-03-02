@@ -338,7 +338,7 @@ export default function OrganizationRosterScreen() {
     if (myShifts.length === 0) {
       return (
         <View style={styles.emptyState}>
-          <Calendar size={48} color={COLORS.textLight} />
+          <Calendar size={48} color={COLORS.textSecondary} />
           <Text style={styles.emptyText}>No shifts scheduled</Text>
         </View>
       );
@@ -358,7 +358,7 @@ export default function OrganizationRosterScreen() {
     if (shifts.length === 0) {
       return (
         <View style={styles.emptyState}>
-          <Calendar size={48} color={COLORS.textLight} />
+          <Calendar size={48} color={COLORS.textSecondary} />
           <Text style={styles.emptyText}>No roster data yet</Text>
         </View>
       );
@@ -421,7 +421,7 @@ export default function OrganizationRosterScreen() {
     if (subgroups.length === 0) {
       return (
         <View style={styles.emptyState}>
-          <Users size={48} color={COLORS.textLight} />
+          <Users size={48} color={COLORS.textSecondary} />
           <Text style={styles.emptyText}>No subgroups yet</Text>
         </View>
       );
@@ -447,7 +447,7 @@ export default function OrganizationRosterScreen() {
                 </View>
                 <ChevronRight
                   size={20}
-                  color={COLORS.textLight}
+                  color={COLORS.textSecondary}
                   style={expandedSubgroups.has(subgroup.id) ? { transform: [{ rotate: '90deg' }] } : {}}
                 />
               </View>
@@ -478,7 +478,7 @@ export default function OrganizationRosterScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={COLORS.text} />
+          <ArrowLeft size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerTitle}>
           <Text style={styles.title}>Volunteer Roster</Text>
@@ -488,11 +488,11 @@ export default function OrganizationRosterScreen() {
 
       <View style={styles.weekNav}>
         <TouchableOpacity onPress={handlePrevWeek} style={styles.weekNavButton}>
-          <ChevronLeft size={20} color={COLORS.text} />
+          <ChevronLeft size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.weekRange}>{formatWeekRange(weekRange.start, weekRange.end)}</Text>
         <TouchableOpacity onPress={handleNextWeek} style={styles.weekNavButton}>
-          <ChevronRight size={20} color={COLORS.text} />
+          <ChevronRight size={20} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <TouchableOpacity onPress={handleToday} style={styles.todayButton}>
           <Text style={styles.todayButtonText}>Today</Text>
@@ -566,12 +566,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     fontFamily: FONT.medium,
   },
   orgName: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: COLORS.textSecondary,
     fontFamily: FONT.regular,
     marginTop: 2,
   },
@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
   weekRange: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     fontFamily: FONT.medium,
     minWidth: 140,
     textAlign: 'center',
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: COLORS.textSecondary,
     fontFamily: FONT.regular,
   },
   tabTextActive: {
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: COLORS.textLight,
+    color: COLORS.textSecondary,
     fontFamily: FONT.regular,
     marginTop: SPACING.md,
   },
@@ -666,7 +666,7 @@ const styles = StyleSheet.create({
   shiftDate: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     fontFamily: FONT.medium,
   },
   statusBadge: {
@@ -681,13 +681,13 @@ const styles = StyleSheet.create({
   shiftTime: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     fontFamily: FONT.medium,
     marginBottom: SPACING.xs,
   },
   shiftRole: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: COLORS.textSecondary,
     fontFamily: FONT.regular,
     marginBottom: SPACING.sm,
   },
@@ -741,7 +741,7 @@ const styles = StyleSheet.create({
   },
   summary: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: COLORS.textSecondary,
     fontFamily: FONT.regular,
     textAlign: 'center',
     marginTop: SPACING.md,
@@ -752,13 +752,13 @@ const styles = StyleSheet.create({
   dayName: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     fontFamily: FONT.medium,
     marginBottom: SPACING.xs,
   },
   noShiftsText: {
     fontSize: 14,
-    color: COLORS.textLight,
+    color: COLORS.textSecondary,
     fontFamily: FONT.regular,
     fontStyle: 'italic',
   },
@@ -776,19 +776,19 @@ const styles = StyleSheet.create({
   shiftBlockTime: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     fontFamily: FONT.medium,
     marginBottom: 2,
   },
   shiftBlockRole: {
     fontSize: 14,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     fontFamily: FONT.medium,
     marginBottom: 2,
   },
   shiftBlockPerson: {
     fontSize: 13,
-    color: COLORS.textLight,
+    color: COLORS.textSecondary,
     fontFamily: FONT.regular,
   },
   shiftBlockSubgroup: {
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
   subgroupName: {
     fontSize: 16,
     fontWeight: '600',
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     fontFamily: FONT.medium,
     marginBottom: SPACING.xs,
   },
@@ -835,18 +835,18 @@ const styles = StyleSheet.create({
   },
   memberCount: {
     fontSize: 12,
-    color: COLORS.textLight,
+    color: COLORS.textSecondary,
     fontFamily: FONT.regular,
   },
   subgroupLeader: {
     fontSize: 13,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     fontFamily: FONT.regular,
     marginTop: SPACING.xs,
   },
   subgroupSchedule: {
     fontSize: 13,
-    color: COLORS.textLight,
+    color: COLORS.textSecondary,
     fontFamily: FONT.regular,
     marginTop: 4,
   },
@@ -859,7 +859,7 @@ const styles = StyleSheet.create({
   },
   memberItem: {
     fontSize: 14,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     fontFamily: FONT.regular,
     paddingVertical: SPACING.xs,
   },

@@ -138,7 +138,7 @@ export default function OrganizationCreateScreen() {
           style={styles.backButton}
           disabled={loading}
         >
-          <ArrowLeft size={24} color={COLORS.text} />
+          <ArrowLeft size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create Organization</Text>
       </View>
@@ -331,7 +331,7 @@ export default function OrganizationCreateScreen() {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={COLORS.surface} />
+            <ActivityIndicator color={COLORS.white} />
           ) : (
             <Text style={styles.createButtonText}>Create Organization</Text>
           )}
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.white,
   },
   backButton: {
     padding: SPACING.xs,
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontFamily: FONT.medium,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   scrollView: {
     flex: 1,
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontFamily: FONT.medium,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.sm,
   },
   typeGrid: {
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     borderWidth: 2,
     borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.white,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 100,
@@ -402,19 +402,19 @@ const styles = StyleSheet.create({
   typeLabel: {
     fontSize: 13,
     fontFamily: FONT.medium,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     textAlign: 'center',
     marginTop: SPACING.xs,
   },
   input: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.white,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.md,
     padding: SPACING.sm,
     fontSize: 16,
     fontFamily: FONT.regular,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   inputError: {
     borderColor: '#ef4444',
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.white,
   },
   toggleButtonLeft: {
     borderRightWidth: 0.5,
@@ -457,10 +457,10 @@ const styles = StyleSheet.create({
   toggleButtonText: {
     fontSize: 16,
     fontFamily: FONT.medium,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   toggleButtonTextActive: {
-    color: COLORS.surface,
+    color: COLORS.white,
   },
   helperText: {
     fontSize: 14,
@@ -483,6 +483,6 @@ const styles = StyleSheet.create({
   createButtonText: {
     fontSize: 16,
     fontFamily: FONT.medium,
-    color: COLORS.surface,
+    color: COLORS.white,
   },
 });

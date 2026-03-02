@@ -382,7 +382,7 @@ export default function OrganizationElectionsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={COLORS.text} />
+          <ArrowLeft size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.headerTitle}>Elections</Text>
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontFamily: FONT.bold,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   headerSubtitle: {
     fontSize: 14,
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   electionTitle: {
     fontSize: 18,
     fontFamily: FONT.bold,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.xs,
   },
   electionDescription: {
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   positionHeading: {
     fontSize: 16,
     fontFamily: FONT.bold,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.sm,
   },
   candidateCard: {
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
   candidateName: {
     fontSize: 16,
     fontFamily: FONT.semibold,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   manifesto: {
     fontSize: 14,
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   resultsHeading: {
     fontSize: 16,
     fontFamily: FONT.bold,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.md,
   },
   resultItem: {
@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
   resultName: {
     fontSize: 15,
     fontFamily: FONT.semibold,
-    color: COLORS.text,
+    color: COLORS.textPrimary,
   },
   resultPosition: {
     fontSize: 13,

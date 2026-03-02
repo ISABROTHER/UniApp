@@ -305,11 +305,11 @@ export default function MyOrgsScreen() {
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <ArrowLeft size={24} color={COLORS.text} />
+          <ArrowLeft size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Organizations</Text>
         <TouchableOpacity style={styles.filterButton}>
-          <Filter size={24} color={COLORS.text} />
+          <Filter size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -399,9 +399,9 @@ const styles = StyleSheet.create({
     padding: SPACING.xs,
   },
   headerTitle: {
-    fontSize: FONT.sizes.xl,
-    fontWeight: FONT.weights.bold as any,
-    color: COLORS.text,
+    fontSize: 20,
+    fontFamily: FONT.bold,
+    color: COLORS.textPrimary,
   },
   filterButton: {
     padding: SPACING.xs,
@@ -422,17 +422,17 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     padding: SPACING.md,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.card,
     borderRadius: RADIUS.md,
   },
   statValue: {
-    fontSize: FONT.sizes.xxl,
-    fontWeight: FONT.weights.bold as any,
+    fontSize: 24,
+    fontFamily: FONT.bold,
     color: COLORS.primary,
     marginBottom: SPACING.xs,
   },
   statLabel: {
-    fontSize: FONT.sizes.sm,
+    fontSize: 14,
     color: COLORS.textSecondary,
   },
   filtersScroll: {
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   filterPill: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.card,
     borderRadius: RADIUS.full,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -455,9 +455,9 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primary,
   },
   filterPillText: {
-    fontSize: FONT.sizes.sm,
-    fontWeight: FONT.weights.medium as any,
-    color: COLORS.text,
+    fontSize: 14,
+    fontFamily: FONT.medium,
+    color: COLORS.textPrimary,
   },
   filterPillTextActive: {
     color: '#FFFFFF',
@@ -470,13 +470,13 @@ const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   groupTitle: {
-    fontSize: FONT.sizes.lg,
-    fontWeight: FONT.weights.bold as any,
-    color: COLORS.text,
+    fontSize: 18,
+    fontFamily: FONT.bold,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.xs,
   },
   orgCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.card,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     borderWidth: 1,
@@ -495,8 +495,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   orgLogoText: {
-    fontSize: FONT.sizes.xl,
-    fontWeight: FONT.weights.bold as any,
+    fontSize: 20,
+    fontFamily: FONT.bold,
   },
   orgInfo: {
     flex: 1,
@@ -508,9 +508,9 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   orgName: {
-    fontSize: FONT.sizes.md,
-    fontWeight: FONT.weights.bold as any,
-    color: COLORS.text,
+    fontSize: 16,
+    fontFamily: FONT.bold,
+    color: COLORS.textPrimary,
     flex: 1,
   },
   verifiedBadge: {
@@ -535,8 +535,8 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
   },
   typeBadgeText: {
-    fontSize: FONT.sizes.xs,
-    fontWeight: FONT.weights.medium as any,
+    fontSize: 12,
+    fontFamily: FONT.medium,
   },
   roleBadge: {
     paddingHorizontal: SPACING.sm,
@@ -544,12 +544,12 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
   },
   roleBadgeText: {
-    fontSize: FONT.sizes.xs,
-    fontWeight: FONT.weights.medium as any,
+    fontSize: 12,
+    fontFamily: FONT.medium,
   },
   customTitle: {
-    fontSize: FONT.sizes.sm,
-    fontWeight: FONT.weights.medium as any,
+    fontSize: 14,
+    fontFamily: FONT.medium,
     color: COLORS.primary,
   },
   orgMeta: {
@@ -558,11 +558,11 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   orgMetaText: {
-    fontSize: FONT.sizes.xs,
+    fontSize: 12,
     color: COLORS.textSecondary,
   },
   orgDescription: {
-    fontSize: FONT.sizes.sm,
+    fontSize: 14,
     color: COLORS.textSecondary,
     lineHeight: 20,
   },
@@ -574,8 +574,8 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.xxl * 2,
   },
   emptyTitle: {
-    fontSize: FONT.sizes.lg,
-    fontWeight: FONT.weights.medium as any,
+    fontSize: 18,
+    fontFamily: FONT.medium,
     color: COLORS.textSecondary,
     textAlign: 'center',
     marginTop: SPACING.lg,
@@ -588,8 +588,8 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
   },
   browseButtonText: {
-    fontSize: FONT.sizes.md,
-    fontWeight: FONT.weights.semibold as any,
+    fontSize: 16,
+    fontFamily: FONT.semiBold,
     color: '#FFFFFF',
   },
 });

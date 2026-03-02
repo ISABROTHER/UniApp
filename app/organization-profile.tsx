@@ -335,7 +335,7 @@ export default function OrganizationProfileScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <ArrowLeft size={24} color={COLORS.text} />
+          <ArrowLeft size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>
           {org.name}
@@ -672,9 +672,9 @@ const styles = StyleSheet.create({
     marginRight: SPACING.md,
   },
   headerTitle: {
-    fontSize: FONT.size.lg,
-    fontWeight: FONT.weight.semibold,
-    color: COLORS.text,
+    fontSize: 18,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
     flex: 1,
   },
   loadingContainer: {
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   errorText: {
-    fontSize: FONT.size.md,
+    fontSize: 16,
     color: COLORS.textSecondary,
   },
   content: {
@@ -705,13 +705,13 @@ const styles = StyleSheet.create({
   },
   logoInitial: {
     fontSize: 48,
-    fontWeight: FONT.weight.bold,
+    fontFamily: FONT.bold,
     color: COLORS.background,
   },
   orgName: {
-    fontSize: FONT.size.xl,
-    fontWeight: FONT.weight.bold,
-    color: COLORS.text,
+    fontSize: 20,
+    fontFamily: FONT.bold,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.sm,
     textAlign: 'center',
   },
@@ -724,13 +724,13 @@ const styles = StyleSheet.create({
   typeBadge: {
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.xs,
-    backgroundColor: COLORS.surfaceHover,
+    backgroundColor: COLORS.borderLight,
     borderRadius: RADIUS.full,
   },
   typeBadgeText: {
-    fontSize: FONT.size.sm,
-    color: COLORS.text,
-    fontWeight: FONT.weight.medium,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    fontFamily: FONT.medium,
   },
   verifiedBadge: {
     flexDirection: 'row',
@@ -742,9 +742,9 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   verifiedText: {
-    fontSize: FONT.size.sm,
+    fontSize: 14,
     color: COLORS.primary,
-    fontWeight: FONT.weight.medium,
+    fontFamily: FONT.medium,
   },
   statsRow: {
     flexDirection: 'row',
@@ -757,11 +757,11 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
   },
   statText: {
-    fontSize: FONT.size.sm,
+    fontSize: 14,
     color: COLORS.textSecondary,
   },
   shortDescription: {
-    fontSize: FONT.size.md,
+    fontSize: 16,
     color: COLORS.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
@@ -783,8 +783,8 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.success,
   },
   joinButtonText: {
-    fontSize: FONT.size.md,
-    fontWeight: FONT.weight.semibold,
+    fontSize: 16,
+    fontFamily: FONT.semiBold,
     color: COLORS.background,
   },
   adminButton: {
@@ -793,14 +793,14 @@ const styles = StyleSheet.create({
     gap: SPACING.xs,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.card,
     borderRadius: RADIUS.md,
     borderWidth: 1,
     borderColor: COLORS.primary,
   },
   adminButtonText: {
-    fontSize: FONT.size.md,
-    fontWeight: FONT.weight.semibold,
+    fontSize: 16,
+    fontFamily: FONT.semiBold,
     color: COLORS.primary,
   },
   tabs: {
@@ -819,25 +819,25 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.primary,
   },
   tabText: {
-    fontSize: FONT.size.sm,
+    fontSize: 14,
     color: COLORS.textSecondary,
-    fontWeight: FONT.weight.medium,
+    fontFamily: FONT.medium,
   },
   activeTabText: {
     color: COLORS.primary,
-    fontWeight: FONT.weight.semibold,
+    fontFamily: FONT.semiBold,
   },
   tabContent: {
     padding: SPACING.lg,
   },
   emptyText: {
-    fontSize: FONT.size.md,
+    fontSize: 16,
     color: COLORS.textSecondary,
     textAlign: 'center',
     paddingVertical: SPACING.xl,
   },
   announcementCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.card,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -849,9 +849,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   announcementTitle: {
-    fontSize: FONT.size.md,
-    fontWeight: FONT.weight.semibold,
-    color: COLORS.text,
+    fontSize: 16,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
     flex: 1,
   },
   priorityBadge: {
@@ -870,13 +870,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.warning,
   },
   priorityText: {
-    fontSize: FONT.size.xs,
+    fontSize: 12,
     color: COLORS.background,
-    fontWeight: FONT.weight.semibold,
+    fontFamily: FONT.semiBold,
     textTransform: 'uppercase',
   },
   announcementBody: {
-    fontSize: FONT.size.sm,
+    fontSize: 14,
     color: COLORS.textSecondary,
     lineHeight: 20,
     marginBottom: SPACING.sm,
@@ -887,16 +887,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   announcementAuthor: {
-    fontSize: FONT.size.sm,
-    color: COLORS.text,
-    fontWeight: FONT.weight.medium,
+    fontSize: 14,
+    color: COLORS.textPrimary,
+    fontFamily: FONT.medium,
   },
   announcementTime: {
-    fontSize: FONT.size.xs,
+    fontSize: 12,
     color: COLORS.textSecondary,
   },
   eventCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.card,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -908,9 +908,9 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   eventDate: {
-    fontSize: FONT.size.sm,
+    fontSize: 14,
     color: COLORS.primary,
-    fontWeight: FONT.weight.semibold,
+    fontFamily: FONT.semiBold,
   },
   membersOnlyBadge: {
     flexDirection: 'row',
@@ -922,14 +922,14 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
   },
   membersOnlyText: {
-    fontSize: FONT.size.xs,
+    fontSize: 12,
     color: COLORS.warning,
-    fontWeight: FONT.weight.semibold,
+    fontFamily: FONT.semiBold,
   },
   eventTitle: {
-    fontSize: FONT.size.md,
-    fontWeight: FONT.weight.semibold,
-    color: COLORS.text,
+    fontSize: 16,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.sm,
   },
   eventDetail: {
@@ -939,7 +939,7 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   eventDetailText: {
-    fontSize: FONT.size.sm,
+    fontSize: 14,
     color: COLORS.textSecondary,
   },
   addToPlannerButton: {
@@ -950,20 +950,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   addToPlannerText: {
-    fontSize: FONT.size.sm,
+    fontSize: 14,
     color: COLORS.primary,
-    fontWeight: FONT.weight.semibold,
+    fontFamily: FONT.semiBold,
   },
   searchInput: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.card,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
-    fontSize: FONT.size.md,
-    color: COLORS.text,
+    fontSize: 16,
+    color: COLORS.textPrimary,
     marginBottom: SPACING.md,
   },
   memberCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.card,
     borderRadius: RADIUS.md,
     padding: SPACING.md,
     marginBottom: SPACING.md,
@@ -975,13 +975,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   memberName: {
-    fontSize: FONT.size.md,
-    fontWeight: FONT.weight.semibold,
-    color: COLORS.text,
+    fontSize: 16,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
     marginBottom: 4,
   },
   memberTitle: {
-    fontSize: FONT.size.sm,
+    fontSize: 14,
     color: COLORS.textSecondary,
   },
   memberRight: {
@@ -990,7 +990,7 @@ const styles = StyleSheet.create({
   roleBadge: {
     paddingHorizontal: SPACING.sm,
     paddingVertical: 4,
-    backgroundColor: COLORS.surfaceHover,
+    backgroundColor: COLORS.borderLight,
     borderRadius: RADIUS.sm,
     marginBottom: 4,
   },
@@ -998,16 +998,16 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary + '20',
   },
   roleText: {
-    fontSize: FONT.size.xs,
+    fontSize: 12,
     color: COLORS.textSecondary,
-    fontWeight: FONT.weight.medium,
+    fontFamily: FONT.medium,
     textTransform: 'capitalize',
   },
   leaderText: {
     color: COLORS.primary,
   },
   joinedDate: {
-    fontSize: FONT.size.xs,
+    fontSize: 12,
     color: COLORS.textSecondary,
   },
   aboutSection: {
@@ -1023,14 +1023,14 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xs,
   },
   aboutLabel: {
-    fontSize: FONT.size.sm,
+    fontSize: 14,
     color: COLORS.textSecondary,
-    fontWeight: FONT.weight.semibold,
+    fontFamily: FONT.semiBold,
     marginBottom: SPACING.xs,
   },
   aboutText: {
-    fontSize: FONT.size.md,
-    color: COLORS.text,
+    fontSize: 16,
+    color: COLORS.textPrimary,
     lineHeight: 22,
   },
 });
