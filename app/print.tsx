@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -22,13 +23,10 @@ import {
   Truck,
   CheckCircle,
   MessageSquare,
-  Copy,
-  Trash2,
-  Shield,
-  AlertCircle,
   FileText,
-  Store
 } from 'lucide-react-native';
+
+const { height: SCREEN_H } = Dimensions.get('window');
 
 // --- Design Constants based on your Flutter UI ---
 const BRAND_GREEN = '#00B37D';
@@ -53,7 +51,7 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: '#EF4444',
 };
 
-// --- Types from original file ---
+// --- Types ---
 type PrintShop = {
   id: string;
   name: string;
@@ -167,7 +165,6 @@ export default function PrintScreen() {
   useFocusEffect(useCallback(() => { fetchData(); }, []));
 
   const activeJobs = jobs.filter((j) => !['completed', 'cancelled'].includes(j.status));
-  const pastJobs = jobs.filter((j) => ['completed', 'cancelled'].includes(j.status));
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -184,7 +181,7 @@ export default function PrintScreen() {
         
         <Text style={styles.appBarTitle}>DigiPrint</Text>
         
-        <TouchableOpacity style={styles.walletBtn} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.walletBtn} activeOpacity={0.8} onPress={() => router.push('/wallet' as any)}>
           <Wallet size={16} color={BRAND_GREEN} />
           <Text style={styles.walletText}>GH₵{wallet.toFixed(2)}</Text>
         </TouchableOpacity>
@@ -214,6 +211,7 @@ export default function PrintScreen() {
       </View>
 
       <ScrollView
+        style={styles.scrollFlex}
         contentContainerStyle={styles.listContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BRAND_GREEN} />}
@@ -465,19 +463,22 @@ const styles = StyleSheet.create({
   },
 
   // --- List Styles ---
+  scrollFlex: {
+    flex: 1,
+    backgroundColor: BG_COLOR,
+  },
   listContainer: {
     padding: 16,
-    paddingBottom: 40,
-    backgroundColor: BG_COLOR,
-    flexGrow: 1,
+    paddingBottom: 60,
+    flexGrow: 1, // Ensures the empty state can center itself properly
   },
 
   // --- Empty State Mockup Styles ---
   emptyMockupContainer: {
     flex: 1,
+    minHeight: SCREEN_H * 0.5, // Force height so it doesn't collapse
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
     paddingHorizontal: 30,
   },
   emptyMockupIconBox: {
