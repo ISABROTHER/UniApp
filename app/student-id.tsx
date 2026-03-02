@@ -227,30 +227,36 @@ export default function StudentIDScreen() {
             {!isFlipped ? (
               <View style={styles.cardFront}>
                 <View style={styles.cardHeader}>
-                  <Shield size={40} color={COLORS.gold} strokeWidth={2} />
-                  <Text style={styles.universityName}>{member?.university}</Text>
-                  <Text style={styles.cardSubtitle}>Student Identification Card</Text>
+                  <Shield size={32} color={COLORS.gold} strokeWidth={2} style={styles.cardIcon} />
+                  <Text style={styles.universityName} numberOfLines={2} adjustsFontSizeToFit>
+                    {member?.university}
+                  </Text>
+                  <Text style={styles.cardSubtitle} numberOfLines={1}>Student Identification Card</Text>
                 </View>
 
                 <View style={styles.cardBody}>
                   <View style={styles.photoContainer}>
                     <View style={styles.photoCircle}>
-                      <Text style={styles.initialsText}>{getInitials()}</Text>
+                      <Text style={styles.initialsText} adjustsFontSizeToFit numberOfLines={1}>
+                        {getInitials()}
+                      </Text>
                     </View>
                   </View>
 
                   <View style={styles.infoSection}>
-                    <Text style={styles.studentName}>{member?.full_name}</Text>
+                    <Text style={styles.studentName} numberOfLines={1} adjustsFontSizeToFit>
+                      {member?.full_name}
+                    </Text>
                     <View style={styles.divider} />
 
                     <View style={styles.infoRow}>
                       <Text style={styles.infoLabel}>Student ID</Text>
-                      <Text style={styles.infoValue}>{member?.student_id}</Text>
+                      <Text style={styles.infoValue} numberOfLines={1}>{member?.student_id}</Text>
                     </View>
 
                     <View style={styles.infoRow}>
                       <Text style={styles.infoLabel}>Level</Text>
-                      <Text style={styles.infoValue}>{member?.level}</Text>
+                      <Text style={styles.infoValue} numberOfLines={1}>{member?.level}</Text>
                     </View>
                   </View>
                 </View>
@@ -258,14 +264,14 @@ export default function StudentIDScreen() {
                 <View style={styles.cardFooter}>
                   <View style={styles.validitySection}>
                     <View style={styles.validityRow}>
-                      <Calendar size={14} color={COLORS.gold} />
+                      <Calendar size={14} color={COLORS.gold} style={styles.validityIcon} />
                       <Text style={styles.validityLabel}>Issued</Text>
-                      <Text style={styles.validityValue}>{formatDate(digitalID.issued_at)}</Text>
+                      <Text style={styles.validityValue} numberOfLines={1}>{formatDate(digitalID.issued_at)}</Text>
                     </View>
                     <View style={styles.validityRow}>
-                      <Calendar size={14} color={COLORS.gold} />
+                      <Calendar size={14} color={COLORS.gold} style={styles.validityIcon} />
                       <Text style={styles.validityLabel}>Expires</Text>
-                      <Text style={styles.validityValue}>{formatDate(digitalID.expires_at)}</Text>
+                      <Text style={styles.validityValue} numberOfLines={1}>{formatDate(digitalID.expires_at)}</Text>
                     </View>
                   </View>
 
@@ -301,7 +307,7 @@ export default function StudentIDScreen() {
                 </Text>
 
                 <View style={styles.backFooter}>
-                  <Text style={styles.backFooterText}>ID: {member?.student_id}</Text>
+                  <Text style={styles.backFooterText} numberOfLines={1}>ID: {member?.student_id}</Text>
                   <View style={styles.backStatusBadge}>
                     <Check size={12} color={COLORS.white} strokeWidth={3} />
                     <Text style={styles.backStatusText}>Verified</Text>
@@ -329,22 +335,22 @@ export default function StudentIDScreen() {
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Student Number</Text>
-            <Text style={styles.detailValue}>{digitalID.student_number}</Text>
+            <Text style={styles.detailValue} numberOfLines={1}>{digitalID.student_number}</Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>University</Text>
-            <Text style={styles.detailValue}>{digitalID.university}</Text>
+            <Text style={styles.detailValue} numberOfLines={2}>{digitalID.university}</Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Issue Date</Text>
-            <Text style={styles.detailValue}>{formatDate(digitalID.issued_at)}</Text>
+            <Text style={styles.detailValue} numberOfLines={1}>{formatDate(digitalID.issued_at)}</Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Expiry Date</Text>
-            <Text style={styles.detailValue}>{formatDate(digitalID.expires_at)}</Text>
+            <Text style={styles.detailValue} numberOfLines={1}>{formatDate(digitalID.expires_at)}</Text>
           </View>
 
           <View style={styles.detailRow}>
@@ -358,16 +364,16 @@ export default function StudentIDScreen() {
 
         <View style={styles.ghanaCardSection}>
           <View style={styles.ghanaCardHeader}>
-            <CreditCard size={20} color={COLORS.navy} />
-            <Text style={styles.ghanaCardTitle}>Ghana Card Linking</Text>
+            <CreditCard size={20} color={COLORS.navy} style={styles.ghanaCardIcon} />
+            <Text style={styles.ghanaCardTitle} numberOfLines={1}>Ghana Card Linking</Text>
           </View>
           <Text style={styles.ghanaCardDesc}>
             Link your Ghana Card number for national ID verification. This enables future integrations with government services.
           </Text>
           {member?.ghana_card_number ? (
             <View style={styles.ghanaCardLinked}>
-              <Link2 size={16} color={COLORS.success} />
-              <Text style={styles.ghanaCardLinkedText}>
+              <Link2 size={16} color={COLORS.success} style={styles.ghanaCardIcon} />
+              <Text style={styles.ghanaCardLinkedText} numberOfLines={1}>
                 Ghana Card linked: {member.ghana_card_number.slice(0, 6)}****
               </Text>
             </View>
@@ -489,37 +495,40 @@ const styles = StyleSheet.create({
   cardFront: {
     flex: 1,
     backgroundColor: COLORS.navy,
-    padding: SPACING.lg,
+    padding: SPACING.md,
+    justifyContent: 'space-between',
   },
   cardHeader: {
     alignItems: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  cardIcon: {
+    marginBottom: 4,
   },
   universityName: {
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: FONT.bold,
     color: COLORS.white,
-    marginTop: SPACING.sm,
+    marginTop: SPACING.xs,
     textAlign: 'center',
   },
   cardSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FONT.medium,
     color: COLORS.gold,
-    marginTop: SPACING.xs,
+    marginTop: 2,
     letterSpacing: 1,
   },
   cardBody: {
-    flex: 1,
     justifyContent: 'center',
   },
   photoContainer: {
     alignItems: 'center',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.sm,
   },
   photoCircle: {
-    width: 100,
-    height: 100,
+    width: 80,
+    height: 80,
     borderRadius: RADIUS.full,
     backgroundColor: COLORS.gold,
     alignItems: 'center',
@@ -528,68 +537,77 @@ const styles = StyleSheet.create({
     borderColor: COLORS.white,
   },
   initialsText: {
-    fontSize: 36,
+    fontSize: 28,
     fontFamily: FONT.bold,
     color: COLORS.white,
   },
   infoSection: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: RADIUS.md,
-    padding: SPACING.md,
+    padding: SPACING.sm,
   },
   studentName: {
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: FONT.bold,
     color: COLORS.white,
     textAlign: 'center',
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
   },
   divider: {
     height: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    marginVertical: SPACING.sm,
+    marginVertical: SPACING.xs,
   },
   infoRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: SPACING.xs,
+    marginVertical: 2,
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontFamily: FONT.medium,
     color: COLORS.gold,
+    flexShrink: 0,
   },
   infoValue: {
     fontSize: 14,
     fontFamily: FONT.semiBold,
     color: COLORS.white,
+    flexShrink: 1,
+    textAlign: 'right',
+    marginLeft: SPACING.sm,
   },
   cardFooter: {
-    marginTop: SPACING.md,
+    marginTop: SPACING.sm,
   },
   validitySection: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: RADIUS.sm,
-    padding: SPACING.sm,
-    marginBottom: SPACING.sm,
+    padding: SPACING.xs,
+    marginBottom: SPACING.xs,
   },
   validityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: SPACING.xs / 2,
+    marginVertical: 2,
+  },
+  validityIcon: {
+    marginRight: 6,
   },
   validityLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FONT.medium,
     color: COLORS.white,
-    marginLeft: SPACING.xs,
-    flex: 1,
+    flexShrink: 0,
   },
   validityValue: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FONT.semiBold,
     color: COLORS.white,
+    flex: 1,
+    textAlign: 'right',
+    marginLeft: SPACING.sm,
   },
   statusBadge: {
     flexDirection: 'row',
@@ -676,6 +694,8 @@ const styles = StyleSheet.create({
     fontFamily: FONT.medium,
     color: COLORS.white,
     opacity: 0.7,
+    flexShrink: 1,
+    marginRight: SPACING.sm,
   },
   backStatusBadge: {
     flexDirection: 'row',
@@ -684,12 +704,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs / 2,
     borderRadius: RADIUS.xs,
+    flexShrink: 0,
   },
   backStatusText: {
     fontSize: 10,
     fontFamily: FONT.semiBold,
     color: COLORS.white,
-    marginLeft: SPACING.xs / 2,
+    marginLeft: 4,
   },
   flipHint: {
     fontSize: 14,
@@ -743,11 +764,15 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FONT.medium,
     color: COLORS.textSecondary,
+    flexShrink: 0,
   },
   detailValue: {
     fontSize: 14,
     fontFamily: FONT.semiBold,
     color: COLORS.textPrimary,
+    flexShrink: 1,
+    textAlign: 'right',
+    marginLeft: SPACING.sm,
   },
   activeStatusBadge: {
     flexDirection: 'row',
@@ -756,12 +781,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.sm,
     paddingVertical: SPACING.xs / 2,
     borderRadius: RADIUS.xs,
+    flexShrink: 0,
   },
   activeStatusText: {
     fontSize: 12,
     fontFamily: FONT.semiBold,
     color: COLORS.success,
-    marginLeft: SPACING.xs / 2,
+    marginLeft: 4,
   },
   ghanaCardSection: {
     backgroundColor: COLORS.white,
@@ -774,13 +800,16 @@ const styles = StyleSheet.create({
   ghanaCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
     marginBottom: SPACING.sm,
+  },
+  ghanaCardIcon: {
+    marginRight: 8,
   },
   ghanaCardTitle: {
     fontSize: 16,
     fontFamily: FONT.semiBold,
     color: COLORS.textPrimary,
+    flexShrink: 1,
   },
   ghanaCardDesc: {
     fontSize: 13,
@@ -788,11 +817,11 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     lineHeight: 19,
     marginBottom: SPACING.md,
+    flexShrink: 1,
   },
   ghanaCardLinked: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
     backgroundColor: COLORS.successLight,
     padding: SPACING.sm,
     borderRadius: RADIUS.sm,
@@ -801,10 +830,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FONT.medium,
     color: COLORS.success,
+    flexShrink: 1,
   },
   ghanaCardInput: {
     flexDirection: 'row',
-    gap: SPACING.sm,
+    alignItems: 'center',
   },
   ghanaCardTextInput: {
     flex: 1,
@@ -816,12 +846,16 @@ const styles = StyleSheet.create({
     fontFamily: FONT.medium,
     fontSize: 14,
     color: COLORS.textPrimary,
+    marginRight: SPACING.sm,
   },
   ghanaCardLinkBtn: {
     backgroundColor: COLORS.navy,
     paddingHorizontal: SPACING.md,
+    height: 44,
     borderRadius: RADIUS.sm,
     justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
   },
   ghanaCardLinkBtnText: {
     fontFamily: FONT.semiBold,
