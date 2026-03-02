@@ -16,8 +16,6 @@ import {
 import { useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
-import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import {
   Search,
   X,
@@ -30,12 +28,11 @@ import {
   Briefcase,
   UtensilsCrossed,
   Package,
-  Plus,
 } from 'lucide-react-native';
 
 const { width } = Dimensions.get('window');
-const DEAL_CARD_WIDTH = width * 0.42;
-const GRID_CARD_WIDTH = (width - SPACING.lg * 2 - SPACING.sm) / 2;
+const DEAL_CARD_WIDTH = width * 0.45;
+const GRID_CARD_WIDTH = (width - SPACING.lg * 3) / 2;
 
 type MarketCategory = 'all' | 'electronics' | 'food' | 'services' | 'grocery';
 
@@ -55,15 +52,15 @@ type MarketListing = {
   image_url?: string;
 };
 
-const CATEGORIES: { key: MarketCategory; label: string; icon: any; color: string; bg: string }[] =[
-  { key: 'all', label: 'All', icon: ShoppingBag, color: '#1F2937', bg: '#F3F4F6' },
-  { key: 'electronics', label: 'Tech', icon: Smartphone, color: '#7C3AED', bg: '#EDE9FE' },
-  { key: 'food', label: 'Food', icon: UtensilsCrossed, color: '#EA580C', bg: '#FFEDD5' },
-  { key: 'services', label: 'Services', icon: Briefcase, color: '#0284C7', bg: '#E0F2FE' },
-  { key: 'grocery', label: 'Grocery', icon: Package, color: '#16A34A', bg: '#DCFCE7' },
+const CATEGORIES: { key: MarketCategory; label: string; icon: any }[] = [
+  { key: 'all', label: 'All', icon: ShoppingBag },
+  { key: 'electronics', label: 'Electronics', icon: Smartphone },
+  { key: 'food', label: 'Food', icon: UtensilsCrossed },
+  { key: 'services', label: 'Services', icon: Briefcase },
+  { key: 'grocery', label: 'Grocery Shops', icon: Package },
 ];
 
-const CONDITIONS =['new', 'good', 'fair', 'used'] as const;
+const CONDITIONS = ['new', 'good', 'fair', 'used'] as const;
 
 const stripBadgesFromTitle = (title: string) =>
   title
@@ -74,12 +71,13 @@ const stripBadgesFromTitle = (title: string) =>
     .replace(/\s{2,}/g, ' ')
     .trim();
 
-const DUMMY_PRODUCTS: MarketListing[] =[
+const DUMMY_PRODUCTS: MarketListing[] = [
   {
     id: '1',
     seller_id: 'dummy-user-1',
     title: stripBadgesFromTitle('iPhone 13 Pro 256GB - Like New'),
-    description: 'Barely used iPhone 13 Pro in Sierra Blue. Comes with original box, charger, and case. Battery health 98%.',
+    description:
+      'Barely used iPhone 13 Pro in Sierra Blue. Comes with original box, charger, and case. No scratches, perfect condition. Battery health 98%.',
     price: 2800,
     category: 'electronics',
     condition: 'new',
@@ -94,7 +92,8 @@ const DUMMY_PRODUCTS: MarketListing[] =[
     id: '2',
     seller_id: 'dummy-user-2',
     title: stripBadgesFromTitle('Dell XPS 15 Laptop - Gaming Ready'),
-    description: 'Powerful Dell XPS 15 with Intel i7, 16GB RAM, 512GB SSD. Perfect for coding, gaming, and design work.',
+    description:
+      'Powerful Dell XPS 15 with Intel i7, 16GB RAM, 512GB SSD, NVIDIA GTX 1650. Perfect for coding, gaming, and design work.',
     price: 4500,
     category: 'electronics',
     condition: 'good',
@@ -108,12 +107,12 @@ const DUMMY_PRODUCTS: MarketListing[] =[
   {
     id: '3',
     seller_id: 'dummy-user-3',
-    title: 'Naa Spicy Bite (Waakye)',
-    description: 'Hot meals available daily.',
+    title: 'Naa Spicy Bite',
+    description: 'Meals available daily.',
     price: 25,
     category: 'food',
     condition: 'new',
-    campus_location: 'Science Market',
+    campus_location: 'Science Market, UCC',
     seller_phone: '0557654321',
     is_available: true,
     is_sold: false,
@@ -123,13 +122,28 @@ const DUMMY_PRODUCTS: MarketListing[] =[
   {
     id: '4',
     seller_id: 'dummy-user-4',
-    title: 'Macoy Groceries',
-    description: 'Fresh provisions and hostel essentials.',
-    price: 50,
+    title: 'Macoy',
+    description: 'Meals available at Science Market.',
+    price: 25,
+    category: 'food',
+    condition: 'new',
+    campus_location: 'Science Market, UCC',
+    seller_phone: '0246789012',
+    is_available: true,
+    is_sold: false,
+    created_at: new Date().toISOString(),
+    image_url: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=500&q=80',
+  },
+  {
+    id: '5',
+    seller_id: 'dummy-user-5',
+    title: 'Science Market',
+    description: 'Food vendors and items available.',
+    price: 10,
     category: 'grocery',
     condition: 'new',
-    campus_location: 'Science Market',
-    seller_phone: '0246789012',
+    campus_location: 'Science Market, UCC',
+    seller_phone: '0209876543',
     is_available: true,
     is_sold: false,
     created_at: new Date().toISOString(),
@@ -142,56 +156,67 @@ export default function StuMarkScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const[category, setCategory] = useState<MarketCategory>('all');
+  const [category, setCategory] = useState<MarketCategory>('all');
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<MarketListing | null>(null);
   const [wishlist, setWishlist] = useState<Set<string>>(new Set());
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high'>('newest');
   const [filterCondition, setFilterCondition] = useState<string[]>([]);
-  const[postOpen, setPostOpen] = useState(false);
-  
-  // Post Form State
-  const[postTitle, setPostTitle] = useState('');
+  const [postOpen, setPostOpen] = useState(false);
+  const [postTitle, setPostTitle] = useState('');
   const [postDescription, setPostDescription] = useState('');
-  const[postPrice, setPostPrice] = useState('');
-  const [postCategory, setPostCategory] = useState<Exclude<MarketCategory, 'all'>>('electronics');
+  const [postPrice, setPostPrice] = useState('');
+  const [postCategory, setPostCategory] = useState<Exclude<MarketCategory, 'all'>>('services');
   const [postCondition, setPostCondition] = useState<(typeof CONDITIONS)[number]>('good');
   const [postLocation, setPostLocation] = useState('');
   const [postPhone, setPostPhone] = useState('');
   const [postError, setPostError] = useState<string | null>(null);
-  const[posting, setPosting] = useState(false);
+  const [posting, setPosting] = useState(false);
 
-  const fetchListings = useCallback(async (opts?: { silent?: boolean }) => {
-    const silent = opts?.silent ?? false;
-    if (!silent) setLoading(true);
-    try {
-      let query = supabase
-        .from('market_listings')
-        .select('*')
-        .order('created_at', { ascending: false });
+  const fetchListings = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent ?? false;
+      if (!silent) setLoading(true);
+      try {
+        let query = supabase
+          .from('market_listings')
+          .select(
+            'id,seller_id,title,description,price,category,condition,campus_location,seller_phone,is_available,is_sold,created_at',
+          )
+          .order('created_at', { ascending: false });
 
-      if (category !== 'all') query = query.eq('category', category);
-      const q = searchQuery.trim();
-      if (q.length > 0) query = query.ilike('title', `%${q}%`);
-      query = query.eq('is_sold', false).eq('is_available', true);
+        if (category !== 'all') query = query.eq('category', category);
+        const q = searchQuery.trim();
+        if (q.length > 0) query = query.ilike('title', `%${q}%`);
+        query = query.eq('is_sold', false).eq('is_available', true);
 
-      const { data, error } = await query;
-      if (error) throw error;
+        const { data, error } = await query;
+        if (error) throw error;
 
-      if (data && data.length > 0) {
-        const cleaned = (data as MarketListing[]).map((item) => ({
-          ...item,
-          title: stripBadgesFromTitle(item.title),
-        }));
-        setListings(cleaned);
-      } else {
+        if (data && data.length > 0) {
+          const cleaned = (data as MarketListing[]).map((item) => ({
+            ...item,
+            title: stripBadgesFromTitle(item.title),
+          }));
+          setListings(cleaned);
+        } else {
+          setListings(DUMMY_PRODUCTS);
+        }
+      } catch {
         setListings(DUMMY_PRODUCTS);
+      } finally {
+        if (!silent) setLoading(false);
       }
-    } catch {
-      setListings(DUMMY_PRODUCTS);
-    } finally {
-      if (!silent) setLoading(false);
-    }
-  }, [category, searchQuery]);
+    },
+    [category, searchQuery],
+  );
 
-  useFocusEffect(useCallback(() => { void fetchListings(); }, [fetchListings]));
+  useFocusEffect(
+    useCallback(() => {
+      void fetchListings();
+    }, [fetchListings]),
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -200,32 +225,54 @@ export default function StuMarkScreen() {
   }, [fetchListings]);
 
   const openPost = () => {
-    setPostError(null); setPostTitle(''); setPostDescription(''); setPostPrice('');
-    setPostCategory('electronics'); setPostCondition('good'); setPostLocation(''); setPostPhone('');
+    setPostError(null);
+    setPostTitle('');
+    setPostDescription('');
+    setPostPrice('');
+    setPostCategory('services');
+    setPostCondition('good');
+    setPostLocation('');
+    setPostPhone('');
     setPostOpen(true);
   };
 
-  const closePost = () => { if (!posting) setPostOpen(false); };
+  const closePost = () => {
+    if (!posting) setPostOpen(false);
+  };
 
   const submitPost = async () => {
     if (posting) return;
     const title = stripBadgesFromTitle(postTitle.trim());
     const priceNumber = Number(postPrice);
-    if (title.length === 0) return setPostError('Add a title.');
-    if (!Number.isFinite(priceNumber) || priceNumber <= 0) return setPostError('Enter a valid price.');
-    
-    setPosting(true); setPostError(null);
+    if (title.length === 0) {
+      setPostError('Add a title.');
+      return;
+    }
+    if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
+      setPostError('Enter a valid price.');
+      return;
+    }
+    setPosting(true);
+    setPostError(null);
     try {
       const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError || !userData.user?.id) {
+      if (userError) throw userError;
+      const userId = userData.user?.id;
+      if (!userId) {
         setPostError('Please sign in to post.');
-        setPosting(false);
         return;
       }
       const payload = {
-        seller_id: userData.user.id, title, description: postDescription.trim(), price: priceNumber,
-        category: postCategory, condition: postCondition, campus_location: postLocation.trim(),
-        seller_phone: postPhone.trim(), is_available: true, is_sold: false,
+        seller_id: userId,
+        title,
+        description: postDescription.trim(),
+        price: priceNumber,
+        category: postCategory,
+        condition: postCondition,
+        campus_location: postLocation.trim(),
+        seller_phone: postPhone.trim(),
+        is_available: true,
+        is_sold: false,
       };
       const { error } = await supabase.from('market_listings').insert(payload);
       if (error) throw error;
@@ -249,8 +296,8 @@ export default function StuMarkScreen() {
 
   const formatPrice = (value: number | string) => {
     const n = typeof value === 'string' ? Number(value) : value;
-    if (!Number.isFinite(n)) return 'GH₵0';
-    return `GH₵${n.toLocaleString()}`;
+    if (!Number.isFinite(n)) return '₵0';
+    return `₵${n.toLocaleString()}`;
   };
 
   const filteredListings = listings
@@ -262,62 +309,57 @@ export default function StuMarkScreen() {
       if (filterCondition.length > 0 && item.condition && !filterCondition.includes(item.condition)) return false;
       return true;
     })
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    .sort((a, b) => {
+      if (sortBy === 'price-low') return Number(a.price) - Number(b.price);
+      if (sortBy === 'price-high') return Number(b.price) - Number(a.price);
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
-  const recentListings = filteredListings.slice(0, 4);
-  const trendingListings = filteredListings.slice(0, 10);
+  const recentListings = filteredListings.slice(0, 6);
+  const trendingListings = filteredListings.slice(0, 8);
 
   return (
     <View style={styles.container}>
-      {/* ─── MODERN HEADER ─── */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.headerTitle}>StuMark</Text>
+
+          {/* PLUS SIGN REPLACED WITH POST AD / SELL */}
+          <TouchableOpacity onPress={openPost} style={styles.sellButton} activeOpacity={0.8}>
+            <Text style={styles.sellButtonText}>Post Ad</Text>
+          </TouchableOpacity>
         </View>
+
         <View style={styles.searchBox}>
           <Search size={18} color={COLORS.textTertiary} />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search for textbooks, phones, food..."
+            placeholder="Search items on campus..."
             placeholderTextColor={COLORS.textTertiary}
             style={styles.searchInput}
             returnKeyType="search"
           />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{top: 10, bottom: 10, left: 10, right: 10}}>
-              <X size={16} color={COLORS.textSecondary} />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
 
       <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF9900" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* ─── HERO BANNER ─── */}
-        <LinearGradient
-          colors={['#FF9900', '#F97316']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroBanner}
-        >
+        <View style={styles.heroBanner}>
           <View style={styles.bannerContent}>
-            <View style={styles.bannerBadge}>
-              <TrendingUp size={14} color="#FF9900" />
-              <Text style={styles.bannerBadgeText}>Campus Deals</Text>
-            </View>
-            <Text style={styles.bannerTitle}>Buy & Sell with Students</Text>
-            <Text style={styles.bannerSubtitle}>Verified campus marketplace</Text>
+            <Text style={styles.bannerTitle}>Campus Deals</Text>
+            <Text style={styles.bannerSubtitle}>Shop smart, save more</Text>
           </View>
-          <View style={styles.heroDecoCircle1} />
-          <View style={styles.heroDecoCircle2} />
-        </LinearGradient>
+          <View style={styles.bannerBadge}>
+            <TrendingUp size={16} color={COLORS.white} />
+            <Text style={styles.bannerBadgeText}>Hot</Text>
+          </View>
+        </View>
 
-        {/* ─── CATEGORIES ─── */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categories}>
           {CATEGORIES.map((cat) => {
             const active = category === cat.key;
@@ -325,12 +367,12 @@ export default function StuMarkScreen() {
             return (
               <TouchableOpacity
                 key={cat.key}
-                style={[styles.categoryItem, active && styles.categoryItemActive]}
+                style={[styles.categoryCard, active && styles.categoryCardActive]}
                 onPress={() => setCategory(cat.key)}
                 activeOpacity={0.8}
               >
-                <View style={[styles.categoryIconWrap, { backgroundColor: active ? COLORS.primary : cat.bg }]}>
-                  <Icon size={22} color={active ? COLORS.white : cat.color} strokeWidth={active ? 2.5 : 2} />
+                <View style={[styles.categoryIcon, active && styles.categoryIconActive]}>
+                  <Icon size={20} color={active ? COLORS.white : COLORS.textSecondary} strokeWidth={2} />
                 </View>
                 <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>{cat.label}</Text>
               </TouchableOpacity>
@@ -338,34 +380,44 @@ export default function StuMarkScreen() {
           })}
         </ScrollView>
 
-        {/* ─── TODAY'S DEALS (HORIZONTAL) ─── */}
+        {/* THIN LINE SEPARATING LOGO ICONS (CATEGORIES) FROM TODAY'S DEAL */}
+        <View style={styles.divider} />
+
         {recentListings.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Fresh Finds</Text>
+              <View>
+                <Text style={styles.sectionTitle}>Today's Deals</Text>
+                <Text style={styles.sectionSubtitle}>Limited time offers</Text>
+              </View>
               <TouchableOpacity style={styles.seeAllBtn}>
                 <Text style={styles.seeAllText}>See all</Text>
-                <ChevronRight size={16} color={COLORS.textSecondary} />
+                <ChevronRight size={16} color={COLORS.primary} />
               </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.dealsScroll}>
               {recentListings.map((item) => (
                 <View key={item.id} style={styles.dealCard}>
-                  <View style={styles.dealImageWrap}>
+                  <View style={styles.dealImage}>
                     {item.image_url ? (
-                      <Image source={{ uri: item.image_url }} style={styles.dealImage} resizeMode="cover" />
+                      <Image source={{ uri: item.image_url }} style={styles.productImage} resizeMode="cover" />
                     ) : (
-                      <View style={styles.dealImagePlaceholder}>
-                        <ShoppingBag size={32} color={COLORS.textTertiary} strokeWidth={1.5} />
-                      </View>
-                    )}
-                    {item.condition === 'new' && (
-                      <View style={styles.newBadge}><Text style={styles.newBadgeText}>NEW</Text></View>
+                      <ShoppingBag size={32} color={COLORS.textTertiary} strokeWidth={1.5} />
                     )}
                   </View>
                   <View style={styles.dealInfo}>
-                    <Text style={styles.dealTitle} numberOfLines={2}>{item.title}</Text>
+                    <Text style={styles.dealTitle} numberOfLines={2}>
+                      {stripBadgesFromTitle(item.title)}
+                    </Text>
                     <Text style={styles.dealPrice}>{formatPrice(item.price)}</Text>
+                    {item.campus_location && (
+                      <View style={styles.dealLocation}>
+                        <MapPin size={11} color={COLORS.textTertiary} />
+                        <Text style={styles.dealLocationText} numberOfLines={1}>
+                          {item.campus_location}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               ))}
@@ -373,44 +425,38 @@ export default function StuMarkScreen() {
           </View>
         )}
 
-        {/* ─── TRENDING NOW (GRID) ─── */}
         {trendingListings.length > 0 && (
-          <View style={[styles.section, { paddingHorizontal: SPACING.lg }]}>
-            <Text style={[styles.sectionTitle, { marginBottom: SPACING.sm }]}>Trending Now</Text>
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View>
+                <Text style={styles.sectionTitle}>Trending Now</Text>
+                <Text style={styles.sectionSubtitle}>Most popular items</Text>
+              </View>
+            </View>
             <View style={styles.grid}>
               {trendingListings.map((item) => (
-                <TouchableOpacity key={item.id} style={styles.gridCard} activeOpacity={0.9}>
-                  <View style={styles.gridImageWrap}>
+                <View key={item.id} style={styles.gridCard}>
+                  <View style={styles.gridImage}>
                     {item.image_url ? (
-                      <Image source={{ uri: item.image_url }} style={styles.gridImage} resizeMode="cover" />
+                      <Image source={{ uri: item.image_url }} style={styles.productImage} resizeMode="cover" />
                     ) : (
-                      <View style={styles.gridImagePlaceholder}>
-                        <ShoppingBag size={28} color={COLORS.textTertiary} strokeWidth={1.5} />
-                      </View>
+                      <ShoppingBag size={28} color={COLORS.textTertiary} strokeWidth={1.5} />
                     )}
-                    <BlurView intensity={60} tint="light" style={styles.favoriteBtnOverlay}>
-                      <TouchableOpacity onPress={() => toggleWishlist(item.id)} style={styles.favoriteBtnInner}>
-                        <Heart
-                          size={18}
-                          color={wishlist.has(item.id) ? COLORS.error : COLORS.textPrimary}
-                          fill={wishlist.has(item.id) ? COLORS.error : 'transparent'}
-                        />
-                      </TouchableOpacity>
-                    </BlurView>
+                    <TouchableOpacity style={styles.favoriteIcon} onPress={() => toggleWishlist(item.id)}>
+                      <Heart
+                        size={16}
+                        color={wishlist.has(item.id) ? COLORS.error : COLORS.textTertiary}
+                        strokeWidth={2}
+                      />
+                    </TouchableOpacity>
                   </View>
                   <View style={styles.gridInfo}>
-                    <Text style={styles.gridTitle} numberOfLines={2}>{item.title}</Text>
-                    <View style={styles.gridFooter}>
-                      <Text style={styles.gridPrice}>{formatPrice(item.price)}</Text>
-                      {item.campus_location && (
-                        <View style={styles.gridLocationRow}>
-                          <MapPin size={10} color={COLORS.textTertiary} />
-                          <Text style={styles.gridLocationText} numberOfLines={1}>{item.campus_location}</Text>
-                        </View>
-                      )}
-                    </View>
+                    <Text style={styles.gridTitle} numberOfLines={2}>
+                      {stripBadgesFromTitle(item.title)}
+                    </Text>
+                    <Text style={styles.gridPrice}>{formatPrice(item.price)}</Text>
                   </View>
-                </TouchableOpacity>
+                </View>
               ))}
             </View>
           </View>
@@ -418,62 +464,88 @@ export default function StuMarkScreen() {
 
         {filteredListings.length === 0 && !loading && (
           <View style={styles.emptyBox}>
-            <ShoppingBag size={48} color={COLORS.borderDark} strokeWidth={1.5} />
-            <Text style={styles.emptyTitle}>Nothing found</Text>
-            <Text style={styles.emptySubtitle}>Try searching for something else or be the first to sell!</Text>
+            <ShoppingBag size={56} color={COLORS.textTertiary} strokeWidth={1.5} />
+            <Text style={styles.emptyTitle}>No items found</Text>
+            <Text style={styles.emptySubtitle}>
+              {searchQuery.trim().length > 0 ? 'Try a different search term' : 'Be the first to list something!'}
+            </Text>
+            <TouchableOpacity style={styles.emptyBtn} onPress={openPost}>
+              <Text style={styles.emptyBtnText}>Post Ad</Text>
+            </TouchableOpacity>
           </View>
         )}
 
         <View style={styles.footerSpace} />
       </ScrollView>
 
-      {/* ─── FLOATING ACTION BUTTON ─── */}
-      <TouchableOpacity style={styles.fab} onPress={openPost} activeOpacity={0.85}>
-        <Plus size={24} color={COLORS.white} strokeWidth={2.5} />
-        <Text style={styles.fabText}>Sell</Text>
-      </TouchableOpacity>
-
-      {/* ─── POST AD MODAL ─── */}
       <Modal visible={postOpen} transparent animationType="slide" onRequestClose={closePost}>
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalContainer}>
             <View style={styles.modalCard}>
-              <View style={styles.modalHandle} />
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>List an Item</Text>
-                <TouchableOpacity style={styles.modalCloseBtn} onPress={closePost}>
-                  <X size={20} color={COLORS.textSecondary} />
+                <TouchableOpacity onPress={closePost} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <X size={24} color={COLORS.textSecondary} />
                 </TouchableOpacity>
               </View>
 
-              {postError && (
-                <View style={styles.errorBox}>
-                  <Text style={styles.modalError}>{postError}</Text>
-                </View>
-              )}
+              {postError && <Text style={styles.modalError}>{postError}</Text>}
 
               <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
                 <View style={styles.field}>
-                  <Text style={styles.label}>Title</Text>
+                  <Text style={styles.label}>Item title</Text>
                   <TextInput
                     value={postTitle}
                     onChangeText={setPostTitle}
-                    placeholder="What are you selling?"
+                    placeholder="e.g., BBF Apple Shop, UCC Repairs..."
                     placeholderTextColor={COLORS.textTertiary}
                     style={styles.input}
                   />
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Price (GH₵)</Text>
+                  <Text style={styles.label}>Description</Text>
                   <TextInput
-                    value={postPrice}
-                    onChangeText={setPostPrice}
-                    placeholder="0.00"
+                    value={postDescription}
+                    onChangeText={setPostDescription}
+                    placeholder="Describe your item..."
                     placeholderTextColor={COLORS.textTertiary}
-                    style={styles.input}
-                    keyboardType="numeric"
+                    style={[styles.input, styles.textArea]}
+                    multiline
+                    numberOfLines={4}
                   />
+                </View>
+
+                <View style={styles.row}>
+                  <View style={styles.rowItem}>
+                    <Text style={styles.label}>Price (₵)</Text>
+                    <TextInput
+                      value={postPrice}
+                      onChangeText={setPostPrice}
+                      placeholder="0.00"
+                      placeholderTextColor={COLORS.textTertiary}
+                      style={styles.input}
+                      keyboardType="numeric"
+                    />
+                  </View>
+
+                  <View style={styles.rowItem}>
+                    <Text style={styles.label}>Condition</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inlineChips}>
+                      {CONDITIONS.map((cond) => {
+                        const active = postCondition === cond;
+                        return (
+                          <TouchableOpacity
+                            key={cond}
+                            style={[styles.smallChip, active && styles.smallChipActive]}
+                            onPress={() => setPostCondition(cond)}
+                          >
+                            <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>{cond}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
                 </View>
 
                 <View style={styles.field}>
@@ -496,46 +568,25 @@ export default function StuMarkScreen() {
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Condition</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.inlineChips}>
-                    {CONDITIONS.map((cond) => {
-                      const active = postCondition === cond;
-                      return (
-                        <TouchableOpacity
-                          key={cond}
-                          style={[styles.smallChip, active && styles.smallChipActive]}
-                          onPress={() => setPostCondition(cond)}
-                        >
-                          <Text style={[styles.smallChipText, active && styles.smallChipTextActive]}>
-                            {cond.charAt(0).toUpperCase() + cond.slice(1)}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </View>
-
-                <View style={styles.field}>
-                  <Text style={styles.label}>Description</Text>
+                  <Text style={styles.label}>Campus location</Text>
                   <TextInput
-                    value={postDescription}
-                    onChangeText={setPostDescription}
-                    placeholder="Provide details about the item..."
+                    value={postLocation}
+                    onChangeText={setPostLocation}
+                    placeholder="e.g., Science Market, UCC..."
                     placeholderTextColor={COLORS.textTertiary}
-                    style={[styles.input, styles.textArea]}
-                    multiline
-                    numberOfLines={4}
+                    style={styles.input}
                   />
                 </View>
 
                 <View style={styles.field}>
-                  <Text style={styles.label}>Location</Text>
+                  <Text style={styles.label}>Phone number</Text>
                   <TextInput
-                    value={postLocation}
-                    onChangeText={setPostLocation}
-                    placeholder="Where can buyers meet you?"
+                    value={postPhone}
+                    onChangeText={setPostPhone}
+                    placeholder="Optional"
                     placeholderTextColor={COLORS.textTertiary}
                     style={styles.input}
+                    keyboardType="phone-pad"
                   />
                 </View>
 
@@ -544,9 +595,8 @@ export default function StuMarkScreen() {
                   onPress={submitPost}
                   disabled={posting}
                 >
-                  <Text style={styles.submitBtnText}>{posting ? 'Posting...' : 'Publish Listing'}</Text>
+                  <Text style={styles.submitBtnText}>{posting ? 'Posting…' : 'List Item'}</Text>
                 </TouchableOpacity>
-                <View style={{ height: 40 }} />
               </ScrollView>
             </View>
           </KeyboardAvoidingView>
@@ -557,66 +607,103 @@ export default function StuMarkScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FB' },
-  
+  container: { flex: 1, backgroundColor: '#F0F2F5' },
   header: {
     backgroundColor: COLORS.white,
-    paddingTop: Platform.OS === 'ios' ? 56 : 48,
-    paddingBottom: SPACING.sm,
+    paddingTop: Platform.OS === 'ios' ? 52 : 44,
+    paddingBottom: SPACING.md,
     paddingHorizontal: SPACING.lg,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(0,0,0,0.05)',
+    borderBottomColor: '#E5E7EB',
   },
-  headerTop: { marginBottom: SPACING.sm },
-  headerTitle: { fontFamily: FONT.headingBold, fontSize: 26, color: COLORS.textPrimary },
-  
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.sm },
+  headerTitle: { fontFamily: FONT.headingBold, fontSize: 24, color: COLORS.textPrimary },
+  sellButton: {
+    backgroundColor: '#FF9900',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: 8,
+    borderRadius: RADIUS.md,
+  },
+  sellButtonText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.white },
+
   searchBox: {
     backgroundColor: '#F3F4F6',
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
-    height: 44,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.sm,
+    gap: SPACING.xs,
   },
-  searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 15, color: COLORS.textPrimary },
+  searchInput: { flex: 1, fontFamily: FONT.regular, fontSize: 14, color: COLORS.textPrimary },
 
   content: { flex: 1 },
-  contentContainer: { paddingBottom: SPACING.xl },
+  contentContainer: { paddingBottom: SPACING.lg },
 
   heroBanner: {
     marginHorizontal: SPACING.lg,
     marginTop: SPACING.md,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-    overflow: 'hidden',
+    backgroundColor: '#FF9900',
+    borderRadius: RADIUS.lg,
+    padding: SPACING.lg,
+    minHeight: 120,
+    justifyContent: 'center',
     position: 'relative',
-    shadowColor: '#FF9900',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
-    elevation: 6,
   },
-  heroDecoCircle1: { position: 'absolute', top: -30, right: -20, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.1)' },
-  heroDecoCircle2: { position: 'absolute', bottom: -40, right: 40, width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(255,255,255,0.1)' },
-  bannerContent: { zIndex: 1, alignItems: 'flex-start' },
-  bannerBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: COLORS.white, paddingHorizontal: 12, paddingVertical: 6, borderRadius: RADIUS.full, marginBottom: SPACING.md },
-  bannerBadgeText: { fontFamily: FONT.bold, fontSize: 11, color: '#FF9900', textTransform: 'uppercase', letterSpacing: 0.5 },
-  bannerTitle: { fontFamily: FONT.headingBold, fontSize: 22, color: COLORS.white, marginBottom: 4 },
+  bannerContent: { gap: 4 },
+  bannerTitle: { fontFamily: FONT.headingBold, fontSize: 22, color: COLORS.white },
   bannerSubtitle: { fontFamily: FONT.medium, fontSize: 14, color: 'rgba(255,255,255,0.9)' },
+  bannerBadge: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 4,
+    borderRadius: RADIUS.full,
+  },
+  bannerBadgeText: { fontFamily: FONT.bold, fontSize: 11, color: COLORS.white },
 
-  categories: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.lg, gap: SPACING.md, flexDirection: 'row' },
-  categoryItem: { alignItems: 'center', gap: 8, width: 68 },
-  categoryItemActive: {},
-  categoryIconWrap: { width: 60, height: 60, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  categoryLabel: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' },
-  categoryLabelActive: { color: COLORS.textPrimary, fontFamily: FONT.bold },
+  categories: { paddingHorizontal: SPACING.lg, paddingVertical: SPACING.md, gap: SPACING.sm, flexDirection: 'row' },
 
-  section: { marginBottom: SPACING.lg },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.lg, marginBottom: SPACING.md },
-  sectionTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
+  divider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.md,
+  },
+
+  categoryCard: { alignItems: 'center', gap: 6, paddingHorizontal: SPACING.sm },
+  categoryCardActive: {},
+  categoryIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: RADIUS.md,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryIconActive: { backgroundColor: COLORS.primary },
+  categoryLabel: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary },
+  categoryLabelActive: { color: COLORS.primary, fontFamily: FONT.semiBold },
+
+  section: { marginTop: SPACING.md },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: SPACING.lg,
+    marginBottom: SPACING.sm,
+  },
+  sectionTitle: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary },
+  sectionSubtitle: { fontFamily: FONT.regular, fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+
   seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  seeAllText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary },
+  seeAllText: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.primary },
 
   dealsScroll: { paddingHorizontal: SPACING.lg, gap: SPACING.md },
   dealCard: {
@@ -624,122 +711,133 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderRadius: RADIUS.lg,
     overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  dealImageWrap: { height: DEAL_CARD_WIDTH, backgroundColor: COLORS.background, position: 'relative' },
-  dealImage: { width: '100%', height: '100%' },
-  dealImagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F3F4F6' },
-  newBadge: { position: 'absolute', top: 8, left: 8, backgroundColor: COLORS.error, paddingHorizontal: 8, paddingVertical: 4, borderRadius: RADIUS.sm },
-  newBadgeText: { fontFamily: FONT.bold, fontSize: 9, color: COLORS.white, letterSpacing: 0.5 },
+  dealImage: {
+    height: DEAL_CARD_WIDTH * 0.9,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  productImage: { width: '100%', height: '100%' },
   dealInfo: { padding: SPACING.sm, gap: 4 },
   dealTitle: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textPrimary, lineHeight: 18 },
-  dealPrice: { fontFamily: FONT.bold, fontSize: 15, color: '#FF9900' },
+  dealPrice: { fontFamily: FONT.bold, fontSize: 16, color: '#B12704', marginTop: 2 },
+  dealLocation: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  dealLocationText: { fontFamily: FONT.regular, fontSize: 11, color: COLORS.textTertiary, flex: 1 },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: SPACING.sm, justifyContent: 'space-between' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: SPACING.lg, gap: SPACING.sm },
   gridCard: {
     width: GRID_CARD_WIDTH,
     backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
+    borderRadius: RADIUS.md,
     overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
-  gridImageWrap: { height: GRID_CARD_WIDTH, position: 'relative', backgroundColor: COLORS.background },
-  gridImage: { width: '100%', height: '100%' },
-  gridImagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  favoriteBtnOverlay: { position: 'absolute', top: 8, right: 8, borderRadius: 16, overflow: 'hidden' },
-  favoriteBtnInner: { width: 32, height: 32, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.4)' },
-  gridInfo: { padding: SPACING.md, gap: 6 },
-  gridTitle: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textPrimary, lineHeight: 18 },
-  gridFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 2 },
-  gridPrice: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.textPrimary },
-  gridLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 3, flex: 1, justifyContent: 'flex-end' },
-  gridLocationText: { fontFamily: FONT.regular, fontSize: 10, color: COLORS.textTertiary, maxWidth: 60 },
-
-  emptyBox: { alignItems: 'center', paddingVertical: 60, paddingHorizontal: SPACING.xl },
-  emptyTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary, marginTop: SPACING.md, marginBottom: SPACING.xs },
-  emptySubtitle: { fontFamily: FONT.regular, fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20 },
-
-  footerSpace: { height: 100 },
-
-  fab: {
+  gridImage: {
+    height: GRID_CARD_WIDTH * 0.9,
+    backgroundColor: '#F9FAFB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  favoriteIcon: {
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 100 : 80,
-    right: SPACING.lg,
+    top: SPACING.xs,
+    right: SPACING.xs,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.white,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gridInfo: { padding: SPACING.sm, gap: 3 },
+  gridTitle: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textPrimary, lineHeight: 16 },
+  gridPrice: { fontFamily: FONT.bold, fontSize: 14, color: '#B12704' },
+
+  emptyBox: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    gap: SPACING.sm,
+    marginHorizontal: SPACING.lg,
+    marginTop: SPACING.xl,
+  },
+  emptyTitle: { fontFamily: FONT.bold, fontSize: 17, color: COLORS.textPrimary },
+  emptySubtitle: { fontFamily: FONT.regular, fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
+  emptyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     backgroundColor: '#FF9900',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 30,
-    shadowColor: '#FF9900',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
-    zIndex: 100,
+    borderRadius: RADIUS.md,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.lg,
+    marginTop: SPACING.xs,
   },
-  fabText: { fontFamily: FONT.headingBold, fontSize: 16, color: COLORS.white },
+  emptyBtnText: { fontFamily: FONT.bold, fontSize: 14, color: COLORS.white },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  footerSpace: { height: 40 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContainer: { flex: 1, justifyContent: 'flex-end' },
   modalCard: {
     backgroundColor: COLORS.white,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    maxHeight: '90%',
+    borderTopLeftRadius: RADIUS.xl,
+    borderTopRightRadius: RADIUS.xl,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.xl,
+    maxHeight: '92%',
   },
-  modalHandle: { width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginTop: SPACING.sm, marginBottom: SPACING.md },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: SPACING.lg, paddingBottom: SPACING.md, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight },
-  modalTitle: { fontFamily: FONT.headingBold, fontSize: 20, color: COLORS.textPrimary },
-  modalCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' },
-  errorBox: { backgroundColor: COLORS.errorLight, padding: SPACING.md, marginHorizontal: SPACING.lg, marginTop: SPACING.md, borderRadius: RADIUS.md },
-  modalError: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.error },
-  modalBody: { padding: SPACING.lg },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.md },
+  modalTitle: { fontFamily: FONT.bold, fontSize: 18, color: COLORS.textPrimary },
+  modalError: { marginBottom: SPACING.sm, fontFamily: FONT.medium, fontSize: 13, color: COLORS.error },
+  modalBody: { paddingTop: SPACING.xs },
 
-  field: { gap: 8, marginBottom: SPACING.lg },
-  label: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  field: { gap: 6, marginBottom: SPACING.md },
+  label: { fontFamily: FONT.semiBold, fontSize: 13, color: COLORS.textSecondary },
   input: {
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
     borderRadius: RADIUS.md,
     paddingHorizontal: SPACING.md,
-    paddingVertical: 12,
+    paddingVertical: SPACING.sm,
     fontFamily: FONT.regular,
-    fontSize: 15,
+    fontSize: 14,
     color: COLORS.textPrimary,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.white,
   },
-  textArea: { minHeight: 100, textAlignVertical: 'top' },
+  textArea: { minHeight: 80, textAlignVertical: 'top' },
 
   row: { flexDirection: 'row', gap: SPACING.md },
   rowItem: { flex: 1 },
 
-  inlineChips: { gap: SPACING.sm, paddingVertical: 4 },
+  inlineChips: { gap: SPACING.xs, paddingVertical: 2 },
   smallChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 6,
+    paddingHorizontal: SPACING.sm,
     borderRadius: RADIUS.full,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
     backgroundColor: COLORS.white,
   },
-  smallChipActive: { backgroundColor: `${COLORS.primary}10`, borderColor: COLORS.primary },
-  smallChipText: { fontFamily: FONT.medium, fontSize: 13, color: COLORS.textSecondary, textTransform: 'capitalize' },
-  smallChipTextActive: { color: COLORS.primary, fontFamily: FONT.bold },
+  smallChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  smallChipText: { fontFamily: FONT.medium, fontSize: 12, color: COLORS.textSecondary, textTransform: 'capitalize' },
+  smallChipTextActive: { color: COLORS.white },
 
   submitBtn: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#FF9900',
     borderRadius: RADIUS.md,
-    paddingVertical: 16,
+    paddingVertical: SPACING.md,
     alignItems: 'center',
-    marginTop: SPACING.md,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    marginTop: SPACING.sm,
   },
-  submitBtnDisabled: { opacity: 0.6 },
-  submitBtnText: { fontFamily: FONT.bold, fontSize: 16, color: COLORS.white },
-});
+  submitBtnDisabled: { opacity: 0.7 },
+  submitBtnText: { fontFamily: FONT.bold, fontSize: 15, color: COLORS.white },
+}); 
