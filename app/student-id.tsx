@@ -37,31 +37,21 @@ interface DigitalStudentID {
   is_active: boolean;
 }
 
-const SecurityRing = () => {
-  const rotateAnim = useRef(new Animated.Value(0)).current;
+const VerifiedBadge = () => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.loop(
-      Animated.timing(rotateAnim, {
-        toValue: 1,
-        duration: 8000,
-        easing: Easing.linear,
-        useNativeDriver: true,
-      })
-    ).start();
-
-    Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.08,
-          duration: 1500,
+          toValue: 1.05,
+          duration: 2000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 1500,
+          duration: 2000,
           easing: Easing.inOut(Easing.ease),
           useNativeDriver: true,
         }),
@@ -69,72 +59,39 @@ const SecurityRing = () => {
     ).start();
   }, []);
 
-  const rotate = rotateAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
   return (
-    <Animated.View style={[ringStyles.ringContainer, { transform: [{ scale: pulseAnim }] }]}>
-      <Animated.View style={[ringStyles.outerRing, { transform: [{ rotate }] }]}>
-        <Svg width={72} height={72} viewBox="0 0 72 72">
-          <Defs>
-            <LinearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0" stopColor="#006B3F" stopOpacity="1" />
-              <Stop offset="0.25" stopColor="#FCD116" stopOpacity="1" />
-              <Stop offset="0.5" stopColor="#006B3F" stopOpacity="1" />
-              <Stop offset="0.75" stopColor="#CE1126" stopOpacity="1" />
-              <Stop offset="1" stopColor="#006B3F" stopOpacity="1" />
-            </LinearGradient>
-          </Defs>
-          <Circle cx="36" cy="36" r="33" stroke="url(#ringGrad)" strokeWidth="3" fill="none" strokeDasharray="8 4" />
-          <Circle cx="36" cy="36" r="28" stroke="#006B3F" strokeWidth="0.5" fill="none" strokeOpacity={0.3} />
-        </Svg>
-      </Animated.View>
-      <View style={ringStyles.innerBadge}>
-        <View style={ringStyles.activeIndicator} />
-        <Text style={ringStyles.validText}>VALID</Text>
+    <Animated.View style={[badgeStyles.container, { transform: [{ scale: pulseAnim }] }]}>
+      <View style={badgeStyles.outerCircle}>
+        <View style={badgeStyles.innerCircle}>
+          <Check size={14} color="#FFFFFF" strokeWidth={3} />
+        </View>
       </View>
     </Animated.View>
   );
 };
 
-const ringStyles = StyleSheet.create({
-  ringContainer: {
-    width: 72,
-    height: 72,
+const badgeStyles = StyleSheet.create({
+  container: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  outerRing: {
-    position: 'absolute',
-    width: 72,
-    height: 72,
+  outerCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0, 107, 63, 0.12)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 107, 63, 0.25)',
   },
-  innerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 107, 63, 0.1)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 9999,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 107, 63, 0.3)',
-  },
-  activeIndicator: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  innerCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#006B3F',
-    marginRight: 5,
-  },
-  validText: {
-    fontSize: 9,
-    fontFamily: FONT.bold,
-    color: '#006B3F',
-    letterSpacing: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 
@@ -284,28 +241,28 @@ const liveStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 107, 63, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: 'rgba(0, 107, 63, 0.15)',
   },
   liveDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: '#CE1126',
-    marginRight: 4,
+    marginRight: 3,
   },
   liveLabel: {
-    fontSize: 7,
+    fontSize: 6,
     fontFamily: FONT.bold,
     color: '#CE1126',
     letterSpacing: 1,
-    marginRight: 5,
+    marginRight: 4,
   },
   timeText: {
-    fontSize: 9,
+    fontSize: 8,
     fontFamily: 'Courier',
     fontWeight: '700',
     color: '#0F172A',
@@ -602,26 +559,25 @@ export default function StudentIDScreen() {
 
               <View style={styles.cardHeader}>
                 <View style={styles.headerLeft}>
-                  <Shield size={32} color="#006B3F" strokeWidth={2.5} />
+                  <Shield size={28} color="#006B3F" strokeWidth={2.5} />
                   <View style={styles.headerTextGroup}>
-                    <Text style={styles.universityName} numberOfLines={1} adjustsFontSizeToFit>
+                    <Text style={styles.universityName} adjustsFontSizeToFit minimumFontScale={0.6}>
                       {member?.university || 'UNIVERSITY'}
                     </Text>
-                    <Text style={styles.cardSubtitle} numberOfLines={1} adjustsFontSizeToFit>STUDENT IDENTIFICATION</Text>
+                    <Text style={styles.cardSubtitle}>DIGITAL STUDENT ID</Text>
                   </View>
                 </View>
-                <LiveTimestamp />
               </View>
 
-              <View style={styles.cardBody}>
-                <View style={styles.bodyLeft}>
-                  <View style={styles.photoFrame}>
-                    <Image
-                      source={{ uri: 'https://i.imgur.com/h286QnR.jpeg' }}
-                      style={styles.photoImage}
-                    />
-                  </View>
-
+              <View style={styles.photoSection}>
+                <View style={styles.photoFrame}>
+                  <Image
+                    source={{ uri: 'https://i.imgur.com/h286QnR.jpeg' }}
+                    style={styles.photoImage}
+                  />
+                </View>
+                <View style={styles.photoSideInfo}>
+                  <VerifiedBadge />
                   <View style={styles.smartChip}>
                     <View style={styles.chipLineHorizontal} />
                     <View style={styles.chipLineVerticalLeft} />
@@ -629,43 +585,45 @@ export default function StudentIDScreen() {
                     <View style={styles.chipInnerRect} />
                   </View>
                 </View>
+              </View>
 
-                <View style={styles.bodyRight}>
-                  <View style={styles.detailBlock}>
-                    <Text style={styles.labelMicro} numberOfLines={1}>SURNAME</Text>
+              <View style={styles.infoSection}>
+                <View style={styles.nameRow}>
+                  <View style={styles.nameBlock}>
+                    <Text style={styles.labelMicro}>SURNAME</Text>
                     <Text style={styles.studentName} numberOfLines={1} adjustsFontSizeToFit>
                       {surname}
                     </Text>
                   </View>
-
                   {givenNames ? (
-                    <View style={styles.detailBlock}>
-                      <Text style={styles.labelMicro} numberOfLines={1}>GIVEN NAMES</Text>
+                    <View style={styles.nameBlock}>
+                      <Text style={styles.labelMicro}>GIVEN NAMES</Text>
                       <Text style={styles.studentName} numberOfLines={1} adjustsFontSizeToFit>
                         {givenNames}
                       </Text>
                     </View>
                   ) : null}
+                </View>
 
-                  <View style={styles.detailBlock}>
-                    <Text style={styles.labelMicro} numberOfLines={1}>IDENTIFICATION NO.</Text>
+                <View style={styles.detailsRow}>
+                  <View style={styles.detailItem}>
+                    <Text style={styles.labelMicro}>ID NUMBER</Text>
                     <Text style={styles.idNumber} numberOfLines={1} adjustsFontSizeToFit>{member?.student_id}</Text>
                   </View>
-
-                  <View style={styles.detailBlock}>
-                    <Text style={styles.labelMicro} numberOfLines={1}>ACADEMIC LEVEL</Text>
-                    <Text style={styles.infoValue} numberOfLines={1} adjustsFontSizeToFit>LEVEL {member?.level || '100'}</Text>
+                  <View style={styles.detailItem}>
+                    <Text style={styles.labelMicro}>LEVEL</Text>
+                    <Text style={styles.infoValue} numberOfLines={1} adjustsFontSizeToFit>{member?.level || '100'}</Text>
                   </View>
+                </View>
 
-                  <View style={styles.datesRow}>
-                    <View style={styles.dateItem}>
-                      <Text style={styles.labelMicro} numberOfLines={1}>ISSUED</Text>
-                      <Text style={styles.dateValue} numberOfLines={1} adjustsFontSizeToFit>{formatDate(digitalID.issued_at)}</Text>
-                    </View>
-                    <View style={styles.dateItem}>
-                      <Text style={styles.labelMicro} numberOfLines={1}>EXPIRES</Text>
-                      <Text style={styles.dateValue} numberOfLines={1} adjustsFontSizeToFit>{formatDate(digitalID.expires_at)}</Text>
-                    </View>
+                <View style={styles.datesRow}>
+                  <View style={styles.dateItem}>
+                    <Text style={styles.labelMicro}>ISSUED</Text>
+                    <Text style={styles.dateValue} numberOfLines={1} adjustsFontSizeToFit>{formatDate(digitalID.issued_at)}</Text>
+                  </View>
+                  <View style={styles.dateItem}>
+                    <Text style={styles.labelMicro}>EXPIRES</Text>
+                    <Text style={styles.dateValue} numberOfLines={1} adjustsFontSizeToFit>{formatDate(digitalID.expires_at)}</Text>
                   </View>
                 </View>
               </View>
@@ -676,8 +634,7 @@ export default function StudentIDScreen() {
                     <View key={i} style={[styles.barcodeLine, { width: w }]} />
                   ))}
                 </View>
-
-                <SecurityRing />
+                <LiveTimestamp />
               </View>
 
               <View style={styles.cardEdgeHighlight} />
@@ -894,8 +851,8 @@ const styles = StyleSheet.create({
   },
   cardFront: {
     backgroundColor: '#FFFFFF',
-    padding: SPACING.lg,
-    justifyContent: 'space-between',
+    padding: SPACING.md,
+    paddingTop: 20,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
@@ -920,56 +877,46 @@ const styles = StyleSheet.create({
   },
   cardHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: SPACING.sm,
-    marginTop: 12,
+    alignItems: 'center',
+    marginBottom: 8,
+    marginTop: 4,
     zIndex: 10,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexShrink: 1,
-    paddingRight: SPACING.sm,
+    flex: 1,
   },
   headerTextGroup: {
-    marginLeft: SPACING.sm,
-    flexShrink: 1,
+    marginLeft: 8,
+    flex: 1,
   },
   universityName: {
-    fontSize: 16,
+    fontSize: 13,
     fontFamily: FONT.bold,
     color: '#0F172A',
-    letterSpacing: 1,
-    flexShrink: 1,
+    letterSpacing: 0.5,
   },
   cardSubtitle: {
-    fontSize: 9,
-    fontFamily: FONT.medium,
+    fontSize: 8,
+    fontFamily: FONT.semiBold,
     color: '#006B3F',
-    letterSpacing: 1.2,
-    marginTop: 2,
-    flexShrink: 1,
+    letterSpacing: 1.5,
+    marginTop: 1,
   },
-  cardBody: {
+  photoSection: {
     flexDirection: 'row',
-    flex: 1,
-    marginTop: SPACING.sm,
+    alignItems: 'flex-start',
+    marginBottom: 10,
     zIndex: 10,
   },
-  bodyLeft: {
-    alignItems: 'center',
-    marginRight: SPACING.md,
-    flexShrink: 0,
-    width: 90,
-  },
   photoFrame: {
-    width: 90,
-    height: 115,
+    width: 120,
+    height: 150,
     borderRadius: 8,
     backgroundColor: '#F8FAFC',
     padding: 3,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: '#CBD5E1',
   },
   photoImage: {
@@ -979,12 +926,18 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     resizeMode: 'cover',
   },
+  photoSideInfo: {
+    marginLeft: 12,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 8,
+    gap: 16,
+  },
   smartChip: {
     width: 42,
     height: 30,
     backgroundColor: '#FCD116',
     borderRadius: 6,
-    marginTop: SPACING.lg,
     position: 'relative',
     overflow: 'hidden',
     borderWidth: 1,
@@ -994,69 +947,73 @@ const styles = StyleSheet.create({
   chipLineVerticalLeft: { position: 'absolute', left: '30%', top: 0, bottom: 0, width: 1, backgroundColor: '#B8860B' },
   chipLineVerticalRight: { position: 'absolute', right: '30%', top: 0, bottom: 0, width: 1, backgroundColor: '#B8860B' },
   chipInnerRect: { position: 'absolute', top: '25%', left: '35%', width: '30%', height: '50%', borderWidth: 1, borderColor: '#B8860B', borderRadius: 2 },
-  bodyRight: {
+  infoSection: {
     flex: 1,
-    flexShrink: 1,
-    justifyContent: 'space-between',
-    paddingBottom: 2,
+    zIndex: 10,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    marginBottom: 6,
+    gap: 16,
+  },
+  nameBlock: {
+    flex: 1,
   },
   labelMicro: {
-    fontSize: 8,
+    fontSize: 7,
     fontFamily: FONT.semiBold,
     color: '#64748B',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-    flexShrink: 1,
+    letterSpacing: 0.8,
+    marginBottom: 1,
   },
   studentName: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: FONT.bold,
     color: '#0F172A',
-    lineHeight: 18,
-    flexShrink: 1,
+    lineHeight: 17,
   },
-  detailBlock: {
-    flexShrink: 1,
+  detailsRow: {
+    flexDirection: 'row',
+    marginBottom: 6,
+    gap: 16,
+  },
+  detailItem: {
+    flex: 1,
   },
   idNumber: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: 'Courier',
     fontWeight: '700',
     color: '#0F172A',
-    letterSpacing: 2,
-    flexShrink: 1,
+    letterSpacing: 1.5,
   },
   infoValue: {
     fontSize: 13,
     fontFamily: FONT.semiBold,
     color: '#0F172A',
-    flexShrink: 1,
   },
   datesRow: {
     flexDirection: 'row',
-    flexShrink: 1,
+    gap: 16,
   },
   dateItem: {
-    marginRight: SPACING.md,
-    flexShrink: 1,
     flex: 1,
   },
   dateValue: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: FONT.semiBold,
     color: '#0F172A',
-    flexShrink: 1,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: SPACING.sm,
+    marginTop: 8,
     zIndex: 10,
   },
   barcodeWrapper: {
     flexDirection: 'row',
-    height: 24,
+    height: 22,
     alignItems: 'center',
     opacity: 0.8,
     flexShrink: 1,
