@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import { Text, TextInput } from 'react-native';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -17,6 +18,16 @@ import * as Linking from 'expo-linking';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
+
+// @ts-ignore: React Native types removed defaultProps, but it is still the only way to globally disable font scaling without installing third-party libraries.
+if (Text.defaultProps == null) Text.defaultProps = {};
+// @ts-ignore
+Text.defaultProps.allowFontScaling = false;
+
+// @ts-ignore
+if (TextInput.defaultProps == null) TextInput.defaultProps = {};
+// @ts-ignore
+TextInput.defaultProps.allowFontScaling = false;
 
 SplashScreen.preventAutoHideAsync();
 
