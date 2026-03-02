@@ -24,10 +24,8 @@ import {
   ShoppingBag,
   Printer,
   ChevronRight,
-  Home,
   Shield,
   Heart,
-  Calendar,
   Wallet,
   Bot,
   ShieldAlert,
@@ -36,10 +34,8 @@ import {
   Bus,
   GraduationCap,
   Megaphone,
-  CreditCard,
   Search as SearchIcon,
   Vote,
-  CalendarDays,
 } from 'lucide-react-native';
 import LeaseRenewalCard from '@/components/LeaseRenewalCard';
 import SOSButton from '@/components/SOSButton';
@@ -236,235 +232,118 @@ export default function HomeScreen() {
       }
 
       const totalBeds = (bedsResult.data || []).reduce(
-        (sum: number, h: { available_rooms: number }) => sum + (h.available_rooms || 0), 0
+        (sum: number, h: { available_rooms: number }) => sum + (h.available_rooms || 0),
+        0
       );
 
-      if (user) {
-        const unreadMessages = (msgResult.data || []).reduce((sum: number, c: {
-          participant_a: string;
-          participant_b: string;
-          unread_count_a: number;
-          unread_count_b: number;
-        }) => {
-          const isA = c.participant_a === user.id;
-          return sum + (isA ? (c.unread_count_a || 0) : (c.unread_count_b || 0));
-        }, 0);
-
-        setLiveStats({
-          availableBeds: totalBeds,
-          unreadMessages,
-          unreadAlerts: (alertResult as any).count || 0,
+      let unreadMsgs = 0;
+      if (user && msgResult.data) {
+        (msgResult.data as any[]).forEach((c) => {
+          if (c.participant_a === user.id) unreadMsgs += c.unread_count_a || 0;
+          else unreadMsgs += c.unread_count_b || 0;
         });
-
-        const { data: stats } = statsResult as { data: UserStats | null };
-        setUserStats(stats as UserStats | null);
-      } else {
-        setLiveStats(prev => ({ ...prev, availableBeds: totalBeds }));
       }
+
+      setLiveStats({
+        availableBeds: totalBeds,
+        unreadMessages: unreadMsgs,
+        unreadAlerts: (alertResult as any).count || 0,
+      });
+
+      if (statsResult.data) setUserStats(statsResult.data as UserStats);
     } catch (err) {
-      console.error('fetchData error:', err);
-    } finally {
-      setRefreshing(false);
+      console.error('Home fetch error:', err);
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const getGreeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Good morning';
-    if (h < 17) return 'Good afternoon';
-    return 'Good evening';
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
   };
+
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good Morning';
+    if (h < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  })();
+
+  const firstName = member?.full_name?.split(' ')[0] || 'Student';
 
   return (
     <>
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => { setRefreshing(true); fetchData(); }}
-          tintColor={COLORS.primary}
-        />
-      }
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
     >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.greetingText}>{getGreeting()},</Text>
-          <Text style={styles.headerTitle}>{member?.full_name?.split(' ')[0] || 'Student'}</Text>
+          <Text style={styles.greetingText}>{greeting}</Text>
+          <Text style={styles.headerTitle}>{firstName} 👋</Text>
         </View>
-        <TouchableOpacity
-          onPress={() => router.push('/(tabs)/favourites' as any)}
-          activeOpacity={0.7}
-        >
-          <Heart size={24} color={COLORS.textPrimary} />
-        </TouchableOpacity>
-        <NotificationBell size={22} color={COLORS.textPrimary} />
+        <NotificationBell />
         <TouchableOpacity
           style={styles.avatar}
           onPress={() => router.push('/(tabs)/profile' as any)}
         >
-          <Text style={styles.avatarText}>{(member?.full_name || 'S')[0].toUpperCase()}</Text>
+          <Text style={styles.avatarText}>{firstName[0]}</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.statsStrip}>
-        <TouchableOpacity
-          style={styles.statItem}
-          onPress={() => router.push('/(tabs)/search' as any)}
-          activeOpacity={0.7}
-        >
+        <View style={styles.statItem}>
           <AnimatedStatNum value={liveStats.availableBeds} />
-          <Text style={styles.statLabel}>Beds</Text>
-        </TouchableOpacity>
-
+          <Text style={styles.statLabel}>Beds Free</Text>
+        </View>
         <View style={styles.statDivider} />
-
-        <TouchableOpacity
-          style={styles.statItem}
-          onPress={() => router.push('/(tabs)/messages' as any)}
-          activeOpacity={0.7}
-        >
+        <View style={styles.statItem}>
           <AnimatedStatNum value={liveStats.unreadMessages} />
           <Text style={styles.statLabel}>Messages</Text>
-        </TouchableOpacity>
-
+        </View>
         <View style={styles.statDivider} />
-
-        <TouchableOpacity
-          style={styles.statItem}
-          onPress={() => router.push('/(tabs)/bookings' as any)}
-          activeOpacity={0.7}
-        >
-          <AnimatedStatNum value={userStats?.bookings_made || 0} />
-          <Text style={styles.statLabel}>Bookings</Text>
-        </TouchableOpacity>
-
-        <View style={styles.statDivider} />
-
-        <TouchableOpacity
-          style={styles.statItem}
-          onPress={() => router.push('/notifications' as any)}
-          activeOpacity={0.7}
-        >
+        <View style={styles.statItem}>
           <AnimatedStatNum value={liveStats.unreadAlerts} />
           <Text style={[styles.statLabel, liveStats.unreadAlerts > 0 && styles.statLabelAlert]}>Alerts</Text>
-        </TouchableOpacity>
+        </View>
       </View>
 
-      <OnboardingProgress compact={true} />
-
-      {activeBooking && (
-        <LeaseRenewalCard
-          hostelId={activeBooking.hostelId}
-          hostelName={activeBooking.hostelName}
-          checkOutDate={activeBooking.checkOutDate}
-        />
-      )}
+      <OnboardingProgress />
+      <LeaseRenewalCard
+        hostelId={activeBooking?.hostelId}
+        hostelName={activeBooking?.hostelName}
+        checkOutDate={activeBooking?.checkOutDate}
+      />
 
       <View style={styles.quickActionsSection}>
         <View style={styles.quickActionsGrid}>
-          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/planner' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#DBEAFE' }]}>
-              <CalendarDays size={28} color={COLORS.info} />
-            </View>
-            <Text style={styles.qaLabel}>Planner</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/wallet' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
-              <Wallet size={28} color={COLORS.accent} />
-            </View>
-            <Text style={styles.qaLabel}>Wallet</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/food' as any)}>
+          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/hall' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
-              <UtensilsCrossed size={28} color={COLORS.warning} />
-            </View>
-            <Text style={styles.qaLabel}>Food</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/(tabs)/laundry' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#EDE9FE' }]}>
-              <ShoppingBag size={28} color='#7C3AED' />
-            </View>
-            <Text style={styles.qaLabel}>Smart Wash</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/print' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
-              <Printer size={28} color={COLORS.success} />
-            </View>
-            <Text style={styles.qaLabel}>DigiPrint</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/hall' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#DBEAFE' }]}>
-              <Shield size={28} color={COLORS.info} />
+              <Shield size={28} color={COLORS.warning} />
             </View>
             <Text style={styles.qaLabel}>My Hall</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/events' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
-              <Calendar size={28} color={COLORS.primary} />
-            </View>
-            <Text style={styles.qaLabel}>Events</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/safety' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
-              <ShieldAlert size={28} color={COLORS.error} />
-            </View>
-            <Text style={styles.qaLabel}>Safety</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/ai-assistant' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#F3E8FF' }]}>
-              <Bot size={28} color='#7C3AED' />
-            </View>
-            <Text style={styles.qaLabel}>AI Assistant</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/roommates' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
-              <Users size={28} color={COLORS.error} />
-            </View>
-            <Text style={styles.qaLabel}>Roommates</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/(tabs)/stumark' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
-              <ShoppingBag size={28} color={COLORS.warning} />
-            </View>
-            <Text style={styles.qaLabel}>StuMark</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/study-rooms' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
-              <BookOpen size={28} color={COLORS.accent} />
-            </View>
-            <Text style={styles.qaLabel}>Study Rooms</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/shuttle' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#DCFCE7' }]}>
-              <Bus size={28} color={COLORS.success} />
-            </View>
-            <Text style={styles.qaLabel}>Shuttle</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity style={[styles.qa, styles.borderR, styles.borderB]} onPress={() => router.push('/bulletin' as any)}>
-            <View style={[styles.qaIcon, { backgroundColor: '#FEF3C7' }]}>
-              <Megaphone size={28} color='#D97706' />
+            <View style={[styles.qaIcon, { backgroundColor: '#E0F2FE' }]}>
+              <Megaphone size={28} color={COLORS.accent} />
             </View>
             <Text style={styles.qaLabel}>Bulletin</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/lost-found' as any)}>
+          <TouchableOpacity style={[styles.qa, styles.borderB]} onPress={() => router.push('/safety' as any)}>
+            <View style={[styles.qaIcon, { backgroundColor: '#FEE2E2' }]}>
+              <ShieldAlert size={28} color={COLORS.primary} />
+            </View>
+            <Text style={styles.qaLabel}>Safety</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={[styles.qa, styles.borderR]} onPress={() => router.push('/lost-found' as any)}>
             <View style={[styles.qaIcon, { backgroundColor: '#F3E8FF' }]}>
               <SearchIcon size={28} color='#9333EA' />
             </View>
@@ -527,42 +406,6 @@ export default function HomeScreen() {
       </View>
 
       <RecentActivity />
-
-      <View style={styles.moreSection}>
-        <Text style={styles.sectionTitle}>More Services</Text>
-        <View style={styles.moreGrid}>
-          <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/(tabs)/bookings' as any)}>
-            <Home size={20} color={COLORS.accent} />
-            <Text style={styles.moreItemText}>My Housing</Text>
-            <ChevronRight size={16} color={COLORS.textTertiary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/student-id' as any)}>
-            <CreditCard size={20} color={COLORS.navy} />
-            <Text style={styles.moreItemText}>Student ID</Text>
-            <ChevronRight size={16} color={COLORS.textTertiary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/elections' as any)}>
-            <Vote size={20} color={COLORS.primary} />
-            <Text style={styles.moreItemText}>Hall Elections</Text>
-            <ChevronRight size={16} color={COLORS.textTertiary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/alumni' as any)}>
-            <GraduationCap size={20} color={COLORS.success} />
-            <Text style={styles.moreItemText}>Alumni Mentors</Text>
-            <ChevronRight size={16} color={COLORS.textTertiary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/calendar' as any)}>
-            <Calendar size={20} color='#9333EA' />
-            <Text style={styles.moreItemText}>Academic Calendar</Text>
-            <ChevronRight size={16} color={COLORS.textTertiary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.moreItem} onPress={() => router.push('/transactions' as any)}>
-            <Wallet size={20} color={COLORS.accent} />
-            <Text style={styles.moreItemText}>Transactions</Text>
-            <ChevronRight size={16} color={COLORS.textTertiary} />
-          </TouchableOpacity>
-        </View>
-      </View>
 
       <View style={{ height: 32 }} />
     </ScrollView>
@@ -679,27 +522,4 @@ const styles = StyleSheet.create({
   bannerCtaText: { fontFamily: FONT.semiBold, fontSize: 13 },
 
   sectionTitle: { fontFamily: FONT.headingBold, fontSize: 18, color: COLORS.textPrimary },
-
-  moreSection: {
-    backgroundColor: COLORS.white,
-    marginTop: 1,
-    paddingTop: SPACING.md,
-    paddingHorizontal: SPACING.md,
-    paddingBottom: SPACING.sm,
-  },
-  moreGrid: { gap: 2 },
-  moreItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
-    gap: SPACING.sm,
-  },
-  moreItemText: {
-    flex: 1,
-    fontFamily: FONT.medium,
-    fontSize: 14,
-    color: COLORS.textPrimary,
-  },
 });
