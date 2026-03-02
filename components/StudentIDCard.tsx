@@ -174,7 +174,7 @@ export default function StudentIDCard({ member, digitalID, isFlipped }: Props) {
               <View style={styles.photoSection}>
                 <View style={styles.photoBorder}>
                   <Image
-                    source={{ uri: 'https://i.imgur.com/h286QnR.jpeg' }}
+                    source={{ uri: member?.avatar_url || 'https://i.imgur.com/h286QnR.jpeg' }}
                     style={styles.photo}
                   />
                 </View>
