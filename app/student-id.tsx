@@ -86,6 +86,30 @@ const INITIAL_MOCK_TICKETS: LocalTicketData[] = [
     attendee_name: '',
     ticket_number: 'CF-2026-1293',
   },
+  {
+    id: 'tkt-003',
+    event_name: 'Inter-Hall Football Finals',
+    event_date: '2026-02-28T15:00:00',
+    venue: 'UCC Main Stadium',
+    category: 'Sports',
+    is_free: false,
+    price: 10,
+    status: 'used',
+    attendee_name: '',
+    ticket_number: 'SF-2026-0421',
+  },
+  {
+    id: 'tkt-004',
+    event_name: 'Freshers Welcome Concert',
+    event_date: '2025-11-20T18:00:00',
+    venue: 'New Auditorium',
+    category: 'Social',
+    is_free: false,
+    price: 25,
+    status: 'expired',
+    attendee_name: '',
+    ticket_number: 'FW-2025-3018',
+  },
 ];
 
 export default function StudentIDScreen() {
@@ -104,7 +128,7 @@ export default function StudentIDScreen() {
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [showAllTickets, setShowAllTickets] = useState(false);
 
-  // Add Ticket Flow State
+  // Add Ticket Flow State (Running in Test Mode)
   const [isAddingTicket, setIsAddingTicket] = useState(false);
   const [addTicketStep, setAddTicketStep] = useState<1 | 2 | 3>(1);
   const [addPhone, setAddPhone] = useState('');
@@ -121,7 +145,6 @@ export default function StudentIDScreen() {
 
   useEffect(() => {
     loadDigitalID();
-    loadTickets();
   }, []);
 
   useEffect(() => {
@@ -148,39 +171,6 @@ export default function StudentIDScreen() {
       console.error(e);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadTickets = async () => {
-    try {
-      // Fetch claimed tickets from external API tables
-      const { data, error } = await supabase
-        .from('external_tickets')
-        .select('*')
-        .eq('claimed_by_user_id', member?.id)
-        .order('claimed_at', { ascending: false });
-        
-      if (error) throw error;
-      
-      if (data) {
-        const dbTickets: LocalTicketData[] = data.map(t => ({
-          id: t.id,
-          event_name: t.event_name,
-          event_date: new Date(Date.now() + 86400000 * 7).toISOString(), // Mocking future date for demo
-          venue: 'Campus Grounds',
-          category: t.ticket_type,
-          is_free: false,
-          price: null,
-          status: 'valid',
-          attendee_name: member?.full_name || 'Student',
-          ticket_number: t.external_ticket_id,
-          isNew: (Date.now() - new Date(t.claimed_at).getTime()) < 60000, // Mark as new if claimed in last 60s
-        }));
-        
-        setLocalTickets([...dbTickets, ...INITIAL_MOCK_TICKETS]);
-      }
-    } catch (e) {
-      console.error(e);
     }
   };
 
@@ -240,7 +230,7 @@ export default function StudentIDScreen() {
     }).start();
   };
 
-  // --- Add Ticket Flow Handlers ---
+  // --- Add Ticket Flow Handlers (TEST MODE) ---
   const toggleAddTicket = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     const opening = !isAddingTicket;
@@ -260,7 +250,8 @@ export default function StudentIDScreen() {
     }
     setAddError(null);
     setAddLoading(true);
-    // Simulate OTP SMS Delay
+    
+    // Simulate API Call for OTP
     setTimeout(() => {
       setAddLoading(false);
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -268,7 +259,7 @@ export default function StudentIDScreen() {
     }, 1200);
   };
 
-  const handleVerifyOTP = async () => {
+  const handleVerifyOTP = () => {
     if (addOtp.length < 4) {
       setAddError('Please enter the verification code.');
       return;
@@ -276,52 +267,39 @@ export default function StudentIDScreen() {
     setAddError(null);
     setAddLoading(true);
     
-    try {
-      // Simulate validation
-      await new Promise(res => setTimeout(res, 800));
-      
-      // Securely peek at pending tickets via API
-      const { data, error } = await supabase.rpc('peek_external_tickets', {
-        p_phone_number: addPhone
-      });
-      
-      if (error) throw error;
-      
-      if (data && data.found) {
-        setPendingTicket({ event_name: data.event_name, ticket_type: data.ticket_type });
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setAddTicketStep(3);
-      } else {
-        setAddError('No unclaimed tickets found for this phone number.');
-      }
-    } catch (err: any) {
-      setAddError(err.message || 'Verification failed.');
-    } finally {
+    // Simulate verification and masked preview fetch
+    setTimeout(() => {
       setAddLoading(false);
-    }
+      setPendingTicket({ event_name: 'SRC Akwaaba Night', ticket_type: 'VIP Access' });
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setAddTicketStep(3);
+    }, 1500);
   };
 
-  const handleLinkToDigiID = async () => {
+  const handleLinkToDigiID = () => {
     setAddLoading(true);
-    try {
-      // Final Identity Match & Claim
-      const { data, error } = await supabase.rpc('claim_external_tickets_by_phone', {
-        p_phone_number: addPhone
-      });
-      
-      if (error) throw error;
-      
-      if (data && data.success && data.claimed_count > 0) {
-        await loadTickets(); 
-        toggleAddTicket();
-      } else {
-        setAddError('Failed to claim ticket. It may have already been claimed.');
-      }
-    } catch (err: any) {
-      setAddError(err.message || 'Failed to add ticket.');
-    } finally {
+    
+    // Simulate Identity Match Verification
+    setTimeout(() => {
       setAddLoading(false);
-    }
+      
+      const newTicket: LocalTicketData = {
+        id: `tkt-new-${Date.now()}`,
+        event_name: pendingTicket?.event_name || 'SRC Akwaaba Night',
+        event_date: new Date(Date.now() + 86400000 * 5).toISOString(), // 5 days from now
+        venue: 'Main Auditorium',
+        category: 'Social',
+        is_free: false,
+        price: 50,
+        status: 'valid',
+        attendee_name: member?.full_name || 'Student',
+        ticket_number: `TKT-SRC-${Math.floor(Math.random() * 10000)}`,
+        isNew: true, // Triggers the "Added just now" badge
+      };
+
+      setLocalTickets([newTicket, ...localTickets]);
+      toggleAddTicket(); // Close the accordion gracefully
+    }, 1500);
   };
 
   const getMaskedName = () => {
@@ -347,7 +325,7 @@ export default function StudentIDScreen() {
     outputRange: [0, (SCREEN_W - SPACING.md * 2) / 2],
   });
 
-  if (loading && !digitalID) {
+  if (loading) {
     return (
       <View style={s.container}>
         <View style={s.topBar}>
@@ -514,7 +492,7 @@ export default function StudentIDScreen() {
         {activeTab === 'tickets' && (
           <Animated.View style={{ opacity: fadeIn }}>
             
-            {/* INLINE ADD TICKET SECTION */}
+            {/* INLINE ADD TICKET SECTION (TEST MODE) */}
             <View style={[s.addTicketCard, isAddingTicket && s.addTicketCardActive]}>
               <TouchableOpacity 
                 style={s.addTicketHeader} 
@@ -607,11 +585,11 @@ export default function StudentIDScreen() {
                       <View style={s.maskedPreview}>
                         <View style={s.previewRow}>
                           <Text style={s.previewLabel}>Event:</Text>
-                          <Text style={s.previewValue}>{pendingTicket?.event_name || 'C*** Week Celebration'}</Text>
+                          <Text style={s.previewValue}>{pendingTicket?.event_name}</Text>
                         </View>
                         <View style={s.previewRow}>
                           <Text style={s.previewLabel}>Type:</Text>
-                          <Text style={s.previewValue}>{pendingTicket?.ticket_type || 'Regular Entry'}</Text>
+                          <Text style={s.previewValue}>{pendingTicket?.ticket_type}</Text>
                         </View>
                         <View style={s.previewRow}>
                           <Text style={s.previewLabel}>Owner:</Text>
