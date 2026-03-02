@@ -10,9 +10,10 @@ import {
   Dimensions,
   TextInput,
   Platform,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Shield, Check, Calendar, CreditCard, Link2, Wifi } from 'lucide-react-native';
+import { ArrowLeft, Shield, Check, Calendar, CreditCard, Link2, Wifi, Smartphone, Wallet } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -135,6 +136,14 @@ export default function StudentIDScreen() {
     return date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
   };
 
+  const handleAddToWallet = (type: 'apple' | 'google') => {
+    Alert.alert(
+      `${type === 'apple' ? 'Apple Wallet' : 'Google Pay'} Integration`,
+      `Generating a secure .pkpass file for ${type === 'apple' ? 'Apple Wallet' : 'Google Pay'} requires a backend cryptographic signature. This feature will be active once the backend service is deployed!`,
+      [{ text: 'Got it', style: 'cancel' }]
+    );
+  };
+
   const cardScale = flipAnim.interpolate({
     inputRange: [0, 0.5, 1],
     outputRange: [1, 0.95, 1],
@@ -247,10 +256,10 @@ export default function StudentIDScreen() {
                     <Text style={styles.universityName} numberOfLines={1} adjustsFontSizeToFit>
                       {member?.university || 'UNIVERSITY'}
                     </Text>
-                    <Text style={styles.cardSubtitle}>STUDENT IDENTIFICATION</Text>
+                    <Text style={styles.cardSubtitle} numberOfLines={1} adjustsFontSizeToFit>STUDENT IDENTIFICATION</Text>
                   </View>
                 </View>
-                <Wifi size={20} color={COLORS.white} opacity={0.5} style={{ transform: [{ rotate: '90deg' }] }} />
+                <Wifi size={20} color={COLORS.white} opacity={0.5} style={{ transform: [{ rotate: '90deg' }], flexShrink: 0, marginLeft: 8 }} />
               </View>
 
               <View style={styles.cardBody}>
@@ -275,29 +284,29 @@ export default function StudentIDScreen() {
 
                 {/* Right Column: Details */}
                 <View style={styles.bodyRight}>
-                  <Text style={styles.labelMicro}>SURNAME, GIVEN NAMES</Text>
-                  <Text style={styles.studentName} numberOfLines={2} adjustsFontSizeToFit>
+                  <Text style={styles.labelMicro} numberOfLines={1}>SURNAME, GIVEN NAMES</Text>
+                  <Text style={styles.studentName} numberOfLines={1} adjustsFontSizeToFit>
                     {member?.full_name?.toUpperCase()}
                   </Text>
                   
                   <View style={styles.detailBlock}>
-                    <Text style={styles.labelMicro}>IDENTIFICATION NO.</Text>
-                    <Text style={styles.idNumber} numberOfLines={1}>{member?.student_id}</Text>
+                    <Text style={styles.labelMicro} numberOfLines={1}>IDENTIFICATION NO.</Text>
+                    <Text style={styles.idNumber} numberOfLines={1} adjustsFontSizeToFit>{member?.student_id}</Text>
                   </View>
 
                   <View style={styles.detailBlock}>
-                    <Text style={styles.labelMicro}>ACADEMIC LEVEL</Text>
-                    <Text style={styles.infoValue} numberOfLines={1}>LEVEL {member?.level || '100'}</Text>
+                    <Text style={styles.labelMicro} numberOfLines={1}>ACADEMIC LEVEL</Text>
+                    <Text style={styles.infoValue} numberOfLines={1} adjustsFontSizeToFit>LEVEL {member?.level || '100'}</Text>
                   </View>
 
                   <View style={styles.datesRow}>
                     <View style={styles.dateItem}>
-                      <Text style={styles.labelMicro}>ISSUED</Text>
-                      <Text style={styles.dateValue}>{formatDate(digitalID.issued_at)}</Text>
+                      <Text style={styles.labelMicro} numberOfLines={1}>ISSUED</Text>
+                      <Text style={styles.dateValue} numberOfLines={1} adjustsFontSizeToFit>{formatDate(digitalID.issued_at)}</Text>
                     </View>
                     <View style={styles.dateItem}>
-                      <Text style={styles.labelMicro}>EXPIRES</Text>
-                      <Text style={styles.dateValue}>{formatDate(digitalID.expires_at)}</Text>
+                      <Text style={styles.labelMicro} numberOfLines={1}>EXPIRES</Text>
+                      <Text style={styles.dateValue} numberOfLines={1} adjustsFontSizeToFit>{formatDate(digitalID.expires_at)}</Text>
                     </View>
                   </View>
                 </View>
@@ -313,7 +322,7 @@ export default function StudentIDScreen() {
                 
                 <View style={styles.activePill}>
                   <View style={styles.activeIndicator} />
-                  <Text style={styles.activePillText}>VALID</Text>
+                  <Text style={styles.activePillText} numberOfLines={1}>VALID</Text>
                 </View>
               </View>
 
@@ -333,14 +342,14 @@ export default function StudentIDScreen() {
               <View style={styles.magStripe} />
 
               <View style={styles.backContent}>
-                <Text style={styles.backDisclaimer} numberOfLines={3}>
+                <Text style={styles.backDisclaimer} adjustsFontSizeToFit>
                   This card is the property of {member?.university}. It must be returned upon graduation, withdrawal, or upon request by university officials.
                 </Text>
 
                 {/* Signature Box */}
                 <View style={styles.signatureBox}>
-                  <Text style={styles.signatureLabel}>AUTHORIZED SIGNATURE</Text>
-                  <Text style={styles.signatureCursive} numberOfLines={1}>{member?.full_name}</Text>
+                  <Text style={styles.signatureLabel} numberOfLines={1}>AUTHORIZED SIGNATURE</Text>
+                  <Text style={styles.signatureCursive} numberOfLines={1} adjustsFontSizeToFit>{member?.full_name}</Text>
                 </View>
 
                 <View style={styles.qrRow}>
@@ -359,16 +368,16 @@ export default function StudentIDScreen() {
                   </View>
                   
                   <View style={styles.qrDetails}>
-                    <Text style={styles.qrTitle}>SCAN TO VERIFY</Text>
-                    <Text style={styles.qrSub}>Official University{"\n"}Validation Code</Text>
+                    <Text style={styles.qrTitle} numberOfLines={1} adjustsFontSizeToFit>SCAN TO VERIFY</Text>
+                    <Text style={styles.qrSub} numberOfLines={2} adjustsFontSizeToFit>Official University{"\n"}Validation Code</Text>
                     <View style={styles.backStatusBadge}>
-                      <Check size={12} color={COLORS.white} strokeWidth={3} />
-                      <Text style={styles.backStatusText}>VERIFIED SECURE</Text>
+                      <Check size={10} color={COLORS.white} strokeWidth={3} />
+                      <Text style={styles.backStatusText} numberOfLines={1}>VERIFIED SECURE</Text>
                     </View>
                   </View>
                 </View>
 
-                <Text style={styles.microPrint} numberOfLines={1}>
+                <Text style={styles.microPrint} numberOfLines={1} adjustsFontSizeToFit>
                   {digitalID.id} • {digitalID.student_number} • DO NOT DUPLICATE
                 </Text>
               </View>
@@ -378,12 +387,23 @@ export default function StudentIDScreen() {
 
         <Text style={styles.flipHint}>Tap card to flip</Text>
 
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardTitle}>Add to Wallet</Text>
-          <Text style={styles.infoCardDescription}>
-            Save your digital student ID to your mobile wallet for quick access.
-            Compatible with Apple Wallet and Google Pay.
-          </Text>
+        {/* Digital Wallet Integration Buttons */}
+        <View style={styles.walletSection}>
+          <TouchableOpacity 
+            style={[styles.walletButton, styles.appleWalletButton]} 
+            onPress={() => handleAddToWallet('apple')}
+          >
+            <Wallet size={20} color="#FFFFFF" style={styles.walletIcon} />
+            <Text style={styles.walletButtonText}>Add to Apple Wallet</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={[styles.walletButton, styles.googleWalletButton]} 
+            onPress={() => handleAddToWallet('google')}
+          >
+            <Smartphone size={20} color="#FFFFFF" style={styles.walletIcon} />
+            <Text style={styles.walletButtonText}>Add to Google Pay</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.detailsCard}>
@@ -406,9 +426,9 @@ export default function StudentIDScreen() {
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Status</Text>
-            <View style={styles.activeStatusBadge}>
+            <View style={styles.activeStatusBadgeWrapper}>
               <Check size={12} color={COLORS.success} strokeWidth={3} />
-              <Text style={styles.activeStatusText}>Active</Text>
+              <Text style={styles.activeStatusTextWrapper}>Active</Text>
             </View>
           </View>
         </View>
@@ -564,7 +584,7 @@ const styles = StyleSheet.create({
   /* --- PREMIUM FRONT DESIGN --- */
   cardFront: {
     backgroundColor: '#0B1120', // Deep Onyx
-    padding: SPACING.lg,
+    padding: SPACING.md,
     justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
@@ -579,43 +599,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flexShrink: 1,
+    paddingRight: SPACING.sm,
   },
   headerTextGroup: {
     marginLeft: SPACING.sm,
     flexShrink: 1,
   },
   universityName: {
-    fontSize: 15,
+    fontSize: 14,
     fontFamily: FONT.bold,
     color: COLORS.white,
     letterSpacing: 1,
+    flexShrink: 1,
   },
   cardSubtitle: {
     fontSize: 9,
     fontFamily: FONT.medium,
     color: COLORS.gold,
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
     marginTop: 2,
+    flexShrink: 1,
   },
   cardBody: {
     flexDirection: 'row',
     flex: 1,
-    marginTop: SPACING.sm,
+    marginTop: SPACING.xs,
   },
   bodyLeft: {
     alignItems: 'center',
     marginRight: SPACING.md,
     flexShrink: 0,
+    width: 80, // strict constraint to prevent push
   },
   photoFrame: {
-    width: 90,
-    height: 110,
+    width: 80,
+    height: 100,
     borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     padding: 3,
@@ -630,16 +654,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   initialsText: {
-    fontSize: 32,
+    fontSize: 28,
     fontFamily: FONT.bold,
     color: COLORS.white,
   },
   smartChip: {
-    width: 42,
-    height: 32,
+    width: 38,
+    height: 28,
     backgroundColor: '#D4AF37', // Pure Gold
     borderRadius: 6,
-    marginTop: SPACING.lg,
+    marginTop: SPACING.md,
     position: 'relative',
     overflow: 'hidden',
     borderWidth: 1,
@@ -652,6 +676,7 @@ const styles = StyleSheet.create({
   
   bodyRight: {
     flex: 1,
+    flexShrink: 1,
     justifyContent: 'flex-start',
   },
   labelMicro: {
@@ -660,52 +685,63 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.5)',
     letterSpacing: 0.5,
     marginBottom: 2,
+    flexShrink: 1,
   },
   studentName: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: FONT.bold,
     color: COLORS.white,
-    marginBottom: SPACING.md,
-    lineHeight: 22,
+    marginBottom: SPACING.sm,
+    lineHeight: 20,
+    flexShrink: 1,
   },
   detailBlock: {
     marginBottom: SPACING.sm,
+    flexShrink: 1,
   },
   idNumber: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: 'Courier', // Monospace feel for ID
     fontWeight: '700',
     color: COLORS.gold,
     letterSpacing: 2,
+    flexShrink: 1,
   },
   infoValue: {
-    fontSize: 13,
-    fontFamily: FONT.semiBold,
-    color: COLORS.white,
-  },
-  datesRow: {
-    flexDirection: 'row',
-    marginTop: 4,
-  },
-  dateItem: {
-    marginRight: SPACING.lg,
-  },
-  dateValue: {
     fontSize: 12,
     fontFamily: FONT.semiBold,
     color: COLORS.white,
+    flexShrink: 1,
+  },
+  datesRow: {
+    flexDirection: 'row',
+    marginTop: 2,
+    flexShrink: 1,
+  },
+  dateItem: {
+    marginRight: SPACING.md,
+    flexShrink: 1,
+    flex: 1,
+  },
+  dateValue: {
+    fontSize: 11,
+    fontFamily: FONT.semiBold,
+    color: COLORS.white,
+    flexShrink: 1,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginTop: SPACING.sm,
+    marginTop: SPACING.xs,
   },
   barcodeWrapper: {
     flexDirection: 'row',
-    height: 24,
+    height: 20,
     alignItems: 'center',
     opacity: 0.6,
+    flexShrink: 1,
+    overflow: 'hidden',
   },
   barcodeLine: {
     height: '100%',
@@ -716,21 +752,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: RADIUS.full,
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.3)',
+    flexShrink: 0,
+    marginLeft: SPACING.sm,
   },
   activeIndicator: {
     width: 6,
     height: 6,
     borderRadius: 3,
     backgroundColor: COLORS.success,
-    marginRight: 6,
+    marginRight: 4,
   },
   activePillText: {
-    fontSize: 10,
+    fontSize: 9,
     fontFamily: FONT.bold,
     color: COLORS.success,
     letterSpacing: 1,
@@ -744,45 +782,47 @@ const styles = StyleSheet.create({
   },
   magStripe: {
     width: '100%',
-    height: 45,
+    height: 40,
     backgroundColor: '#0F172A',
-    marginTop: SPACING.xl,
+    marginTop: SPACING.lg,
   },
   backContent: {
-    padding: SPACING.lg,
+    padding: SPACING.md,
     flex: 1,
     justifyContent: 'space-between',
   },
   backDisclaimer: {
-    fontSize: 9,
+    fontSize: 8,
     fontFamily: FONT.regular,
     color: COLORS.textSecondary,
-    lineHeight: 13,
+    lineHeight: 12,
     textAlign: 'center',
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs,
+    flexShrink: 1,
   },
   signatureBox: {
     backgroundColor: COLORS.white,
-    height: 40,
+    height: 36,
     justifyContent: 'center',
     paddingHorizontal: SPACING.sm,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
   },
   signatureLabel: {
     position: 'absolute',
-    top: -14,
+    top: -12,
     left: 0,
-    fontSize: 8,
+    fontSize: 7,
     fontFamily: FONT.semiBold,
     color: COLORS.textTertiary,
   },
   signatureCursive: {
     fontFamily: Platform.OS === 'ios' ? 'Snell Roundhand' : 'serif',
-    fontSize: 20,
+    fontSize: 18,
     color: COLORS.textPrimary,
     fontStyle: 'italic',
+    flexShrink: 1,
   },
   qrRow: {
     flexDirection: 'row',
@@ -792,13 +832,15 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
     borderWidth: 1,
     borderColor: COLORS.borderLight,
+    flexShrink: 1,
   },
   qrCodeContainer: {
-    marginRight: SPACING.md,
+    marginRight: SPACING.sm,
+    flexShrink: 0,
   },
   qrCodeGrid: {
-    width: 70,
-    height: 70,
+    width: 60,
+    height: 60,
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
@@ -813,33 +855,38 @@ const styles = StyleSheet.create({
   qrDetails: {
     flex: 1,
     justifyContent: 'center',
+    flexShrink: 1,
   },
   qrTitle: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: FONT.bold,
     color: COLORS.textPrimary,
     letterSpacing: 0.5,
+    flexShrink: 1,
   },
   qrSub: {
-    fontSize: 9,
+    fontSize: 8,
     fontFamily: FONT.regular,
     color: COLORS.textSecondary,
-    marginVertical: 4,
+    marginVertical: 2,
+    flexShrink: 1,
   },
   backStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.success,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
     borderRadius: 4,
     alignSelf: 'flex-start',
+    flexShrink: 0,
+    marginTop: 2,
   },
   backStatusText: {
-    fontSize: 8,
+    fontSize: 7,
     fontFamily: FONT.bold,
     color: COLORS.white,
-    marginLeft: 3,
+    marginLeft: 2,
     letterSpacing: 0.5,
   },
   microPrint: {
@@ -848,7 +895,45 @@ const styles = StyleSheet.create({
     color: COLORS.textTertiary,
     textAlign: 'center',
     opacity: 0.6,
-    marginTop: SPACING.sm,
+    marginTop: SPACING.xs,
+    flexShrink: 1,
+  },
+
+  /* --- WALLET BUTTONS --- */
+  walletSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.lg,
+    paddingHorizontal: 2,
+  },
+  walletButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: RADIUS.md,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  appleWalletButton: {
+    backgroundColor: '#000000',
+    marginRight: SPACING.sm,
+  },
+  googleWalletButton: {
+    backgroundColor: '#202124',
+    marginLeft: SPACING.sm,
+  },
+  walletIcon: {
+    marginRight: 6,
+  },
+  walletButtonText: {
+    fontFamily: FONT.semiBold,
+    fontSize: 12,
+    color: '#FFFFFF',
   },
 
   /* --- OTHER UI ELEMENTS --- */
@@ -858,26 +943,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
-  },
-  infoCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.accent,
-  },
-  infoCardTitle: {
-    fontSize: 16,
-    fontFamily: FONT.semiBold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.xs,
-  },
-  infoCardDescription: {
-    fontSize: 14,
-    fontFamily: FONT.regular,
-    color: COLORS.textSecondary,
-    lineHeight: 20,
   },
   detailsCard: {
     backgroundColor: COLORS.white,
@@ -913,6 +978,21 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     textAlign: 'right',
     marginLeft: SPACING.sm,
+  },
+  activeStatusBadgeWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.borderLight,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs / 2,
+    borderRadius: RADIUS.xs,
+    flexShrink: 0,
+  },
+  activeStatusTextWrapper: {
+    fontSize: 12,
+    fontFamily: FONT.semiBold,
+    color: COLORS.success,
+    marginLeft: 4,
   },
   ghanaCardSection: {
     backgroundColor: COLORS.white,
