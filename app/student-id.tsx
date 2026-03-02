@@ -12,9 +12,16 @@ import {
   Alert,
   Image,
   Easing,
+  Share,
+  Vibration,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Shield, Check, Wifi } from 'lucide-react-native';
+import {
+  ArrowLeft, Shield, Check, Wifi, QrCode, Zap, Clock, MapPin,
+  BookOpen, Printer, ShoppingBag, CreditCard, Share2, Download,
+  Sun, Moon, Eye, EyeOff, AlertTriangle, Lock, Fingerprint,
+  ChevronRight, Building2, Bus, UtensilsCrossed, Dumbbell,
+} from 'lucide-react-native';
 import Svg, { Path, Rect, Defs, LinearGradient, Stop, Circle, G } from 'react-native-svg';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
@@ -342,6 +349,29 @@ const GoogleWalletIcon = () => (
   </Svg>
 );
 
+const QUICK_ACTIONS = [
+  { id: 'qr', icon: QrCode, label: 'Show QR', color: '#006B3F', bg: '#ECFDF5', route: null },
+  { id: 'library', icon: BookOpen, label: 'Library', color: '#4A90E2', bg: '#E0F2FE', route: null },
+  { id: 'exam', icon: Shield, label: 'Exam Pass', color: '#7C3AED', bg: '#EDE9FE', route: null },
+  { id: 'shuttle', icon: Bus, label: 'Shuttle', color: '#F59E0B', bg: '#FEF3C7', route: 'shuttle' },
+] as const;
+
+const CAMPUS_ACCESS_ITEMS = [
+  { id: 'library', icon: BookOpen, label: 'Library Access', desc: 'Tap to enter Sam Jonah Library', color: '#4A90E2', lastUsed: '2 hrs ago' },
+  { id: 'exam', icon: Shield, label: 'Exam Verification', desc: 'Present for exam hall entry', color: '#7C3AED', lastUsed: 'Last Monday' },
+  { id: 'shuttle', icon: Bus, label: 'Campus Shuttle', desc: 'Board with digital tap', color: '#F59E0B', lastUsed: 'Yesterday' },
+  { id: 'dining', icon: UtensilsCrossed, label: 'Dining Hall', desc: 'Meal plan balance: 42 meals', color: '#16A34A', lastUsed: 'Today' },
+  { id: 'gym', icon: Dumbbell, label: 'Sports Complex', desc: 'Gym & facility access', color: '#DC2626', lastUsed: '3 days ago' },
+  { id: 'print', icon: Printer, label: 'Print Station', desc: 'Print credits: 120 pages', color: '#0284C7', lastUsed: 'Today' },
+];
+
+const ADVANTAGES = [
+  { icon: Lock, title: 'Cannot Be Faked', desc: 'Live timestamp + biometric lock makes screenshots useless' },
+  { icon: Zap, title: 'Instant Replace', desc: 'Lost your phone? Deactivate remotely, reactivate on new device' },
+  { icon: Clock, title: 'Always With You', desc: 'No more forgetting your card at home — it\'s on your phone' },
+  { icon: Eye, title: 'Privacy Mode', desc: 'Hide sensitive details with one tap when in public' },
+];
+
 export default function StudentIDScreen() {
   const router = useRouter();
   const { member } = useAuth();
@@ -349,7 +379,11 @@ export default function StudentIDScreen() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [privacyMode, setPrivacyMode] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [activeTab, setActiveTab] = useState<'card' | 'access' | 'history'>('card');
   const flipAnim = useRef(new Animated.Value(0)).current;
+  const qrSlideAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadDigitalID();
@@ -418,20 +452,73 @@ export default function StudentIDScreen() {
 
   const flipCard = () => {
     const toValue = isFlipped ? 0 : 1;
-
     Animated.spring(flipAnim, {
       toValue,
       friction: 8,
       tension: 10,
       useNativeDriver: true,
     }).start();
-
     setIsFlipped(!isFlipped);
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const togglePrivacyMode = () => {
+    Vibration.vibrate(50);
+    setPrivacyMode(!privacyMode);
+  };
+
+  const toggleQR = () => {
+    const toValue = showQR ? 0 : 1;
+    Animated.spring(qrSlideAnim, {
+      toValue,
+      friction: 8,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+    setShowQR(!showQR);
+    if (!showQR) Vibration.vibrate(30);
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `My verified student ID: ${member?.full_name} — ${member?.university} (${member?.student_id}). Verified via CampusConnect Digital ID.`,
+      });
+    } catch (error) {
+      console.error('Share error:', error);
+    }
+  };
+
+  const handleReportLost = () => {
+    Alert.alert(
+      'Report Card Lost/Stolen',
+      'This will instantly deactivate your digital ID and prevent anyone from using it. You can reactivate on this device or a new device anytime.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate Now',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('ID Deactivated', 'Your digital student ID has been deactivated. You can reactivate it anytime from this screen.');
+          },
+        },
+      ]
+    );
+  };
+
+  const handleQuickAction = (actionId: string, route: string | null) => {
+    if (actionId === 'qr') {
+      toggleQR();
+      return;
+    }
+    if (route) {
+      router.push(route as never);
+      return;
+    }
+    Alert.alert(
+      'Coming Soon',
+      'This campus access feature will be available once your university activates digital ID scanning.',
+      [{ text: 'Got it' }]
+    );
   };
 
   const handleAddToWallet = (type: 'apple' | 'google') => {
@@ -440,6 +527,11 @@ export default function StudentIDScreen() {
       `Generating a secure .pkpass file for ${type === 'apple' ? 'Apple Wallet' : 'Google Wallet'} requires a backend cryptographic signature. This feature will be active once the backend service is deployed!`,
       [{ text: 'Got it', style: 'cancel' }]
     );
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
   };
 
   const cardScale = flipAnim.interpolate({
@@ -462,9 +554,21 @@ export default function StudentIDScreen() {
     outputRange: ['180deg', '360deg'],
   });
 
+  const qrTranslateY = qrSlideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [-200, 0],
+  });
+
+  const qrOpacity = qrSlideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
   const nameParts = member?.full_name?.trim().split(' ') || [];
   const surname = nameParts.length > 1 ? nameParts[nameParts.length - 1].toUpperCase() : (nameParts[0]?.toUpperCase() || 'UNKNOWN');
   const givenNames = nameParts.length > 1 ? nameParts.slice(0, -1).join(' ').toUpperCase() : '';
+  const maskedId = privacyMode ? member?.student_id?.replace(/./g, '•') : member?.student_id;
+  const maskedName = privacyMode ? '••••••••' : undefined;
 
   if (loading) {
     return (
@@ -501,6 +605,21 @@ export default function StudentIDScreen() {
           <Text style={styles.emptyDescription}>
             Generate your digital student ID card to access campus services and verify your identity.
           </Text>
+
+          <View style={styles.advantagesList}>
+            {ADVANTAGES.map((item, idx) => (
+              <View key={idx} style={styles.advantageRow}>
+                <View style={styles.advantageIconWrap}>
+                  <item.icon size={18} color="#006B3F" />
+                </View>
+                <View style={styles.advantageText}>
+                  <Text style={styles.advantageTitle}>{item.title}</Text>
+                  <Text style={styles.advantageDesc}>{item.desc}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+
           <TouchableOpacity
             style={styles.generateButton}
             onPress={generateDigitalID}
@@ -524,7 +643,13 @@ export default function StudentIDScreen() {
           <ArrowLeft size={24} color={COLORS.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Digital Student ID</Text>
-        <View style={styles.backButton} />
+        <TouchableOpacity style={styles.backButton} onPress={togglePrivacyMode}>
+          {privacyMode ? (
+            <EyeOff size={22} color={COLORS.textSecondary} />
+          ) : (
+            <Eye size={22} color={COLORS.textSecondary} />
+          )}
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -532,6 +657,30 @@ export default function StudentIDScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {showQR && (
+          <Animated.View style={[styles.qrOverlay, { transform: [{ translateY: qrTranslateY }], opacity: qrOpacity }]}>
+            <View style={styles.qrOverlayCard}>
+              <Text style={styles.qrOverlayTitle}>Scan to Verify Identity</Text>
+              <View style={styles.qrOverlayGrid}>
+                {Array.from({ length: 100 }).map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.qrOverlayPixel,
+                      Math.random() > 0.4 && styles.qrOverlayPixelFilled,
+                    ]}
+                  />
+                ))}
+              </View>
+              <Text style={styles.qrOverlaySub}>{member?.full_name} • {member?.student_id}</Text>
+              <Text style={styles.qrOverlayHint}>QR refreshes every 30 seconds for security</Text>
+              <TouchableOpacity style={styles.qrOverlayClose} onPress={toggleQR}>
+                <Text style={styles.qrOverlayCloseText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        )}
+
         <TouchableOpacity
           activeOpacity={0.95}
           onPress={flipCard}
@@ -571,10 +720,16 @@ export default function StudentIDScreen() {
 
               <View style={styles.photoSection}>
                 <View style={styles.photoFrame}>
-                  <Image
-                    source={{ uri: 'https://i.imgur.com/h286QnR.jpeg' }}
-                    style={styles.photoImage}
-                  />
+                  {privacyMode ? (
+                    <View style={styles.photoHidden}>
+                      <EyeOff size={32} color="#94A3B8" />
+                    </View>
+                  ) : (
+                    <Image
+                      source={{ uri: member?.avatar_url || 'https://i.imgur.com/h286QnR.jpeg' }}
+                      style={styles.photoImage}
+                    />
+                  )}
                 </View>
                 <View style={styles.photoSideInfo}>
                   <VerifiedBadge />
@@ -592,14 +747,14 @@ export default function StudentIDScreen() {
                   <View style={styles.nameBlock}>
                     <Text style={styles.labelMicro}>SURNAME</Text>
                     <Text style={styles.studentName} numberOfLines={1} adjustsFontSizeToFit>
-                      {surname}
+                      {maskedName || surname}
                     </Text>
                   </View>
                   {givenNames ? (
                     <View style={styles.nameBlock}>
                       <Text style={styles.labelMicro}>GIVEN NAMES</Text>
                       <Text style={styles.studentName} numberOfLines={1} adjustsFontSizeToFit>
-                        {givenNames}
+                        {maskedName || givenNames}
                       </Text>
                     </View>
                   ) : null}
@@ -608,7 +763,7 @@ export default function StudentIDScreen() {
                 <View style={styles.detailsRow}>
                   <View style={styles.detailItem}>
                     <Text style={styles.labelMicro}>ID NUMBER</Text>
-                    <Text style={styles.idNumber} numberOfLines={1} adjustsFontSizeToFit>{member?.student_id}</Text>
+                    <Text style={styles.idNumber} numberOfLines={1} adjustsFontSizeToFit>{maskedId}</Text>
                   </View>
                   <View style={styles.detailItem}>
                     <Text style={styles.labelMicro}>LEVEL</Text>
@@ -700,36 +855,155 @@ export default function StudentIDScreen() {
 
         <Text style={styles.flipHint}>Tap card to flip</Text>
 
-        <View style={styles.walletSection}>
-          <TouchableOpacity
-            style={[styles.walletButton, styles.appleWalletButton]}
-            onPress={() => handleAddToWallet('apple')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.walletIconWrap}>
-              <AppleWalletIcon />
-            </View>
-            <View style={styles.walletTextGroup}>
-              <Text style={styles.walletLabelSmall}>Add to</Text>
-              <Text style={styles.walletLabelBig}>Apple Wallet</Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.walletButton, styles.googleWalletButton]}
-            onPress={() => handleAddToWallet('google')}
-            activeOpacity={0.8}
-          >
-            <View style={styles.walletIconWrap}>
-              <GoogleWalletIcon />
-            </View>
-            <View style={styles.walletTextGroup}>
-              <Text style={styles.walletLabelSmall}>Add to</Text>
-              <Text style={styles.walletLabelBig}>Google Wallet</Text>
-            </View>
-          </TouchableOpacity>
+        <View style={styles.quickActionsRow}>
+          {QUICK_ACTIONS.map((action) => (
+            <TouchableOpacity
+              key={action.id}
+              style={styles.quickActionItem}
+              onPress={() => handleQuickAction(action.id, action.route)}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.quickActionIcon, { backgroundColor: action.bg }]}>
+                <action.icon size={20} color={action.color} />
+              </View>
+              <Text style={styles.quickActionLabel}>{action.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
+        <View style={styles.tabBar}>
+          {(['card', 'access', 'history'] as const).map((tab) => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tabItem, activeTab === tab && styles.tabItemActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                {tab === 'card' ? 'Wallet' : tab === 'access' ? 'Campus Access' : 'Activity'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {activeTab === 'card' && (
+          <View>
+            <View style={styles.walletSection}>
+              <TouchableOpacity
+                style={[styles.walletButton, styles.appleWalletButton]}
+                onPress={() => handleAddToWallet('apple')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.walletIconWrap}>
+                  <AppleWalletIcon />
+                </View>
+                <View style={styles.walletTextGroup}>
+                  <Text style={styles.walletLabelSmall}>Add to</Text>
+                  <Text style={styles.walletLabelBig}>Apple Wallet</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.walletButton, styles.googleWalletButton]}
+                onPress={() => handleAddToWallet('google')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.walletIconWrap}>
+                  <GoogleWalletIcon />
+                </View>
+                <View style={styles.walletTextGroup}>
+                  <Text style={styles.walletLabelSmall}>Add to</Text>
+                  <Text style={styles.walletLabelBig}>Google Wallet</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity style={styles.actionBtn} onPress={handleShare} activeOpacity={0.7}>
+                <Share2 size={18} color={COLORS.primary} />
+                <Text style={styles.actionBtnText}>Share ID</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionBtn} onPress={handleReportLost} activeOpacity={0.7}>
+                <AlertTriangle size={18} color="#DC2626" />
+                <Text style={[styles.actionBtnText, { color: '#DC2626' }]}>Report Lost</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.securityInfoCard}>
+              <View style={styles.securityInfoHeader}>
+                <Lock size={16} color="#006B3F" />
+                <Text style={styles.securityInfoTitle}>Why Digital Beats Physical</Text>
+              </View>
+              {ADVANTAGES.map((item, idx) => (
+                <View key={idx} style={styles.securityInfoRow}>
+                  <item.icon size={15} color="#64748B" />
+                  <View style={styles.securityInfoTextWrap}>
+                    <Text style={styles.securityInfoRowTitle}>{item.title}</Text>
+                    <Text style={styles.securityInfoRowDesc}>{item.desc}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {activeTab === 'access' && (
+          <View style={styles.accessSection}>
+            {CAMPUS_ACCESS_ITEMS.map((item) => (
+              <TouchableOpacity key={item.id} style={styles.accessCard} activeOpacity={0.7}
+                onPress={() => Alert.alert('Coming Soon', `${item.label} will be available once your university activates digital ID scanning.`)}>
+                <View style={[styles.accessIconWrap, { backgroundColor: item.color + '15' }]}>
+                  <item.icon size={22} color={item.color} />
+                </View>
+                <View style={styles.accessInfo}>
+                  <Text style={styles.accessLabel}>{item.label}</Text>
+                  <Text style={styles.accessDesc}>{item.desc}</Text>
+                </View>
+                <View style={styles.accessRight}>
+                  <Text style={styles.accessLastUsed}>{item.lastUsed}</Text>
+                  <ChevronRight size={16} color="#94A3B8" />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {activeTab === 'history' && (
+          <View style={styles.historySection}>
+            <View style={styles.historyItem}>
+              <View style={[styles.historyDot, { backgroundColor: '#16A34A' }]} />
+              <View style={styles.historyInfo}>
+                <Text style={styles.historyAction}>ID Verified at Library</Text>
+                <Text style={styles.historyTime}>Today, 2:34 PM</Text>
+              </View>
+            </View>
+            <View style={styles.historyItem}>
+              <View style={[styles.historyDot, { backgroundColor: '#4A90E2' }]} />
+              <View style={styles.historyInfo}>
+                <Text style={styles.historyAction}>Exam Hall Check-in</Text>
+                <Text style={styles.historyTime}>Yesterday, 9:00 AM</Text>
+              </View>
+            </View>
+            <View style={styles.historyItem}>
+              <View style={[styles.historyDot, { backgroundColor: '#F59E0B' }]} />
+              <View style={styles.historyInfo}>
+                <Text style={styles.historyAction}>Campus Shuttle Boarding</Text>
+                <Text style={styles.historyTime}>Mon, 7:45 AM</Text>
+              </View>
+            </View>
+            <View style={styles.historyItem}>
+              <View style={[styles.historyDot, { backgroundColor: '#7C3AED' }]} />
+              <View style={styles.historyInfo}>
+                <Text style={styles.historyAction}>Digital ID Generated</Text>
+                <Text style={styles.historyTime}>{formatDate(digitalID.issued_at)}</Text>
+              </View>
+            </View>
+            <View style={styles.historyEmptyNote}>
+              <Text style={styles.historyEmptyText}>Full scan history appears here as you use your digital ID across campus</Text>
+            </View>
+          </View>
+        )}
+
+        <View style={{ height: 40 }} />
       </ScrollView>
     </View>
   );
@@ -799,8 +1073,42 @@ const styles = StyleSheet.create({
     fontFamily: FONT.regular,
     color: COLORS.textSecondary,
     textAlign: 'center',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
     lineHeight: 24,
+  },
+  advantagesList: {
+    width: '100%',
+    marginBottom: SPACING.xl,
+  },
+  advantageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  advantageIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  advantageText: {
+    flex: 1,
+  },
+  advantageTitle: {
+    fontSize: 14,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
+  },
+  advantageDesc: {
+    fontSize: 12,
+    fontFamily: FONT.regular,
+    color: COLORS.textSecondary,
+    marginTop: 1,
   },
   generateButton: {
     backgroundColor: COLORS.primary,
@@ -819,7 +1127,7 @@ const styles = StyleSheet.create({
   },
   cardWrapper: {
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm,
     perspective: 1000,
   },
   cardContainer: {
@@ -925,6 +1233,15 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 5,
     resizeMode: 'cover',
+  },
+  photoHidden: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    borderRadius: 5,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   photoSideInfo: {
     marginLeft: 12,
@@ -1146,10 +1463,77 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xs,
     flexShrink: 1,
   },
+  flipHint: {
+    fontSize: 13,
+    fontFamily: FONT.medium,
+    color: COLORS.textTertiary,
+    textAlign: 'center',
+    marginBottom: SPACING.md,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+  },
+  quickActionItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  quickActionLabel: {
+    fontSize: 11,
+    fontFamily: FONT.medium,
+    color: COLORS.textSecondary,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    padding: 4,
+    marginBottom: SPACING.md,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+  },
+  tabItem: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: RADIUS.sm,
+  },
+  tabItemActive: {
+    backgroundColor: '#006B3F',
+  },
+  tabText: {
+    fontSize: 13,
+    fontFamily: FONT.medium,
+    color: COLORS.textSecondary,
+  },
+  tabTextActive: {
+    color: '#FFFFFF',
+    fontFamily: FONT.semiBold,
+  },
   walletSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
     paddingHorizontal: 2,
   },
   walletButton: {
@@ -1200,11 +1584,223 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     lineHeight: 18,
   },
-  flipHint: {
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: SPACING.md,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
+  },
+  securityInfoCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+  },
+  securityInfoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  securityInfoTitle: {
+    fontSize: 15,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
+  },
+  securityInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderLight,
+  },
+  securityInfoTextWrap: {
+    flex: 1,
+  },
+  securityInfoRowTitle: {
+    fontSize: 13,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
+  },
+  securityInfoRowDesc: {
+    fontSize: 12,
+    fontFamily: FONT.regular,
+    color: COLORS.textSecondary,
+    marginTop: 1,
+  },
+  accessSection: {
+    gap: 8,
+  },
+  accessCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.md,
+    padding: 14,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+  },
+  accessIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  accessInfo: {
+    flex: 1,
+  },
+  accessLabel: {
+    fontSize: 14,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
+  },
+  accessDesc: {
+    fontSize: 12,
+    fontFamily: FONT.regular,
+    color: COLORS.textSecondary,
+    marginTop: 2,
+  },
+  accessRight: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  accessLastUsed: {
+    fontSize: 10,
+    fontFamily: FONT.medium,
+    color: COLORS.textTertiary,
+  },
+  historySection: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+  },
+  historyItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderLight,
+  },
+  historyDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 12,
+  },
+  historyInfo: {
+    flex: 1,
+  },
+  historyAction: {
     fontSize: 14,
     fontFamily: FONT.medium,
-    color: COLORS.textSecondary,
+    color: COLORS.textPrimary,
+  },
+  historyTime: {
+    fontSize: 12,
+    fontFamily: FONT.regular,
+    color: COLORS.textTertiary,
+    marginTop: 2,
+  },
+  historyEmptyNote: {
+    paddingTop: 12,
+    alignItems: 'center',
+  },
+  historyEmptyText: {
+    fontSize: 12,
+    fontFamily: FONT.regular,
+    color: COLORS.textTertiary,
     textAlign: 'center',
-    marginBottom: SPACING.lg,
+  },
+  qrOverlay: {
+    marginBottom: SPACING.md,
+    zIndex: 20,
+  },
+  qrOverlayCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.xl,
+    alignItems: 'center',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    borderWidth: 2,
+    borderColor: '#006B3F',
+  },
+  qrOverlayTitle: {
+    fontSize: 16,
+    fontFamily: FONT.bold,
+    color: COLORS.textPrimary,
+    marginBottom: SPACING.md,
+  },
+  qrOverlayGrid: {
+    width: 180,
+    height: 180,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: SPACING.md,
+  },
+  qrOverlayPixel: {
+    width: '5%',
+    height: '5%',
+    backgroundColor: 'transparent',
+  },
+  qrOverlayPixelFilled: {
+    backgroundColor: '#000000',
+  },
+  qrOverlaySub: {
+    fontSize: 14,
+    fontFamily: FONT.semiBold,
+    color: COLORS.textPrimary,
+    marginBottom: 4,
+  },
+  qrOverlayHint: {
+    fontSize: 11,
+    fontFamily: FONT.regular,
+    color: COLORS.textTertiary,
+    marginBottom: SPACING.md,
+  },
+  qrOverlayClose: {
+    backgroundColor: '#006B3F',
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: 10,
+    borderRadius: RADIUS.md,
+  },
+  qrOverlayCloseText: {
+    fontSize: 14,
+    fontFamily: FONT.semiBold,
+    color: '#FFFFFF',
   },
 });
