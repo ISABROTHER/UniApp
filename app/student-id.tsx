@@ -10,9 +10,10 @@ import {
   Dimensions,
   Platform,
   Alert,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Shield, Check, Calendar, Wifi, Smartphone, Wallet } from 'lucide-react-native';
+import { ArrowLeft, Shield, Check, Wifi, Smartphone, Wallet } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -121,13 +122,6 @@ export default function StudentIDScreen() {
     }).start();
 
     setIsFlipped(!isFlipped);
-  };
-
-  const getInitials = () => {
-    if (!member?.full_name) return 'ST';
-    const names = member.full_name.split(' ');
-    if (names.length === 1) return names[0].substring(0, 2).toUpperCase();
-    return (names[0][0] + names[names.length - 1][0]).toUpperCase();
   };
 
   const formatDate = (dateString: string) => {
@@ -242,6 +236,13 @@ export default function StudentIDScreen() {
           >
             {/* FRONT OF CARD */}
             <Animated.View style={[styles.cardSide, styles.cardFront, { opacity: frontOpacity }]}>
+              {/* Ghana Flag Ribbon */}
+              <View style={styles.ghanaRibbon}>
+                <View style={[styles.ribbonStripe, { backgroundColor: '#CE1126' }]} />
+                <View style={[styles.ribbonStripe, { backgroundColor: '#FCD116' }]} />
+                <View style={[styles.ribbonStripe, { backgroundColor: '#006B3F' }]} />
+              </View>
+
               {/* Holographic watermark background */}
               <View style={styles.watermarkContainer}>
                 <Shield size={280} color="rgba(255, 255, 255, 0.03)" strokeWidth={1} />
@@ -250,7 +251,7 @@ export default function StudentIDScreen() {
               {/* Realistic Card Header */}
               <View style={styles.cardHeader}>
                 <View style={styles.headerLeft}>
-                  <Shield size={32} color={COLORS.gold} strokeWidth={2.5} />
+                  <Shield size={32} color="#FCD116" strokeWidth={2.5} />
                   <View style={styles.headerTextGroup}>
                     <Text style={styles.universityName} numberOfLines={1} adjustsFontSizeToFit>
                       {member?.university || 'UNIVERSITY'}
@@ -265,11 +266,10 @@ export default function StudentIDScreen() {
                 {/* Left Column: Photo & Chip */}
                 <View style={styles.bodyLeft}>
                   <View style={styles.photoFrame}>
-                    <View style={styles.photoInner}>
-                      <Text style={styles.initialsText} adjustsFontSizeToFit numberOfLines={1}>
-                        {getInitials()}
-                      </Text>
-                    </View>
+                    <Image 
+                      source={{ uri: 'https://i.imgur.com/h286QnR.jpeg' }} 
+                      style={styles.photoImage} 
+                    />
                   </View>
                   
                   {/* Simulated Smart Card EMV Chip */}
@@ -281,7 +281,7 @@ export default function StudentIDScreen() {
                   </View>
                 </View>
 
-                {/* Right Column: Details - Now uses space-between to perfectly fill height */}
+                {/* Right Column: Details - Space Between to perfectly fill height */}
                 <View style={styles.bodyRight}>
                   <View style={styles.detailBlock}>
                     <Text style={styles.labelMicro} numberOfLines={1}>SURNAME, GIVEN NAMES</Text>
@@ -339,6 +339,13 @@ export default function StudentIDScreen() {
                 { opacity: backOpacity, transform: [{ rotateY: backTransform }] },
               ]}
             >
+              {/* Ghana Flag Ribbon on Back */}
+              <View style={styles.ghanaRibbon}>
+                <View style={[styles.ribbonStripe, { backgroundColor: '#CE1126' }]} />
+                <View style={[styles.ribbonStripe, { backgroundColor: '#FCD116' }]} />
+                <View style={[styles.ribbonStripe, { backgroundColor: '#006B3F' }]} />
+              </View>
+
               {/* Magnetic Stripe */}
               <View style={styles.magStripe} />
 
@@ -527,25 +534,39 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   
-  /* --- PREMIUM FRONT DESIGN --- */
+  /* --- PREMIUM GHANA INSPIRED FRONT --- */
   cardFront: {
-    backgroundColor: '#0B1120', // Deep Onyx
+    backgroundColor: '#091A10', // Deep Forest Black/Green
     padding: SPACING.lg,
     justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
+  ghanaRibbon: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 9,
+    flexDirection: 'column',
+    zIndex: 10,
+  },
+  ribbonStripe: {
+    flex: 1,
+    width: '100%',
+  },
   watermarkContainer: {
     position: 'absolute',
     right: -60,
     bottom: -40,
-    opacity: 0.8,
+    opacity: 0.05,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     marginBottom: SPACING.sm,
+    marginTop: 12, // Push down past the ribbon
   },
   headerLeft: {
     flexDirection: 'row',
@@ -567,7 +588,7 @@ const styles = StyleSheet.create({
   cardSubtitle: {
     fontSize: 9,
     fontFamily: FONT.medium,
-    color: COLORS.gold,
+    color: '#FCD116', // Ghana Gold
     letterSpacing: 1.2,
     marginTop: 2,
     flexShrink: 1,
@@ -581,7 +602,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: SPACING.md,
     flexShrink: 0,
-    width: 90, // strictly constrained, larger photo
+    width: 90, 
   },
   photoFrame: {
     width: 90,
@@ -590,24 +611,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     padding: 3,
     borderWidth: 1,
-    borderColor: 'rgba(212, 175, 55, 0.4)', // Gold tint
+    borderColor: '#FCD116', // Ghana Gold Border
   },
-  photoInner: {
+  photoImage: {
     flex: 1,
-    backgroundColor: '#1E293B',
+    width: '100%',
+    height: '100%',
     borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  initialsText: {
-    fontSize: 32,
-    fontFamily: FONT.bold,
-    color: COLORS.white,
+    resizeMode: 'cover',
   },
   smartChip: {
     width: 42,
     height: 30,
-    backgroundColor: '#D4AF37', // Pure Gold
+    backgroundColor: '#FCD116', // Ghana Gold
     borderRadius: 6,
     marginTop: SPACING.lg,
     position: 'relative',
@@ -623,13 +639,13 @@ const styles = StyleSheet.create({
   bodyRight: {
     flex: 1,
     flexShrink: 1,
-    justifyContent: 'space-between', // Distributes space perfectly!
+    justifyContent: 'space-between', 
     paddingBottom: SPACING.xs,
   },
   labelMicro: {
     fontSize: 9,
     fontFamily: FONT.semiBold,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: 'rgba(255, 255, 255, 0.6)',
     letterSpacing: 0.5,
     marginBottom: 2,
     flexShrink: 1,
@@ -646,9 +662,9 @@ const styles = StyleSheet.create({
   },
   idNumber: {
     fontSize: 16,
-    fontFamily: 'Courier', // Monospace feel for ID
+    fontFamily: 'Courier', 
     fontWeight: '700',
-    color: COLORS.gold,
+    color: '#FCD116', // Ghana Gold
     letterSpacing: 2,
     flexShrink: 1,
   },
@@ -695,12 +711,12 @@ const styles = StyleSheet.create({
   activePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    backgroundColor: 'rgba(0, 107, 63, 0.2)', // Ghana Green Tint
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: RADIUS.full,
     borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.3)',
+    borderColor: 'rgba(0, 107, 63, 0.4)',
     flexShrink: 0,
     marginLeft: SPACING.sm,
   },
@@ -708,19 +724,19 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: COLORS.success,
+    backgroundColor: '#006B3F', // Ghana Green
     marginRight: 6,
   },
   activePillText: {
     fontSize: 10,
     fontFamily: FONT.bold,
-    color: COLORS.success,
+    color: '#006B3F', // Ghana Green
     letterSpacing: 1,
   },
 
   /* --- PREMIUM BACK DESIGN --- */
   cardBack: {
-    backgroundColor: '#F8FAFC', // Crisp white/silver
+    backgroundColor: '#F8FAFC', 
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -728,7 +744,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 45,
     backgroundColor: '#0F172A',
-    marginTop: SPACING.xl,
+    marginTop: SPACING.xl, // Leaves room for the top ribbon
   },
   backContent: {
     padding: SPACING.lg,
@@ -794,7 +810,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   qrPixelFilled: {
-    backgroundColor: COLORS.navy,
+    backgroundColor: '#091A10', // Deep Forest Black/Green
   },
   qrDetails: {
     flex: 1,
@@ -818,7 +834,7 @@ const styles = StyleSheet.create({
   backStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.success,
+    backgroundColor: '#006B3F', // Ghana Green
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 4,
