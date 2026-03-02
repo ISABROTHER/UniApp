@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { Stack, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
-import { Text, TextInput } from 'react-native';
+import { Text, TextInput, Platform } from 'react-native';
 import {
   Inter_400Regular,
   Inter_500Medium,
@@ -19,15 +19,53 @@ import { useFrameworkReady } from '@/hooks/useFrameworkReady';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
-// @ts-ignore: React Native types removed defaultProps, but it is still the only way to globally disable font scaling without installing third-party libraries.
-if (Text.defaultProps == null) Text.defaultProps = {};
-// @ts-ignore
-Text.defaultProps.allowFontScaling = false;
+// --- GLOBAL LAYOUT & TEXT WRAPPING FIX FOR ANDROID & IOS ---
+// Intercepts every <Text> component globally to force layout constraints
+// @ts-ignore: React Native global text override
+const oldTextRender = Text.render;
+if (oldTextRender) {
+  // @ts-ignore
+  Text.render = function render(props, ref) {
+    return oldTextRender.call(this, {
+      ...props,
+      style: [
+        { flexShrink: 1 }, // Forces adaptive text wrapping globally so layouts don't scatter
+        Platform.OS === 'android' && { includeFontPadding: false, textAlignVertical: 'center' }, // Fixes Android text alignment and padding
+        props.style,
+      ],
+      allowFontScaling: false, // Locks text scaling
+    }, ref);
+  };
+} else {
+  // Fallback for some RN versions
+  // @ts-ignore
+  if (Text.defaultProps == null) Text.defaultProps = {};
+  // @ts-ignore
+  Text.defaultProps.allowFontScaling = false;
+}
 
+// Intercepts every <TextInput> component globally
 // @ts-ignore
-if (TextInput.defaultProps == null) TextInput.defaultProps = {};
-// @ts-ignore
-TextInput.defaultProps.allowFontScaling = false;
+const oldTextInputRender = TextInput.render;
+if (oldTextInputRender) {
+  // @ts-ignore
+  TextInput.render = function render(props, ref) {
+    return oldTextInputRender.call(this, {
+      ...props,
+      style: [
+        Platform.OS === 'android' && { includeFontPadding: false, textAlignVertical: 'center' },
+        props.style,
+      ],
+      allowFontScaling: false,
+    }, ref);
+  };
+} else {
+  // @ts-ignore
+  if (TextInput.defaultProps == null) TextInput.defaultProps = {};
+  // @ts-ignore
+  TextInput.defaultProps.allowFontScaling = false;
+}
+// ---------------------------------------------------------
 
 SplashScreen.preventAutoHideAsync();
 
