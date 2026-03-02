@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
-import { Home, Search, MessageSquare, EllipsisVertical } from 'lucide-react-native';
+import { Home, Search, MessageSquare, LayoutGrid } from 'lucide-react-native';
 import { COLORS, FONT } from '@/lib/constants';
 
 export default function TabLayout() {
@@ -50,7 +50,7 @@ export default function TabLayout() {
         name="profile"
         options={{
           title: 'More',
-          tabBarIcon: ({ color, size }) => <EllipsisVertical size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <LayoutGrid size={size} color={color} />,
         }}
       />
       <Tabs.Screen
