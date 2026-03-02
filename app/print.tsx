@@ -26,6 +26,8 @@ import {
   Trash2,
   Shield,
   AlertCircle,
+  FileText,
+  Store
 } from 'lucide-react-native';
 
 // --- Design Constants based on your Flutter UI ---
@@ -221,8 +223,14 @@ export default function PrintScreen() {
         ) : tab === 'new' ? (
           <>
             {shops.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>No active print centres found.</Text>
+              <View style={styles.emptyMockupContainer}>
+                <View style={styles.emptyMockupIconBox}>
+                  <Printer size={48} color={BRAND_GREEN} strokeWidth={1.5} />
+                </View>
+                <Text style={styles.emptyMockupTitle}>No Print Centres Yet</Text>
+                <Text style={styles.emptyMockupSubtitle}>
+                  We are currently onboarding print centres to the platform. Please check back later.
+                </Text>
               </View>
             ) : (
               shops.map((shop) => {
@@ -276,8 +284,21 @@ export default function PrintScreen() {
         ) : (
           <>
             {jobs.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyStateText}>You don't have any print jobs yet.</Text>
+              <View style={styles.emptyMockupContainer}>
+                <View style={styles.emptyMockupIconBox}>
+                  <FileText size={48} color={BRAND_GREEN} strokeWidth={1.5} />
+                </View>
+                <Text style={styles.emptyMockupTitle}>No Print Jobs</Text>
+                <Text style={styles.emptyMockupSubtitle}>
+                  You haven't ordered any prints yet. Select a print centre to securely upload and print your documents.
+                </Text>
+                <TouchableOpacity 
+                  style={styles.emptyMockupButton} 
+                  activeOpacity={0.8}
+                  onPress={() => setTab('new')}
+                >
+                  <Text style={styles.emptyMockupButtonText}>Find a Print Centre</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               jobs.map((job) => (
@@ -450,14 +471,54 @@ const styles = StyleSheet.create({
     backgroundColor: BG_COLOR,
     flexGrow: 1,
   },
-  emptyState: {
-    marginTop: 40,
+
+  // --- Empty State Mockup Styles ---
+  emptyMockupContainer: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 30,
   },
-  emptyStateText: {
+  emptyMockupIconBox: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#E6F7F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  emptyMockupTitle: {
+    fontFamily: FONT.headingBold,
+    fontSize: 22,
+    color: TEXT_DARK,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  emptyMockupSubtitle: {
     fontFamily: FONT.regular,
-    fontSize: 16,
+    fontSize: 15,
     color: TEXT_MUTED,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 28,
+  },
+  emptyMockupButton: {
+    backgroundColor: BRAND_GREEN,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 24,
+    shadowColor: BRAND_GREEN,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  emptyMockupButtonText: {
+    fontFamily: FONT.semiBold,
+    color: '#FFFFFF',
+    fontSize: 16,
   },
 
   // --- Card Styles ---
