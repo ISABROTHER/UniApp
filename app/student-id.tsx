@@ -8,19 +8,18 @@ import {
   ActivityIndicator,
   ScrollView,
   Dimensions,
-  TextInput,
   Platform,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Shield, Check, Calendar, CreditCard, Link2, Wifi, Smartphone, Wallet } from 'lucide-react-native';
+import { ArrowLeft, Shield, Check, Calendar, Wifi, Smartphone, Wallet } from 'lucide-react-native';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = width - SPACING.xl * 2;
-// Standard physical ID card ratio is slightly wider, adjusted for realistic proportions
+// Standard physical ID card ratio
 const CARD_HEIGHT = CARD_WIDTH * 1.58; 
 
 // Fixed sequence for a stable, realistic looking barcode pattern
@@ -251,7 +250,7 @@ export default function StudentIDScreen() {
               {/* Realistic Card Header */}
               <View style={styles.cardHeader}>
                 <View style={styles.headerLeft}>
-                  <Shield size={28} color={COLORS.gold} strokeWidth={2.5} />
+                  <Shield size={32} color={COLORS.gold} strokeWidth={2.5} />
                   <View style={styles.headerTextGroup}>
                     <Text style={styles.universityName} numberOfLines={1} adjustsFontSizeToFit>
                       {member?.university || 'UNIVERSITY'}
@@ -259,7 +258,7 @@ export default function StudentIDScreen() {
                     <Text style={styles.cardSubtitle} numberOfLines={1} adjustsFontSizeToFit>STUDENT IDENTIFICATION</Text>
                   </View>
                 </View>
-                <Wifi size={20} color={COLORS.white} opacity={0.5} style={{ transform: [{ rotate: '90deg' }], flexShrink: 0, marginLeft: 8 }} />
+                <Wifi size={22} color={COLORS.white} opacity={0.5} style={{ transform: [{ rotate: '90deg' }], flexShrink: 0, marginLeft: 8 }} />
               </View>
 
               <View style={styles.cardBody}>
@@ -282,12 +281,14 @@ export default function StudentIDScreen() {
                   </View>
                 </View>
 
-                {/* Right Column: Details */}
+                {/* Right Column: Details - Now uses space-between to perfectly fill height */}
                 <View style={styles.bodyRight}>
-                  <Text style={styles.labelMicro} numberOfLines={1}>SURNAME, GIVEN NAMES</Text>
-                  <Text style={styles.studentName} numberOfLines={1} adjustsFontSizeToFit>
-                    {member?.full_name?.toUpperCase()}
-                  </Text>
+                  <View style={styles.detailBlock}>
+                    <Text style={styles.labelMicro} numberOfLines={1}>SURNAME, GIVEN NAMES</Text>
+                    <Text style={styles.studentName} numberOfLines={2} adjustsFontSizeToFit>
+                      {member?.full_name?.toUpperCase()}
+                    </Text>
+                  </View>
                   
                   <View style={styles.detailBlock}>
                     <Text style={styles.labelMicro} numberOfLines={1}>IDENTIFICATION NO.</Text>
@@ -406,61 +407,6 @@ export default function StudentIDScreen() {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.detailsCard}>
-          <Text style={styles.detailsTitle}>ID Details</Text>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Student Number</Text>
-            <Text style={styles.detailValue} numberOfLines={1}>{digitalID.student_number}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>University</Text>
-            <Text style={styles.detailValue} numberOfLines={2}>{digitalID.university}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Issue Date</Text>
-            <Text style={styles.detailValue} numberOfLines={1}>{formatDate(digitalID.issued_at)}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Expiry Date</Text>
-            <Text style={styles.detailValue} numberOfLines={1}>{formatDate(digitalID.expires_at)}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Status</Text>
-            <View style={styles.activeStatusBadgeWrapper}>
-              <Check size={12} color={COLORS.success} strokeWidth={3} />
-              <Text style={styles.activeStatusTextWrapper}>Active</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.ghanaCardSection}>
-          <View style={styles.ghanaCardHeader}>
-            <CreditCard size={20} color={COLORS.navy} style={styles.ghanaCardIcon} />
-            <Text style={styles.ghanaCardTitle} numberOfLines={1}>Ghana Card Linking</Text>
-          </View>
-          <Text style={styles.ghanaCardDesc}>
-            Link your Ghana Card number for national ID verification. This enables future integrations with government services.
-          </Text>
-          {member?.ghana_card_number ? (
-            <View style={styles.ghanaCardLinked}>
-              <Link2 size={16} color={COLORS.success} style={styles.ghanaCardIcon} />
-              <Text style={styles.ghanaCardLinkedText} numberOfLines={1}>
-                Ghana Card linked: {member.ghana_card_number.slice(0, 6)}****
-              </Text>
-            </View>
-          ) : (
-            <View style={styles.ghanaCardInput}>
-              <TextInput
-                style={styles.ghanaCardTextInput}
-                placeholder="GHA-XXXXXXXXX-X"
-                placeholderTextColor={COLORS.textTertiary}
-              />
-              <TouchableOpacity style={styles.ghanaCardLinkBtn}>
-                <Text style={styles.ghanaCardLinkBtnText}>Link</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
       </ScrollView>
     </View>
   );
@@ -584,7 +530,7 @@ const styles = StyleSheet.create({
   /* --- PREMIUM FRONT DESIGN --- */
   cardFront: {
     backgroundColor: '#0B1120', // Deep Onyx
-    padding: SPACING.md,
+    padding: SPACING.lg,
     justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
@@ -612,7 +558,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   universityName: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: FONT.bold,
     color: COLORS.white,
     letterSpacing: 1,
@@ -629,17 +575,17 @@ const styles = StyleSheet.create({
   cardBody: {
     flexDirection: 'row',
     flex: 1,
-    marginTop: SPACING.xs,
+    marginTop: SPACING.sm,
   },
   bodyLeft: {
     alignItems: 'center',
     marginRight: SPACING.md,
     flexShrink: 0,
-    width: 80, // strict constraint to prevent push
+    width: 90, // strictly constrained, larger photo
   },
   photoFrame: {
-    width: 80,
-    height: 100,
+    width: 90,
+    height: 115,
     borderRadius: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     padding: 3,
@@ -654,16 +600,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   initialsText: {
-    fontSize: 28,
+    fontSize: 32,
     fontFamily: FONT.bold,
     color: COLORS.white,
   },
   smartChip: {
-    width: 38,
-    height: 28,
+    width: 42,
+    height: 30,
     backgroundColor: '#D4AF37', // Pure Gold
     borderRadius: 6,
-    marginTop: SPACING.md,
+    marginTop: SPACING.lg,
     position: 'relative',
     overflow: 'hidden',
     borderWidth: 1,
@@ -677,10 +623,11 @@ const styles = StyleSheet.create({
   bodyRight: {
     flex: 1,
     flexShrink: 1,
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between', // Distributes space perfectly!
+    paddingBottom: SPACING.xs,
   },
   labelMicro: {
-    fontSize: 8,
+    fontSize: 9,
     fontFamily: FONT.semiBold,
     color: 'rgba(255, 255, 255, 0.5)',
     letterSpacing: 0.5,
@@ -688,19 +635,17 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   studentName: {
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: FONT.bold,
     color: COLORS.white,
-    marginBottom: SPACING.sm,
-    lineHeight: 20,
+    lineHeight: 22,
     flexShrink: 1,
   },
   detailBlock: {
-    marginBottom: SPACING.sm,
     flexShrink: 1,
   },
   idNumber: {
-    fontSize: 15,
+    fontSize: 16,
     fontFamily: 'Courier', // Monospace feel for ID
     fontWeight: '700',
     color: COLORS.gold,
@@ -708,14 +653,13 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   infoValue: {
-    fontSize: 12,
+    fontSize: 14,
     fontFamily: FONT.semiBold,
     color: COLORS.white,
     flexShrink: 1,
   },
   datesRow: {
     flexDirection: 'row',
-    marginTop: 2,
     flexShrink: 1,
   },
   dateItem: {
@@ -724,7 +668,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateValue: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: FONT.semiBold,
     color: COLORS.white,
     flexShrink: 1,
@@ -733,11 +677,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginTop: SPACING.xs,
+    marginTop: SPACING.sm,
   },
   barcodeWrapper: {
     flexDirection: 'row',
-    height: 20,
+    height: 24,
     alignItems: 'center',
     opacity: 0.6,
     flexShrink: 1,
@@ -752,8 +696,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(16, 185, 129, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: RADIUS.full,
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.3)',
@@ -765,10 +709,10 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: COLORS.success,
-    marginRight: 4,
+    marginRight: 6,
   },
   activePillText: {
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: FONT.bold,
     color: COLORS.success,
     letterSpacing: 1,
@@ -782,27 +726,27 @@ const styles = StyleSheet.create({
   },
   magStripe: {
     width: '100%',
-    height: 40,
+    height: 45,
     backgroundColor: '#0F172A',
-    marginTop: SPACING.lg,
+    marginTop: SPACING.xl,
   },
   backContent: {
-    padding: SPACING.md,
+    padding: SPACING.lg,
     flex: 1,
     justifyContent: 'space-between',
   },
   backDisclaimer: {
-    fontSize: 8,
+    fontSize: 9,
     fontFamily: FONT.regular,
     color: COLORS.textSecondary,
-    lineHeight: 12,
+    lineHeight: 13,
     textAlign: 'center',
     marginBottom: SPACING.xs,
     flexShrink: 1,
   },
   signatureBox: {
     backgroundColor: COLORS.white,
-    height: 36,
+    height: 40,
     justifyContent: 'center',
     paddingHorizontal: SPACING.sm,
     borderWidth: 1,
@@ -811,15 +755,15 @@ const styles = StyleSheet.create({
   },
   signatureLabel: {
     position: 'absolute',
-    top: -12,
+    top: -14,
     left: 0,
-    fontSize: 7,
+    fontSize: 8,
     fontFamily: FONT.semiBold,
     color: COLORS.textTertiary,
   },
   signatureCursive: {
     fontFamily: Platform.OS === 'ios' ? 'Snell Roundhand' : 'serif',
-    fontSize: 18,
+    fontSize: 20,
     color: COLORS.textPrimary,
     fontStyle: 'italic',
     flexShrink: 1,
@@ -835,12 +779,12 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   qrCodeContainer: {
-    marginRight: SPACING.sm,
+    marginRight: SPACING.md,
     flexShrink: 0,
   },
   qrCodeGrid: {
-    width: 60,
-    height: 60,
+    width: 70,
+    height: 70,
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
@@ -858,39 +802,39 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   qrTitle: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: FONT.bold,
     color: COLORS.textPrimary,
     letterSpacing: 0.5,
     flexShrink: 1,
   },
   qrSub: {
-    fontSize: 8,
+    fontSize: 9,
     fontFamily: FONT.regular,
     color: COLORS.textSecondary,
-    marginVertical: 2,
+    marginVertical: 4,
     flexShrink: 1,
   },
   backStatusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: COLORS.success,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     borderRadius: 4,
     alignSelf: 'flex-start',
     flexShrink: 0,
-    marginTop: 2,
+    marginTop: 4,
   },
   backStatusText: {
-    fontSize: 7,
+    fontSize: 8,
     fontFamily: FONT.bold,
     color: COLORS.white,
-    marginLeft: 2,
+    marginLeft: 3,
     letterSpacing: 0.5,
   },
   microPrint: {
-    fontSize: 6,
+    fontSize: 7,
     fontFamily: 'Courier',
     color: COLORS.textTertiary,
     textAlign: 'center',
@@ -911,7 +855,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: RADIUS.md,
     elevation: 2,
     shadowColor: '#000',
@@ -928,11 +872,11 @@ const styles = StyleSheet.create({
     marginLeft: SPACING.sm,
   },
   walletIcon: {
-    marginRight: 6,
+    marginRight: 8,
   },
   walletButtonText: {
     fontFamily: FONT.semiBold,
-    fontSize: 12,
+    fontSize: 13,
     color: '#FFFFFF',
   },
 
@@ -943,128 +887,5 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
-  },
-  detailsCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  detailsTitle: {
-    fontSize: 18,
-    fontFamily: FONT.semiBold,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.md,
-  },
-  detailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderLight,
-  },
-  detailLabel: {
-    fontSize: 14,
-    fontFamily: FONT.medium,
-    color: COLORS.textSecondary,
-    flexShrink: 0,
-  },
-  detailValue: {
-    fontSize: 14,
-    fontFamily: FONT.semiBold,
-    color: COLORS.textPrimary,
-    flexShrink: 1,
-    textAlign: 'right',
-    marginLeft: SPACING.sm,
-  },
-  activeStatusBadgeWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.borderLight,
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: SPACING.xs / 2,
-    borderRadius: RADIUS.xs,
-    flexShrink: 0,
-  },
-  activeStatusTextWrapper: {
-    fontSize: 12,
-    fontFamily: FONT.semiBold,
-    color: COLORS.success,
-    marginLeft: 4,
-  },
-  ghanaCardSection: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginTop: SPACING.md,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  ghanaCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  ghanaCardIcon: {
-    marginRight: 8,
-  },
-  ghanaCardTitle: {
-    fontSize: 16,
-    fontFamily: FONT.semiBold,
-    color: COLORS.textPrimary,
-    flexShrink: 1,
-  },
-  ghanaCardDesc: {
-    fontSize: 13,
-    fontFamily: FONT.regular,
-    color: COLORS.textSecondary,
-    lineHeight: 19,
-    marginBottom: SPACING.md,
-    flexShrink: 1,
-  },
-  ghanaCardLinked: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.successLight,
-    padding: SPACING.sm,
-    borderRadius: RADIUS.sm,
-  },
-  ghanaCardLinkedText: {
-    fontSize: 14,
-    fontFamily: FONT.medium,
-    color: COLORS.success,
-    flexShrink: 1,
-  },
-  ghanaCardInput: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ghanaCardTextInput: {
-    flex: 1,
-    height: 44,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.sm,
-    paddingHorizontal: SPACING.sm,
-    fontFamily: FONT.medium,
-    fontSize: 14,
-    color: COLORS.textPrimary,
-    marginRight: SPACING.sm,
-  },
-  ghanaCardLinkBtn: {
-    backgroundColor: COLORS.navy,
-    paddingHorizontal: SPACING.md,
-    height: 44,
-    borderRadius: RADIUS.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexShrink: 0,
-  },
-  ghanaCardLinkBtnText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 14,
-    color: COLORS.white,
   },
 });
