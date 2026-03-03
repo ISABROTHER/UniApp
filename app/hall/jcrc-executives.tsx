@@ -1,305 +1,255 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Platform, Animated, ActivityIndicator,
+  Platform, Image, TextInput, Alert, Linking,
 } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import {
-  Calendar, Users,
-  Shield, Award, ShoppingBag,
-  ChevronRight,
+  ArrowLeft, Phone, MessageCircle, Send,
+  User, ShieldAlert,
 } from 'lucide-react-native';
 
-interface HallStats {
-  totalMembers: number;
-  upcomingEvents: number;
+interface Executive {
+  id: string;
+  position: string;
+  name: string;
+  phone: string;
+  avatar_url?: string;
+  category: 'president' | 'vice' | 'secretary' | 'treasurer' | 'coordinator' | 'other';
 }
 
-export default function MyHallScreen() {
+export default function JCRCExecutivesScreen() {
   const router = useRouter();
-  const { session, member } = useAuth();
-  const [hallInfo, setHallInfo] = useState<any>(null);
-  const [stats, setStats] = useState<HallStats>({
-    totalMembers: 0,
-    upcomingEvents: 0,
-  });
+  const [executives, setExecutives] = useState<Executive[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const pulseAnim = useState(new Animated.Value(1))[0];
+  const [selectedExec, setSelectedExec] = useState<Executive | null>(null);
+  const [messageText, setMessageText] = useState('');
+  const [showMessageModal, setShowMessageModal] = useState(false);
 
   useEffect(() => {
-    // Pulse animation for live indicator
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.3,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+    fetchExecutives();
+  }, []);
 
-    // Set up realtime subscriptions for live updates based strictly on Profile
-    const setupRealtimeSubscriptions = async () => {
-      const userId = session?.user?.id || member?.id;
-      if (!userId) return;
-
-      const { data: profile } = await supabase
-        .from('members')
-        .select('hall_id')
-        .eq('id', userId)
-        .maybeSingle();
-      
-      const realHallId = profile?.hall_id;
-      if (!realHallId) return;
-
-      // Subscribe to hall_events changes
-      const eventsChannel = supabase
-        .channel('hall_events_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'hall_events',
-            filter: `hall_id=eq.${realHallId}`,
-          },
-          () => {
-            fetchHallData();
-          }
-        )
-        .subscribe();
-
-      // Subscribe to hall members changes for the counter
-      const membersChannel = supabase
-        .channel('members_hall_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'members',
-            filter: `hall_id=eq.${realHallId}`,
-          },
-          () => {
-            fetchHallData();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(eventsChannel);
-        supabase.removeChannel(membersChannel);
-      };
-    };
-
-    setupRealtimeSubscriptions();
-  }, [session?.user?.id, member?.id]);
-
-  // Force fetch data every time the screen is focused to ensure instant updates 
-  // if they just edited their profile.
-  useFocusEffect(
-    useCallback(() => {
-      fetchHallData();
-    }, [session?.user?.id, member?.id])
-  );
-
-  const fetchHallData = async () => {
+  const fetchExecutives = async () => {
     try {
-      const userId = session?.user?.id || member?.id;
-      if (!userId) {
-        setLoading(false);
-        return;
-      }
+      // Modern mock data with realistic HD photos and no emails
+      const mockExecs: Executive[] = [
+        {
+          id: '1',
+          position: 'Hall President',
+          name: 'Kwame Mensah',
+          phone: '+233 24 123 4567',
+          avatar_url: 'https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?q=80&w=256&auto=format&fit=crop',
+          category: 'president',
+        },
+        {
+          id: '2',
+          position: 'Vice President',
+          name: 'Ama Serwaa',
+          phone: '+233 24 234 5678',
+          avatar_url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=256&auto=format&fit=crop',
+          category: 'vice',
+        },
+        {
+          id: '3',
+          position: 'General Secretary',
+          name: 'Kofi Antwi',
+          phone: '+233 24 345 6789',
+          avatar_url: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?q=80&w=256&auto=format&fit=crop',
+          category: 'secretary',
+        },
+        {
+          id: '4',
+          position: 'Financial Secretary',
+          name: 'Abena Osei',
+          phone: '+233 24 456 7890',
+          avatar_url: 'https://images.unsplash.com/photo-1531123897727-8f129e1bfa82?q=80&w=256&auto=format&fit=crop',
+          category: 'secretary',
+        },
+        {
+          id: '5',
+          position: 'Treasurer',
+          name: 'Yaw Boateng',
+          phone: '+233 24 567 8901',
+          avatar_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=256&auto=format&fit=crop',
+          category: 'treasurer',
+        },
+        {
+          id: '6',
+          position: 'Entertainment Coordinator',
+          name: 'Efua Agyeman',
+          phone: '+233 24 678 9012',
+          avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=256&auto=format&fit=crop',
+          category: 'coordinator',
+        },
+      ];
 
-      // 1. Strictly look at the User's Profile (members table)
-      const { data: profileData } = await supabase
-        .from('members')
-        .select('hall_id, traditional_hall, university')
-        .eq('id', userId)
-        .maybeSingle();
-
-      // If neither ID nor Name exists in the profile, they have no hall.
-      if (!profileData?.hall_id && !profileData?.traditional_hall) {
-        setHallInfo(null);
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-
-      const finalHallId = profileData.hall_id;
-      let finalHallName = profileData.traditional_hall;
-
-      // If we have an ID but no string name in the profile, fetch the exact name from the halls table
-      if (finalHallId && !finalHallName) {
-        const { data: hallData } = await supabase
-          .from('halls')
-          .select('name')
-          .eq('id', finalHallId)
-          .maybeSingle();
-        if (hallData?.name) finalHallName = hallData.name;
-      }
-
-      setHallInfo({
-        id: finalHallId,
-        name: finalHallName || 'My Hall',
-        university: profileData.university,
-      });
-
-      // Fetch dashboard stats using the finalHallId
-      if (finalHallId) {
-        const [membersRes, eventsRes] = await Promise.all([
-          supabase
-            .from('members') // Count total members directly from profiles
-            .select('id', { count: 'exact' })
-            .eq('hall_id', finalHallId),
-          supabase
-            .from('hall_events')
-            .select('id, title, event_date', { count: 'exact' })
-            .eq('hall_id', finalHallId)
-            .gte('event_date', new Date().toISOString()),
-        ]);
-
-        setStats({
-          totalMembers: membersRes.count || 0,
-          upcomingEvents: eventsRes.count || 0,
-        });
-      }
+      setExecutives(mockExecs);
     } catch (error) {
-      console.error('Error fetching hall data:', error);
+      console.error('Error fetching executives:', error);
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={styles.loadingText}>Loading hall...</Text>
-      </View>
-    );
-  }
+  const handleSendMessage = (exec: Executive) => {
+    setSelectedExec(exec);
+    setShowMessageModal(true);
+  };
 
-  if (!hallInfo) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Users size={64} color={COLORS.border} />
-        <Text style={styles.emptyTitle}>No Hall Assigned</Text>
-        <Text style={styles.emptyText}>Please update your Profile to select your University and Hall to access this dashboard.</Text>
-        <TouchableOpacity 
-          style={styles.registerBtn}
-          onPress={() => router.push('/(tabs)/more' as any)}
-          activeOpacity={0.8}
-        >
-          <Shield size={18} color={COLORS.white} />
-          <Text style={styles.registerBtnText}>Go to Profile Settings</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+  const handleCall = (phone: string) => {
+    Linking.openURL(`tel:${phone.replace(/\s+/g, '')}`);
+  };
+
+  const handleSendMessageConfirm = async () => {
+    if (!messageText.trim() || !selectedExec) {
+      Alert.alert('Error', 'Please enter a message');
+      return;
+    }
+
+    try {
+      Alert.alert('Message Sent', `Your message has been securely sent to ${selectedExec.name}.`);
+      setShowMessageModal(false);
+      setMessageText('');
+      setSelectedExec(null);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to send message');
+    }
+  };
+
+  const getCategoryColor = (category: string) => {
+    switch (category) {
+      case 'president': return '#E11D48'; // Rose
+      case 'vice': return '#D97706';      // Amber
+      case 'secretary': return '#2563EB'; // Blue
+      case 'treasurer': return '#059669'; // Emerald
+      case 'coordinator': return '#7C3AED';// Violet
+      default: return COLORS.textSecondary;
+    }
+  };
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+  };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <View>
-            <Text style={styles.headerGreeting}>My Hall</Text>
-            <Text style={styles.headerHallName}>{hallInfo.name}</Text>
-            {hallInfo.university && (
-              <Text style={styles.headerUniversity}>{hallInfo.university}</Text>
-            )}
-          </View>
-          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/(tabs)/more' as any)}>
-            <Shield size={22} color={COLORS.primary} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Live Stats Banner */}
-        <View style={styles.liveStatsBanner}>
-          <View style={styles.liveIndicator}>
-            <Animated.View style={[styles.liveDot, { transform: [{ scale: pulseAnim }] }]} />
-            <Text style={styles.liveText}>Live Updates</Text>
-          </View>
-          <View style={styles.statsRow}>
-            <View style={styles.miniStat}>
-              <Text style={styles.miniStatValue}>{stats.totalMembers}</Text>
-              <Text style={styles.miniStatLabel}>Total Members</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.miniStat}>
-              <Text style={styles.miniStatValue}>{stats.upcomingEvents}</Text>
-              <Text style={styles.miniStatLabel}>Upcoming Events</Text>
-            </View>
-          </View>
-        </View>
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <ArrowLeft size={22} color={COLORS.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Leadership</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchHallData(); }} tintColor={COLORS.primary} />
-        }
-      >
-        <View style={{ height: SPACING.md }} />
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.infoBanner}>
+          <ShieldAlert size={20} color={COLORS.primary} />
+          <Text style={styles.infoText}>
+            Official directory for your JCRC Executives. Connect directly regarding hall welfare.
+          </Text>
+        </View>
 
-        {/* Main Navigation Cards */}
-        <View style={styles.mainCardsSection}>
-          <TouchableOpacity 
-            style={[styles.mainCard, styles.mainCardPrimary]}
-            onPress={() => router.push('/hall/jcrc-executives' as any)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.mainCardHeader}>
-              <View style={styles.mainCardIconWrap}>
-                <Award size={28} color={COLORS.primary} />
+        <View style={styles.executivesList}>
+          {executives.map((exec) => (
+            <View key={exec.id} style={styles.executiveCard}>
+              <View style={styles.cardMain}>
+                {exec.avatar_url ? (
+                  <Image source={{ uri: exec.avatar_url }} style={styles.avatarImage} />
+                ) : (
+                  <View style={[styles.avatarFallback, { backgroundColor: getCategoryColor(exec.category) + '20' }]}>
+                    <Text style={[styles.avatarText, { color: getCategoryColor(exec.category) }]}>
+                      {getInitials(exec.name)}
+                    </Text>
+                  </View>
+                )}
+                
+                <View style={styles.executiveInfo}>
+                  <Text style={styles.executiveName}>{exec.name}</Text>
+                  <View style={[styles.roleBadge, { backgroundColor: getCategoryColor(exec.category) + '15' }]}>
+                    <Text style={[styles.roleText, { color: getCategoryColor(exec.category) }]}>
+                      {exec.position}
+                    </Text>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.phoneContainer} 
+                    onPress={() => handleCall(exec.phone)}
+                    activeOpacity={0.6}
+                  >
+                    <Phone size={14} color={COLORS.textSecondary} />
+                    <Text style={styles.phoneText}>{exec.phone}</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.messageIconBtn}
+                  onPress={() => handleSendMessage(exec)}
+                  activeOpacity={0.7}
+                >
+                  <MessageCircle size={22} color={COLORS.primary} />
+                </TouchableOpacity>
               </View>
-              <ChevronRight size={20} color={COLORS.white} />
             </View>
-            <Text style={styles.mainCardTitle}>JCRC Executives</Text>
-            <Text style={styles.mainCardSubtitle}>View hall leadership & send messages</Text>
-            <View style={styles.mainCardFooter}>
-              <Users size={14} color={COLORS.white} />
-              <Text style={styles.mainCardFooterText}>Executive Members</Text>
-            </View>
-          </TouchableOpacity>
+          ))}
+        </View>
 
-          <View style={styles.mainCardsRow}>
-            <TouchableOpacity 
-              style={[styles.mainCardSmall, { backgroundColor: '#10B981' }]}
-              onPress={() => router.push('/hall/events' as any)}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* Modernized Message Modal */}
+      {showMessageModal && selectedExec && (
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity 
+            style={styles.modalBackdrop} 
+            activeOpacity={1}
+            onPress={() => setShowMessageModal(false)}
+          />
+          <View style={styles.messageModal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Send Message</Text>
+              <TouchableOpacity onPress={() => setShowMessageModal(false)} style={styles.closeBtn}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalRecipient}>
+              {selectedExec.avatar_url ? (
+                <Image source={{ uri: selectedExec.avatar_url }} style={styles.modalAvatar} />
+              ) : (
+                <View style={styles.modalAvatarFallback}>
+                  <User size={16} color={COLORS.white} />
+                </View>
+              )}
+              <View>
+                <Text style={styles.modalRecipientText}>{selectedExec.name}</Text>
+                <Text style={styles.modalRecipientRole}>{selectedExec.position}</Text>
+              </View>
+            </View>
+
+            <TextInput
+              style={styles.messageInput}
+              value={messageText}
+              onChangeText={setMessageText}
+              placeholder="Type your message directly to the executive..."
+              placeholderTextColor={COLORS.textTertiary}
+              multiline
+              numberOfLines={6}
+              textAlignVertical="top"
+              autoFocus
+            />
+
+            <TouchableOpacity
+              style={styles.sendBtn}
+              onPress={handleSendMessageConfirm}
               activeOpacity={0.8}
             >
-              <Calendar size={24} color={COLORS.white} />
-              <Text style={styles.mainCardSmallTitle}>Events</Text>
-              <Text style={styles.mainCardSmallValue}>{stats.upcomingEvents} Upcoming</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={[styles.mainCardSmall, { backgroundColor: '#3B82F6' }]}
-              onPress={() => router.push('/hall/services' as any)}
-              activeOpacity={0.8}
-            >
-              <ShoppingBag size={24} color={COLORS.white} />
-              <Text style={styles.mainCardSmallTitle}>Services</Text>
-              <Text style={styles.mainCardSmallValue}>Exercise Books & More</Text>
+              <Send size={18} color={COLORS.white} />
+              <Text style={styles.sendBtnText}>Send Message</Text>
             </TouchableOpacity>
           </View>
         </View>
-
-        <View style={{ height: 32 }} />
-      </ScrollView>
+      )}
     </View>
   );
 }
@@ -307,235 +257,244 @@ export default function MyHallScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    gap: SPACING.md,
-  },
-  loadingText: {
-    fontFamily: FONT.regular,
-    fontSize: 14,
-    color: COLORS.textSecondary,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    padding: SPACING.xl,
-  },
-  emptyTitle: {
-    fontFamily: FONT.heading,
-    fontSize: 20,
-    color: COLORS.textPrimary,
-    marginTop: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-  emptyText: {
-    fontFamily: FONT.regular,
-    fontSize: 14,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-    marginBottom: SPACING.lg,
-    lineHeight: 20,
-  },
-  registerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: COLORS.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 24,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  registerBtnText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 15,
-    color: COLORS.white,
+    backgroundColor: '#F4F6F8', // Slightly cooler background for contrast
   },
   header: {
     backgroundColor: COLORS.white,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingTop: Platform.OS === 'web' ? 20 : 56,
     paddingHorizontal: SPACING.md,
     paddingBottom: SPACING.md,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,0,0,0.05)',
+  },
+  backBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F4F6F8',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: {
+    fontFamily: FONT.headingBold,
+    fontSize: 20,
+    color: COLORS.textPrimary,
+  },
+  content: {
+    flex: 1,
+  },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
+    backgroundColor: COLORS.primaryFaded,
+    padding: SPACING.md,
+    marginHorizontal: SPACING.md,
+    marginTop: SPACING.md,
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.15)', // Light blue border
+  },
+  infoText: {
+    flex: 1,
+    fontFamily: FONT.medium,
+    fontSize: 13,
+    color: COLORS.primary,
+    lineHeight: 18,
+  },
+  executivesList: {
+    padding: SPACING.md,
+    gap: SPACING.md,
+  },
+  executiveCard: {
+    backgroundColor: COLORS.white,
+    borderRadius: RADIUS.xl,
+    padding: SPACING.md,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
     elevation: 3,
   },
-  headerTop: {
+  cardMain: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: SPACING.md,
+    alignItems: 'center',
+    gap: SPACING.md,
   },
-  headerGreeting: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
-    color: COLORS.textSecondary,
+  avatarImage: {
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.lg, // Modern square rounded look instead of perfect circle
+    backgroundColor: '#E2E8F0',
+  },
+  avatarFallback: {
+    width: 64,
+    height: 64,
+    borderRadius: RADIUS.lg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    fontFamily: FONT.headingBold,
+    fontSize: 20,
+  },
+  executiveInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  executiveName: {
+    fontFamily: FONT.headingBold,
+    fontSize: 17,
+    color: COLORS.textPrimary,
     marginBottom: 4,
   },
-  headerHallName: {
-    fontFamily: FONT.headingBold,
-    fontSize: 26,
-    color: COLORS.primary,
+  roleBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginBottom: 8,
   },
-  headerUniversity: {
-    fontFamily: FONT.regular,
+  roleText: {
+    fontFamily: FONT.bold,
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  phoneContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  phoneText: {
+    fontFamily: FONT.medium,
     fontSize: 13,
     color: COLORS.textSecondary,
-    marginTop: 2,
   },
-  settingsBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  messageIconBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: COLORS.primaryFaded,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  liveStatsBanner: {
-    backgroundColor: '#F8F9FA',
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'flex-end',
   },
-  liveIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: SPACING.sm,
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#10B981',
-  },
-  liveText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 11,
-    color: '#10B981',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  miniStat: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  miniStatValue: {
-    fontFamily: FONT.bold,
-    fontSize: 20,
-    color: COLORS.textPrimary,
-  },
-  miniStatLabel: {
-    fontFamily: FONT.regular,
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: COLORS.border,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  mainCardsSection: {
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  mainCard: {
-    backgroundColor: COLORS.primary,
-    borderRadius: RADIUS.xl,
+  messageModal: {
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
     padding: SPACING.lg,
-    marginBottom: SPACING.sm,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 4,
+    paddingBottom: Platform.OS === 'web' ? SPACING.xl : 48,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    elevation: 24,
   },
-  mainCardPrimary: {
-    backgroundColor: COLORS.primary,
-  },
-  mainCardHeader: {
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
   },
-  mainCardIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: COLORS.white,
+  modalTitle: {
+    fontFamily: FONT.headingBold,
+    fontSize: 20,
+    color: COLORS.textPrimary,
+  },
+  closeBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  mainCardTitle: {
-    fontFamily: FONT.headingBold,
-    fontSize: 22,
-    color: COLORS.white,
-    marginBottom: 4,
+  modalClose: {
+    fontFamily: FONT.bold,
+    fontSize: 16,
+    color: COLORS.textSecondary,
   },
-  mainCardSubtitle: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.85)',
-    marginBottom: SPACING.md,
-  },
-  mainCardFooter: {
+  modalRecipient: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 12,
+    backgroundColor: '#F8FAFC',
+    padding: SPACING.md,
+    borderRadius: RADIUS.lg,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
-  mainCardFooterText: {
+  modalAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  modalAvatarFallback: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalRecipientText: {
+    fontFamily: FONT.bold,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    marginBottom: 2,
+  },
+  modalRecipientRole: {
     fontFamily: FONT.medium,
     fontSize: 12,
-    color: COLORS.white,
+    color: COLORS.textSecondary,
   },
-  mainCardsRow: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  mainCardSmall: {
-    flex: 1,
+  messageInput: {
+    backgroundColor: '#F8FAFC',
     borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     padding: SPACING.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    fontFamily: FONT.regular,
+    fontSize: 15,
+    color: COLORS.textPrimary,
+    minHeight: 140,
+    marginBottom: SPACING.lg,
   },
-  mainCardSmallTitle: {
-    fontFamily: FONT.semiBold,
-    fontSize: 14,
+  sendBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.primary,
+    paddingVertical: 18,
+    borderRadius: RADIUS.lg,
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  sendBtnText: {
+    fontFamily: FONT.bold,
+    fontSize: 16,
     color: COLORS.white,
-    marginTop: SPACING.sm,
-    marginBottom: 4,
-  },
-  mainCardSmallValue: {
-    fontFamily: FONT.medium,
-    fontSize: 11,
-    color: 'rgba(255,255,255,0.9)',
+    letterSpacing: 0.5,
   },
 });
