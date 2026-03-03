@@ -8,14 +8,13 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import {
-  Bell, Calendar, Users,
-  Shield, Award, ShoppingBag, TrendingUp, Activity,
-  ChevronRight, Zap, CheckCircle2,
+  Calendar, Users,
+  Shield, Award, ShoppingBag,
+  ChevronRight,
 } from 'lucide-react-native';
 
 interface HallStats {
   totalMembers: number;
-  unreadAnnouncements: number;
   upcomingEvents: number;
 }
 
@@ -25,12 +24,10 @@ export default function MyHallScreen() {
   const [hallInfo, setHallInfo] = useState<any>(null);
   const [stats, setStats] = useState<HallStats>({
     totalMembers: 0,
-    unreadAnnouncements: 0,
     upcomingEvents: 0,
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const pulseAnim = useState(new Animated.Value(1))[0];
 
   useEffect(() => {
@@ -64,23 +61,6 @@ export default function MyHallScreen() {
       const realHallId = profile?.hall_id;
       if (!realHallId) return;
 
-      // Subscribe to hall_posts changes
-      const postsChannel = supabase
-        .channel('hall_posts_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'hall_posts',
-            filter: `hall_id=eq.${realHallId}`,
-          },
-          () => {
-            fetchHallData();
-          }
-        )
-        .subscribe();
-
       // Subscribe to hall_events changes
       const eventsChannel = supabase
         .channel('hall_events_changes')
@@ -98,9 +78,26 @@ export default function MyHallScreen() {
         )
         .subscribe();
 
+      // Subscribe to hall members changes for the counter
+      const membersChannel = supabase
+        .channel('members_hall_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'members',
+            filter: `hall_id=eq.${realHallId}`,
+          },
+          () => {
+            fetchHallData();
+          }
+        )
+        .subscribe();
+
       return () => {
-        supabase.removeChannel(postsChannel);
         supabase.removeChannel(eventsChannel);
+        supabase.removeChannel(membersChannel);
       };
     };
 
@@ -159,17 +156,11 @@ export default function MyHallScreen() {
 
       // Fetch dashboard stats using the finalHallId
       if (finalHallId) {
-        const [membersRes, announcementsRes, eventsRes] = await Promise.all([
+        const [membersRes, eventsRes] = await Promise.all([
           supabase
             .from('members') // Count total members directly from profiles
             .select('id', { count: 'exact' })
             .eq('hall_id', finalHallId),
-          supabase
-            .from('hall_posts')
-            .select('id, created_at, title, post_type, priority', { count: 'exact' })
-            .eq('hall_id', finalHallId)
-            .order('created_at', { ascending: false })
-            .limit(10),
           supabase
             .from('hall_events')
             .select('id, title, event_date', { count: 'exact' })
@@ -179,13 +170,8 @@ export default function MyHallScreen() {
 
         setStats({
           totalMembers: membersRes.count || 0,
-          unreadAnnouncements: announcementsRes.count || 0,
           upcomingEvents: eventsRes.count || 0,
         });
-
-        if (announcementsRes.data) {
-          setRecentActivity(announcementsRes.data.slice(0, 5));
-        }
       }
     } catch (error) {
       console.error('Error fetching hall data:', error);
@@ -312,95 +298,10 @@ export default function MyHallScreen() {
           </View>
         </View>
 
-        {/* Recent Activity Feed */}
-        <View style={styles.activitySection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <TouchableOpacity onPress={() => router.push('/hall/announcements' as any)}>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
-
-          {recentActivity.length === 0 ? (
-            <View style={styles.emptyActivity}>
-              <Bell size={32} color={COLORS.border} />
-              <Text style={styles.emptyActivityText}>No recent activity</Text>
-            </View>
-          ) : (
-            recentActivity.map((activity, index) => (
-              <TouchableOpacity
-                key={activity.id}
-                style={styles.activityCard}
-                onPress={() => router.push(`/hall/post/${activity.id}` as any)}
-                activeOpacity={0.8}
-              >
-                <View style={[
-                  styles.activityIcon,
-                  activity.post_type === 'announcement' && { backgroundColor: '#FEE2E2' },
-                  activity.post_type === 'event' && { backgroundColor: '#D1FAE5' },
-                ]}>
-                  {activity.post_type === 'announcement' ? (
-                    <Bell size={16} color={COLORS.primary} />
-                  ) : (
-                    <Calendar size={16} color="#10B981" />
-                  )}
-                </View>
-                <View style={styles.activityContent}>
-                  <Text style={styles.activityTitle} numberOfLines={1}>{activity.title}</Text>
-                  <Text style={styles.activityTime}>{formatTime(activity.created_at)}</Text>
-                </View>
-                {activity.priority === 'urgent' && (
-                  <View style={styles.urgentBadge}>
-                    <Zap size={12} color={COLORS.error} fill={COLORS.error} />
-                  </View>
-                )}
-                <ChevronRight size={18} color={COLORS.textTertiary} />
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-
-        {/* Hall Infographic/Overview */}
-        <View style={styles.infographicSection}>
-          <Text style={styles.sectionTitle}>Hall Overview</Text>
-          <View style={styles.infographicCard}>
-            <View style={styles.infographicRow}>
-              <View style={styles.infographicItem}>
-                <TrendingUp size={20} color="#10B981" />
-                <Text style={styles.infographicValue}>Active</Text>
-                <Text style={styles.infographicLabel}>Status</Text>
-              </View>
-              <View style={styles.infographicItem}>
-                <Activity size={20} color="#3B82F6" />
-                <Text style={styles.infographicValue}>{stats.upcomingEvents}</Text>
-                <Text style={styles.infographicLabel}>Events This Sem</Text>
-              </View>
-              <View style={styles.infographicItem}>
-                <CheckCircle2 size={20} color="#F59E0B" />
-                <Text style={styles.infographicValue}>Verified</Text>
-                <Text style={styles.infographicLabel}>Member</Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
         <View style={{ height: 32 }} />
       </ScrollView>
     </View>
   );
-}
-
-function formatTime(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  
-  if (hours < 1) return 'Just now';
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return date.toLocaleDateString();
 }
 
 const styles = StyleSheet.create({
@@ -557,12 +458,6 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  sectionTitle: {
-    fontFamily: FONT.semiBold,
-    fontSize: 17,
-    color: COLORS.textPrimary,
-    marginBottom: SPACING.md,
-  },
   mainCardsSection: {
     paddingHorizontal: SPACING.md,
     marginBottom: SPACING.md,
@@ -642,109 +537,5 @@ const styles = StyleSheet.create({
     fontFamily: FONT.medium,
     fontSize: 11,
     color: 'rgba(255,255,255,0.9)',
-  },
-  activitySection: {
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: SPACING.md,
-  },
-  seeAllText: {
-    fontFamily: FONT.semiBold,
-    fontSize: 13,
-    color: COLORS.primary,
-  },
-  emptyActivity: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.xl,
-    alignItems: 'center',
-  },
-  emptyActivityText: {
-    fontFamily: FONT.regular,
-    fontSize: 13,
-    color: COLORS.textSecondary,
-    marginTop: SPACING.sm,
-  },
-  activityCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.md,
-    padding: SPACING.md,
-    marginBottom: SPACING.xs,
-    gap: SPACING.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  activityIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontFamily: FONT.semiBold,
-    fontSize: 14,
-    color: COLORS.textPrimary,
-    marginBottom: 2,
-  },
-  activityTime: {
-    fontFamily: FONT.regular,
-    fontSize: 11,
-    color: COLORS.textTertiary,
-  },
-  urgentBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FEE2E2',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  infographicSection: {
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  infographicCard: {
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  infographicRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  infographicItem: {
-    alignItems: 'center',
-  },
-  infographicValue: {
-    fontFamily: FONT.bold,
-    fontSize: 24,
-    color: COLORS.textPrimary,
-    marginTop: SPACING.sm,
-    marginBottom: 4,
-  },
-  infographicLabel: {
-    fontFamily: FONT.regular,
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
   },
 });
