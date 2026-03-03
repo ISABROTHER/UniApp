@@ -15,12 +15,8 @@ import {
 
 interface HallStats {
   totalMembers: number;
-  residents: number;
-  affiliates: number;
   unreadAnnouncements: number;
   upcomingEvents: number;
-  pendingTasks: number;
-  activeElections: number;
 }
 
 interface QuickStat {
@@ -38,12 +34,8 @@ export default function MyHallScreen() {
   const [hallInfo, setHallInfo] = useState<any>(null);
   const [stats, setStats] = useState<HallStats>({
     totalMembers: 0,
-    residents: 0,
-    affiliates: 0,
     unreadAnnouncements: 0,
     upcomingEvents: 0,
-    pendingTasks: 0,
-    activeElections: 0,
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -67,15 +59,18 @@ export default function MyHallScreen() {
       ])
     ).start();
 
-    // Set up realtime subscriptions for live updates
+    // Set up realtime subscriptions for live updates based strictly on Profile
     const setupRealtimeSubscriptions = async () => {
       const userId = session?.user?.id || member?.id;
       if (!userId) return;
 
-      const { data: pData } = await supabase.from('members').select('hall_id').eq('id', userId).maybeSingle();
-      const { data: mData } = await supabase.from('hall_members').select('hall_id').eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle();
+      const { data: profile } = await supabase
+        .from('members')
+        .select('hall_id')
+        .eq('id', userId)
+        .maybeSingle();
       
-      const realHallId = mData?.hall_id || pData?.hall_id;
+      const realHallId = profile?.hall_id;
       if (!realHallId) return;
 
       // Subscribe to hall_posts changes
@@ -112,35 +107,17 @@ export default function MyHallScreen() {
         )
         .subscribe();
 
-      // Subscribe to hall_members changes
-      const membersChannel = supabase
-        .channel('hall_members_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'hall_members',
-            filter: `hall_id=eq.${realHallId}`,
-          },
-          () => {
-            fetchHallData();
-          }
-        )
-        .subscribe();
-
       return () => {
         supabase.removeChannel(postsChannel);
         supabase.removeChannel(eventsChannel);
-        supabase.removeChannel(membersChannel);
       };
     };
 
     setupRealtimeSubscriptions();
   }, [session?.user?.id, member?.id]);
 
-  // USE FOCUS EFFECT: Forces data fetch every time you land on this screen 
-  // ensuring the latest designation data is loaded immediately.
+  // Force fetch data every time the screen is focused to ensure instant updates 
+  // if they just edited their profile.
   useFocusEffect(
     useCallback(() => {
       fetchHallData();
@@ -155,31 +132,26 @@ export default function MyHallScreen() {
         return;
       }
 
-      // 1. Get member profile fallback
+      // 1. Strictly look at the User's Profile (members table)
       const { data: profileData } = await supabase
         .from('members')
         .select('hall_id, traditional_hall, university')
         .eq('id', userId)
         .maybeSingle();
 
-      // 2. Try to get hall_members record
-      const { data: memberData } = await supabase
-        .from('hall_members')
-        .select('hall_id, is_resident, halls(id, name)')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      // If neither ID nor Name exists in the profile, they have no hall.
+      if (!profileData?.hall_id && !profileData?.traditional_hall) {
+        setHallInfo(null);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
 
-      const finalHallId = memberData?.hall_id || profileData?.hall_id;
-      let finalHallName = profileData?.traditional_hall;
-      let finalIsResident = memberData?.is_resident ?? false;
+      const finalHallId = profileData.hall_id;
+      let finalHallName = profileData.traditional_hall;
 
-      if (memberData?.halls) {
-        const hData = Array.isArray(memberData.halls) ? memberData.halls[0] : memberData.halls;
-        if (hData?.name) finalHallName = hData.name;
-      } else if (finalHallId && !finalHallName) {
-        // Fetch hall name directly from halls table if hall_members didn't return it
+      // If we have an ID but no string name in the profile, fetch the exact name from the halls table
+      if (finalHallId && !finalHallName) {
         const { data: hallData } = await supabase
           .from('halls')
           .select('name')
@@ -188,53 +160,41 @@ export default function MyHallScreen() {
         if (hallData?.name) finalHallName = hallData.name;
       }
 
-      if (finalHallId || finalHallName) {
-        setHallInfo({
-          id: finalHallId,
-          name: finalHallName || 'My Hall',
-          university: profileData?.university,
-          isResident: finalIsResident,
-          isFromProfile: !finalHallId,
+      setHallInfo({
+        id: finalHallId,
+        name: finalHallName || 'My Hall',
+        university: profileData.university,
+      });
+
+      // Fetch dashboard stats using the finalHallId
+      if (finalHallId) {
+        const [membersRes, announcementsRes, eventsRes] = await Promise.all([
+          supabase
+            .from('members') // Count total members directly from profiles
+            .select('id', { count: 'exact' })
+            .eq('hall_id', finalHallId),
+          supabase
+            .from('hall_posts')
+            .select('id, created_at, title, post_type, priority', { count: 'exact' })
+            .eq('hall_id', finalHallId)
+            .order('created_at', { ascending: false })
+            .limit(10),
+          supabase
+            .from('hall_events')
+            .select('id, title, event_date', { count: 'exact' })
+            .eq('hall_id', finalHallId)
+            .gte('event_date', new Date().toISOString()),
+        ]);
+
+        setStats({
+          totalMembers: membersRes.count || 0,
+          unreadAnnouncements: announcementsRes.count || 0,
+          upcomingEvents: eventsRes.count || 0,
         });
 
-        if (finalHallId) {
-          const [membersRes, announcementsRes, eventsRes] = await Promise.all([
-            supabase
-              .from('hall_members')
-              .select('is_resident', { count: 'exact' })
-              .eq('hall_id', finalHallId),
-            supabase
-              .from('hall_posts')
-              .select('id, created_at, title, post_type, priority', { count: 'exact' })
-              .eq('hall_id', finalHallId)
-              .order('created_at', { ascending: false })
-              .limit(10),
-            supabase
-              .from('hall_events')
-              .select('id, title, event_date', { count: 'exact' })
-              .eq('hall_id', finalHallId)
-              .gte('event_date', new Date().toISOString()),
-          ]);
-
-          const totalMembers = membersRes.count || 0;
-          const residents = membersRes.data?.filter(m => m.is_resident).length || 0;
-
-          setStats({
-            totalMembers,
-            residents,
-            affiliates: totalMembers - residents,
-            unreadAnnouncements: announcementsRes.count || 0,
-            upcomingEvents: eventsRes.count || 0,
-            pendingTasks: 0,
-            activeElections: 0,
-          });
-
-          if (announcementsRes.data) {
-            setRecentActivity(announcementsRes.data.slice(0, 5));
-          }
+        if (announcementsRes.data) {
+          setRecentActivity(announcementsRes.data.slice(0, 5));
         }
-      } else {
-        setHallInfo(null);
       }
     } catch (error) {
       console.error('Error fetching hall data:', error);
@@ -293,14 +253,14 @@ export default function MyHallScreen() {
       <View style={styles.emptyContainer}>
         <Users size={64} color={COLORS.border} />
         <Text style={styles.emptyTitle}>No Hall Assigned</Text>
-        <Text style={styles.emptyText}>Register to your hall to access official announcements and events</Text>
+        <Text style={styles.emptyText}>Please update your Profile to select your University and Hall to access this dashboard.</Text>
         <TouchableOpacity 
           style={styles.registerBtn}
-          onPress={() => router.push('/hall-designation' as any)}
+          onPress={() => router.push('/(tabs)/more' as any)}
           activeOpacity={0.8}
         >
           <Shield size={18} color={COLORS.white} />
-          <Text style={styles.registerBtnText}>Register to Hall</Text>
+          <Text style={styles.registerBtnText}>Go to Profile Settings</Text>
         </TouchableOpacity>
       </View>
     );
@@ -318,7 +278,7 @@ export default function MyHallScreen() {
               <Text style={styles.headerUniversity}>{hallInfo.university}</Text>
             )}
           </View>
-          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/hall-designation' as any)}>
+          <TouchableOpacity style={styles.settingsBtn} onPress={() => router.push('/(tabs)/more' as any)}>
             <Shield size={22} color={COLORS.primary} />
           </TouchableOpacity>
         </View>
@@ -332,17 +292,12 @@ export default function MyHallScreen() {
           <View style={styles.statsRow}>
             <View style={styles.miniStat}>
               <Text style={styles.miniStatValue}>{stats.totalMembers}</Text>
-              <Text style={styles.miniStatLabel}>Members</Text>
+              <Text style={styles.miniStatLabel}>Total Members</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.miniStat}>
-              <Text style={styles.miniStatValue}>{stats.residents}</Text>
-              <Text style={styles.miniStatLabel}>Residents</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.miniStat}>
-              <Text style={styles.miniStatValue}>{stats.affiliates}</Text>
-              <Text style={styles.miniStatLabel}>Affiliates</Text>
+              <Text style={styles.miniStatValue}>{stats.upcomingEvents}</Text>
+              <Text style={styles.miniStatLabel}>Upcoming Events</Text>
             </View>
           </View>
         </View>
@@ -401,7 +356,7 @@ export default function MyHallScreen() {
             <Text style={styles.mainCardSubtitle}>View hall leadership & send messages</Text>
             <View style={styles.mainCardFooter}>
               <Users size={14} color={COLORS.white} />
-              <Text style={styles.mainCardFooterText}>12 Executive Members</Text>
+              <Text style={styles.mainCardFooterText}>Executive Members</Text>
             </View>
           </TouchableOpacity>
 
@@ -483,18 +438,18 @@ export default function MyHallScreen() {
             <View style={styles.infographicRow}>
               <View style={styles.infographicItem}>
                 <TrendingUp size={20} color="#10B981" />
-                <Text style={styles.infographicValue}>87%</Text>
-                <Text style={styles.infographicLabel}>Occupancy</Text>
+                <Text style={styles.infographicValue}>Active</Text>
+                <Text style={styles.infographicLabel}>Status</Text>
               </View>
               <View style={styles.infographicItem}>
                 <Activity size={20} color="#3B82F6" />
-                <Text style={styles.infographicValue}>45</Text>
+                <Text style={styles.infographicValue}>{stats.upcomingEvents}</Text>
                 <Text style={styles.infographicLabel}>Events This Sem</Text>
               </View>
               <View style={styles.infographicItem}>
                 <CheckCircle2 size={20} color="#F59E0B" />
-                <Text style={styles.infographicValue}>92%</Text>
-                <Text style={styles.infographicLabel}>Task Completion</Text>
+                <Text style={styles.infographicValue}>Verified</Text>
+                <Text style={styles.infographicLabel}>Member</Text>
               </View>
             </View>
           </View>
@@ -556,6 +511,7 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.lg,
+    lineHeight: 20,
   },
   registerBtn: {
     flexDirection: 'row',
