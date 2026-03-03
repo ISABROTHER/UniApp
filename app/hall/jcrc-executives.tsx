@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Platform, Image, TextInput, Alert, Linking,
+  Platform, Image, TextInput, Alert, Linking, KeyboardAvoidingView, Keyboard
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
@@ -199,11 +199,17 @@ export default function JCRCExecutivesScreen() {
 
       {/* Modernized Message Modal */}
       {showMessageModal && selectedExec && (
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
           <TouchableOpacity 
             style={styles.modalBackdrop} 
             activeOpacity={1}
-            onPress={() => setShowMessageModal(false)}
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowMessageModal(false);
+            }}
           />
           <View style={styles.messageModal}>
             <View style={styles.modalHeader}>
@@ -248,7 +254,7 @@ export default function JCRCExecutivesScreen() {
               <Text style={styles.sendBtnText}>Send Message</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       )}
     </View>
   );
