@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { COLORS, FONT, SPACING, RADIUS } from '@/lib/constants';
 import {
-  Bell, Calendar, MessageCircle, Users,
+  Bell, Calendar, Users,
   Shield, Award, ShoppingBag, TrendingUp, Activity,
   ChevronRight, Zap, CheckCircle2,
 } from 'lucide-react-native';
@@ -17,15 +17,6 @@ interface HallStats {
   totalMembers: number;
   unreadAnnouncements: number;
   upcomingEvents: number;
-}
-
-interface QuickStat {
-  label: string;
-  value: string | number;
-  icon: any;
-  color: string;
-  bgColor: string;
-  route?: string;
 }
 
 export default function MyHallScreen() {
@@ -204,41 +195,6 @@ export default function MyHallScreen() {
     }
   };
 
-  const quickStats: QuickStat[] = [
-    {
-      label: 'Announcements',
-      value: stats.unreadAnnouncements,
-      icon: Bell,
-      color: COLORS.primary,
-      bgColor: '#FEE2E2',
-      route: '/hall/announcements',
-    },
-    {
-      label: 'Events',
-      value: stats.upcomingEvents,
-      icon: Calendar,
-      color: '#10B981',
-      bgColor: '#D1FAE5',
-      route: '/hall/events',
-    },
-    {
-      label: 'Messages',
-      value: '3',
-      icon: MessageCircle,
-      color: '#3B82F6',
-      bgColor: '#DBEAFE',
-      route: '/hall/messages',
-    },
-    {
-      label: 'Services',
-      value: '8',
-      icon: ShoppingBag,
-      color: '#F59E0B',
-      bgColor: '#FEF3C7',
-      route: '/hall/services',
-    },
-  ];
-
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -310,34 +266,7 @@ export default function MyHallScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchHallData(); }} tintColor={COLORS.primary} />
         }
       >
-        {/* Quick Actions Grid */}
-        <View style={styles.quickActionsSection}>
-          <Text style={styles.sectionTitle}>Quick Access</Text>
-          <View style={styles.quickActionsGrid}>
-            {quickStats.map((stat, index) => {
-              const Icon = stat.icon;
-              return (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.quickActionCard}
-                  onPress={() => stat.route && router.push(stat.route as any)}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.quickActionIcon, { backgroundColor: stat.bgColor }]}>
-                    <Icon size={24} color={stat.color} />
-                  </View>
-                  <Text style={styles.quickActionValue}>{stat.value}</Text>
-                  <Text style={styles.quickActionLabel}>{stat.label}</Text>
-                  {typeof stat.value === 'number' && stat.value > 0 && (
-                    <View style={[styles.badge, { backgroundColor: stat.color }]}>
-                      <Text style={styles.badgeText}>{stat.value}</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
+        <View style={{ height: SPACING.md }} />
 
         {/* Main Navigation Cards */}
         <View style={styles.mainCardsSection}>
@@ -628,67 +557,11 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  quickActionsSection: {
-    padding: SPACING.md,
-  },
   sectionTitle: {
     fontFamily: FONT.semiBold,
     fontSize: 17,
     color: COLORS.textPrimary,
     marginBottom: SPACING.md,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    gap: SPACING.sm,
-  },
-  quickActionCard: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    alignItems: 'center',
-    position: 'relative',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: SPACING.sm,
-  },
-  quickActionValue: {
-    fontFamily: FONT.bold,
-    fontSize: 20,
-    color: COLORS.textPrimary,
-    marginBottom: 2,
-  },
-  quickActionLabel: {
-    fontFamily: FONT.medium,
-    fontSize: 11,
-    color: COLORS.textSecondary,
-    textAlign: 'center',
-  },
-  badge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-  },
-  badgeText: {
-    fontFamily: FONT.bold,
-    fontSize: 11,
-    color: COLORS.white,
   },
   mainCardsSection: {
     paddingHorizontal: SPACING.md,
